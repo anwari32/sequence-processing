@@ -1,0 +1,1 @@
+python run_finetune.py --model_type dna --tokenizer_name=dna6 --model_name_or_path .\ft\prom-core\6 --task_name dnaprom --do_predict --data_dir sample_data\ft\prom-core\6 --max_seq_length 75 --per_gpu_pred_batch_size 32 --output_dir .\ft\prom-core\6 --predict_dir .\result\6 --n_process 8
