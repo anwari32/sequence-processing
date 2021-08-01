@@ -1,1 +1,39 @@
-python run_finetune.py --model_type dna --tokenizer_name=dna6 --model_name_or_path .\ft\prom-core\6 --task_name dnaprom --do_predict --data_dir sample_data\ft\prom-core\6 --max_seq_length 75 --per_gpu_pred_batch_size 32 --output_dir .\ft\prom-core\6 --predict_dir .\result\6 --n_process 8
+python run_finetune.py --model_type dna --tokenizer_name=dna6 --model_name_or_path .\ft\prom-core\6 --task_name dnaprom --do_predict --data_dir sample_data\ft\prom-core\6-cov_beta_delta --max_seq_length 75 --per_gpu_pred_batch_size 32 --output_dir .\ft\prom-core\6 --predict_dir .\result\6-cov_beta_delta --n_process 8
+
+08/01/2021 15:28:28 - INFO - __main__ -   ***** Pred results  *****
+08/01/2021 15:28:28 - INFO - __main__ -     acc = 0.18592964824120603
+08/01/2021 15:28:28 - INFO - __main__ -     auc = 0.09762626262626262
+08/01/2021 15:28:28 - INFO - __main__ -     f1 = 0.1599437148217636
+08/01/2021 15:28:28 - INFO - __main__ -     mcc = -0.6704822156591116
+08/01/2021 15:28:28 - INFO - __main__ -     precision = 0.14114583333333333
+08/01/2021 15:28:28 - INFO - __main__ -     recall = 0.18681818181818183
+
+python run_finetune.py --model_type dna --tokenizer_name=dna5 --model_name_or_path .\ft\prom-core\5 --task_name dnaprom --do_predict --data_dir sample_data\ft\prom-core\5-cov_beta_delta --max_seq_length 75 --per_gpu_pred_batch_size 32 --output_dir .\ft\prom-core\5 --predict_dir .\result\5-cov_beta_delta --n_process 8
+
+08/01/2021 15:31:30 - INFO - __main__ -   ***** Pred results  *****
+08/01/2021 15:31:30 - INFO - __main__ -     acc = 0.8442211055276382
+08/01/2021 15:31:30 - INFO - __main__ -     auc = 0.8652525252525254
+08/01/2021 15:31:30 - INFO - __main__ -     f1 = 0.8439689404861268
+08/01/2021 15:31:30 - INFO - __main__ -     mcc = 0.6914076866478274
+08/01/2021 15:31:30 - INFO - __main__ -     precision = 0.846967846967847
+08/01/2021 15:31:30 - INFO - __main__ -     recall = 0.8444444444444444
+
+python run_finetune.py --model_type dna --tokenizer_name=dna4 --model_name_or_path .\ft\prom-core\4 --task_name dnaprom --do_predict --data_dir sample_data\ft\prom-core\4-cov_beta_delta --max_seq_length 75 --per_gpu_pred_batch_size 32 --output_dir .\ft\prom-core\4 --predict_dir .\result\4-cov_beta_delta --n_process 8
+
+08/01/2021 15:32:50 - INFO - __main__ -   ***** Pred results  *****
+08/01/2021 15:32:50 - INFO - __main__ -     acc = 0.4623115577889447
+08/01/2021 15:32:50 - INFO - __main__ -     auc = 0.686969696969697
+08/01/2021 15:32:50 - INFO - __main__ -     f1 = 0.4556586650305494
+08/01/2021 15:32:50 - INFO - __main__ -     mcc = -0.07831379965048206
+08/01/2021 15:32:50 - INFO - __main__ -     precision = 0.45989616444161896
+08/01/2021 15:32:50 - INFO - __main__ -     recall = 0.4617676767676767
+
+python run_finetune.py --model_type dna --tokenizer_name=dna3 --model_name_or_path .\ft\prom-core\3 --task_name dnaprom --do_predict --data_dir sample_data\ft\prom-core\3-cov_beta_delta --max_seq_length 75 --per_gpu_pred_batch_size 32 --output_dir .\ft\prom-core\3 --predict_dir .\result\3-cov_beta_delta --n_process 8
+
+08/01/2021 15:35:14 - INFO - __main__ -   ***** Pred results  *****
+08/01/2021 15:35:14 - INFO - __main__ -     acc = 0.5326633165829145
+08/01/2021 15:35:14 - INFO - __main__ -     auc = 0.3525252525252525
+08/01/2021 15:35:14 - INFO - __main__ -     f1 = 0.4190601751577361
+08/01/2021 15:35:14 - INFO - __main__ -     mcc = 0.12793468040437728
+08/01/2021 15:35:14 - INFO - __main__ -     precision = 0.6343582887700534
+08/01/2021 15:35:14 - INFO - __main__ -     recall = 0.5304545454545454
