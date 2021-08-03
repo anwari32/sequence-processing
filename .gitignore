@@ -1,5 +1,6 @@
 *.fasta
 *.ft.txt
 *.zip
-delta
-beta
+data/delta
+data/beta
+data/raw
