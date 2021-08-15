@@ -4,3 +4,13 @@
 data/delta
 data/beta
 data/raw
+*.tar
+*.fa
+*.gz
+*.gbff
+*.gff
+*.gtf
+*.faa
+*.fna
+*.jsonl
+data
