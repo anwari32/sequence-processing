@@ -1,0 +1,8 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NW_003315959.1,RefSeq,sequence_feature,0,109363,1,109364 
+NW_003315959.1,RefSeqFE,enhancer,66532,68638,66533,68639 
+NW_003315959.1,RefSeqFE,biological_region,66532,68638,66533,68639 
+NW_003315959.1,Curated Genomic,pseudogene,139514,140189,139515,140190 
+NW_003315959.1,RefSeq,sequence_feature,149884,164788,149885,164789 
+NW_003315959.1,RefSeq,match,66432,68738,66433,68739 
+NW_003315959.1,RefSeq,match,139414,140289,139415,140290 

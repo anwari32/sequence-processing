@@ -1,0 +1,7 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NT_187575.1,BestRefSeq,gene,22609,22680,22610,22681 
+NT_187575.1,BestRefSeq,primary_transcript,22609,22680,22610,22681 
+NT_187575.1,BestRefSeq,exon,22609,22680,22610,22681 
+NT_187575.1,BestRefSeq,miRNA,22622,22642,22623,22643 
+NT_187575.1,BestRefSeq,exon,22622,22642,22623,22643 
+NT_187575.1,RefSeq,sequence_feature,35587,36639,35588,36640 

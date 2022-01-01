@@ -1,0 +1,7 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NT_187379.1,Gnomon,pseudogene,26258,28823,26259,28824 
+NT_187379.1,Gnomon,exon,26258,28426,26259,28427 
+NT_187379.1,Gnomon,exon,28506,28823,28507,28824 
+NT_187379.1,Gnomon,pseudogene,31080,31969,31081,31970 
+NT_187379.1,Gnomon,exon,31080,31135,31081,31136 
+NT_187379.1,Gnomon,exon,31268,31969,31269,31970 

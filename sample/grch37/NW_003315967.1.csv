@@ -1,0 +1,7 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NW_003315967.1,RefSeqFE,biological_region,40565,40726,40566,40727 
+NW_003315967.1,RefSeqFE,transcriptional_cis_regulatory_region,40565,40726,40566,40727 
+NW_003315967.1,RefSeqFE,biological_region,42682,43338,42683,43339 
+NW_003315967.1,RefSeqFE,transcriptional_cis_regulatory_region,42682,43338,42683,43339 
+NW_003315967.1,RefSeq,match,40465,40826,40466,40827 
+NW_003315967.1,RefSeq,match,42582,43438,42583,43439 

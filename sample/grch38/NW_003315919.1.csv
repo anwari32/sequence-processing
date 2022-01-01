@@ -1,0 +1,10 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NW_003315919.1,RefSeq,sequence_feature,0,5698,1,5699 
+NW_003315919.1,Gnomon,gene,2667,6721,2668,6722 
+NW_003315919.1,Gnomon,lnc_RNA,2667,6721,2668,6722 
+NW_003315919.1,Gnomon,exon,2667,2818,2668,2819 
+NW_003315919.1,Gnomon,exon,6584,6721,6585,6722 
+NW_003315919.1,RefSeq,sequence_feature,45529,173458,45530,173459 
+NW_003315919.1,Curated Genomic,pseudogene,69133,69208,69134,69209 
+NW_003315919.1,Curated Genomic,exon,69133,69208,69134,69209 
+NW_003315919.1,RefSeq,match,69033,69308,69034,69309 
