@@ -1,0 +1,15 @@
+# Responsible to provide interface to data directory.
+data_dir = './data'
+deepromoter_dir = data_dir + '/deepromoter'
+promoter_dir = data_dir + '/promoter'
+polya_dir = data_dir + '/poly-a'
+splicesites_dir = data_dir + '/splice-sites'
+genome_dir = data_dir + '/genome'
+genome_grch37_dir = genome_dir + '/grch37'
+genome_grch37 = genome_grch37_dir + '/GRCh37_latest_genomic.gff'
+genome_grch38_dir = genome_dir + '/grch38'
+genome_grch38 = genome_grch38_dir + '/GRCh38_latest_genomic.gff'
+
+sample_dir = './sample'
+grch37_sample_dir = sample_dir + '/grch37'
+grch38_sample_dir = sample_dir + '/grch38'
