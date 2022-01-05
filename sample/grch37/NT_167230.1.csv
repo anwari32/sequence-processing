@@ -1,0 +1,3 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NT_167230.1,Curated Genomic,pseudogene,5522,7165,5523,7166 
+NT_167230.1,RefSeq,match,5422,7265,5423,7266 

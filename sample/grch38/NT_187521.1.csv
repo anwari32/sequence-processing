@@ -1,0 +1,5 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NT_187521.1,RefSeq,sequence_feature,0,23850,1,23851 
+NT_187521.1,RefSeqFE,enhancer,43508,43802,43509,43803 
+NT_187521.1,RefSeqFE,biological_region,43508,43802,43509,43803 
+NT_187521.1,RefSeq,match,43408,43902,43409,43903 

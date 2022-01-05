@@ -1,0 +1,4 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NW_004070867.1,BestRefSeq,gene,3929,4053,3930,4054 
+NW_004070867.1,BestRefSeq,snRNA,3929,4053,3930,4054 
+NW_004070867.1,BestRefSeq,exon,3929,4053,3930,4054 

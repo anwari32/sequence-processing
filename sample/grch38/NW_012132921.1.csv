@@ -1,0 +1,3 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NW_012132921.1,RefSeq,sequence_feature,0,61910,1,61911 
+NW_012132921.1,RefSeq,sequence_feature,101815,169135,101816,169136 

@@ -1,0 +1,6 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NT_187363.1,Gnomon,pseudogene,96973,102793,96974,102794 
+NT_187363.1,Gnomon,exon,96973,96987,96974,96988 
+NT_187363.1,Gnomon,exon,97893,98019,97894,98020 
+NT_187363.1,Gnomon,exon,98261,98353,98262,98354 
+NT_187363.1,Gnomon,exon,100293,102793,100294,102794 

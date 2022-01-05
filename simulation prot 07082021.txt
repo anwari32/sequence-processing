@@ -1,0 +1,29 @@
+python run_finetune.py --model_type dna --tokenizer_name=dna6 --model_name_or_path .\ft\sars-cov-2\6 --task_name covidclass --do_predict --data_dir sample_data\ft\sars-cov-2\prot\6 --max_seq_length 100 --per_gpu_pred_batch_size 32 --output_dir .\ft\sars-cov-2\6 --predict_dir .\result\sars-cov-2\prot\6 --n_process 8
+
+08/07/2021 17:12:38 - INFO - __main__ -   ***** Pred results  *****
+08/07/2021 17:12:38 - INFO - __main__ -     acc = 0.3333333333333333
+08/07/2021 17:12:38 - INFO - __main__ -     precision = 0.1111111111111111
+08/07/2021 17:12:38 - INFO - __main__ -     recall = 0.3333333333333333
+
+python run_finetune.py --model_type dna --tokenizer_name=dna5 --model_name_or_path .\ft\sars-cov-2\5 --task_name covidclass --do_predict --data_dir sample_data\ft\sars-cov-2\prot\5 --max_seq_length 100 --per_gpu_pred_batch_size 32 --output_dir .\ft\sars-cov-2\5 --predict_dir .\result\sars-cov-2\prot\5 --n_process 8
+
+08/07/2021 17:14:26 - INFO - __main__ -   ***** Pred results  *****
+08/07/2021 17:14:26 - INFO - __main__ -     acc = 0.30666666666666664
+08/07/2021 17:14:26 - INFO - __main__ -     precision = 0.1050228310502283
+08/07/2021 17:14:26 - INFO - __main__ -     recall = 0.3066666666666667
+
+python run_finetune.py --model_type dna --tokenizer_name=dna4 --model_name_or_path .\ft\sars-cov-2\4 --task_name covidclass --do_predict --data_dir sample_data\ft\sars-cov-2\prot\4 --max_seq_length 100 --per_gpu_pred_batch_size 32 --output_dir .\ft\sars-cov-2\4 --predict_dir .\result\sars-cov-2\prot\4 --n_process 8
+
+08/07/2021 17:16:51 - INFO - __main__ -   ***** Pred results  *****
+08/07/2021 17:16:51 - INFO - __main__ -     acc = 0.3333333333333333
+08/07/2021 17:16:51 - INFO - __main__ -     precision = 0.1111111111111111
+08/07/2021 17:16:51 - INFO - __main__ -     recall = 0.3333333333333333
+
+python run_finetune.py --model_type dna --tokenizer_name=dna3 --model_name_or_path .\ft\sars-cov-2\3 --task_name covidclass --do_predict --data_dir sample_data\ft\sars-cov-2\prot\3 --max_seq_length 100 --per_gpu_pred_batch_size 32 --output_dir .\ft\sars-cov-2\3 --predict_dir .\result\sars-cov-2\prot\3 --n_process 8
+
+08/07/2021 17:18:29 - INFO - __main__ -   ***** Pred results  *****
+08/07/2021 17:18:29 - INFO - __main__ -     acc = 0.36
+08/07/2021 17:18:29 - INFO - __main__ -     precision = 0.3584371499603858
+08/07/2021 17:18:29 - INFO - __main__ -     recall = 0.36000000000000004
+
+

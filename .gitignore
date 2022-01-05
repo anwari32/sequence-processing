@@ -16,4 +16,5 @@ data/raw
 data
 __pycache__
 .ipynb_checkpoints
+models
 .vscode

@@ -1,0 +1,6 @@
+sequence_id,refseq,region,start_index,end_index,start,end
+NT_167224.1,Curated Genomic,pseudogene,17494,22560,17495,22561 
+NT_167224.1,Curated Genomic,exon,17494,20159,17495,20160 
+NT_167224.1,Curated Genomic,exon,22099,22191,22100,22192 
+NT_167224.1,Curated Genomic,exon,22433,22560,22434,22561 
+NT_167224.1,RefSeq,match,17494,22660,17495,22661 
