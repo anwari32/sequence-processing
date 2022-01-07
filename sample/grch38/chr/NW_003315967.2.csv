@@ -1,0 +1,11 @@
+sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
+NW_003315967.2,RefSeq,sequence_feature,0,121,1,122,,,, 
+NW_003315967.2,RefSeq,sequence_feature,40419,57524,40420,57525,,,, 
+NW_003315967.2,RefSeqFE,transcriptional_cis_regulatory_region,40565,40726,40566,40727,,116309120,, 
+NW_003315967.2,RefSeqFE,biological_region,40565,40726,40566,40727,,116309120,, 
+NW_003315967.2,RefSeqFE,transcriptional_cis_regulatory_region,42682,43338,42683,43339,,116309121,, 
+NW_003315967.2,RefSeqFE,biological_region,42682,43338,42683,43339,,116309121,, 
+NW_003315967.2,RefSeq,sequence_feature,57525,57814,57526,57815,,,, 
+NW_003315967.2,RefSeq,sequence_feature,57815,63916,57816,63917,,,, 
+NW_003315967.2,RefSeq,match,40465,40826,40466,40827,,,, 
+NW_003315967.2,RefSeq,match,42582,43438,42583,43439,,,, 

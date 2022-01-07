@@ -1,4 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NW_004070863.1,BestRefSeq,gene,10220,10683,10221,10684 
-NW_004070863.1,BestRefSeq,lnc_RNA,10220,10683,10221,10684 
-NW_004070863.1,BestRefSeq,exon,10220,10683,10221,10684 

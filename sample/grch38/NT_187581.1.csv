@@ -1,6 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NT_187581.1,RefSeq,sequence_feature,0,152714,1,152715 
-NT_187581.1,Gnomon,gene,174060,175148,174061,175149 
-NT_187581.1,Gnomon,lnc_RNA,174060,175148,174061,175149 
-NT_187581.1,Gnomon,exon,174060,174877,174061,174878 
-NT_187581.1,Gnomon,exon,174977,175148,174978,175149 

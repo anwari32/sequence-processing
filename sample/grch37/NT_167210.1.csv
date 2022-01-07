@@ -1,4 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NT_167210.1,Curated Genomic,pseudogene,106509,110336,106510,110337 
-NT_167210.1,Curated Genomic,exon,106509,110336,106510,110337 
-NT_167210.1,RefSeq,match,106409,110436,106410,110437 

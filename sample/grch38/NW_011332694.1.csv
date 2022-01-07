@@ -1,7 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NW_011332694.1,RefSeq,sequence_feature,0,140615,1,140616 
-NW_011332694.1,RefSeq,sequence_feature,140616,311648,140617,311649 
-NW_011332694.1,RefSeq,sequence_feature,312026,320843,312027,320844 
-NW_011332694.1,RefSeq,sequence_feature,322320,336451,322321,336452 
-NW_011332694.1,RefSeq,sequence_feature,336709,359026,336710,359027 
-NW_011332694.1,RefSeq,sequence_feature,364512,420163,364513,420164 

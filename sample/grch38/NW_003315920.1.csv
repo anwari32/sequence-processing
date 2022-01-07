@@ -1,8 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NW_003315920.1,RefSeq,sequence_feature,0,36982,1,36983 
-NW_003315920.1,Gnomon,gene,389,3612,390,3613 
-NW_003315920.1,Gnomon,lnc_RNA,389,3612,390,3613 
-NW_003315920.1,Gnomon,exon,389,764,390,765 
-NW_003315920.1,Gnomon,exon,1640,1742,1641,1743 
-NW_003315920.1,Gnomon,exon,2827,3612,2828,3613 
-NW_003315920.1,RefSeq,sequence_feature,79657,82727,79658,82728 

@@ -1,6 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NT_113930.1,BestRefSeq,pseudogene,116622,119731,116623,119732 
-NT_113930.1,BestRefSeq,transcript,116622,119731,116623,119732 
-NT_113930.1,BestRefSeq,exon,116622,119731,116623,119732 
-NT_113930.1,Curated Genomic,pseudogene,122904,123450,122905,123451 
-NT_113930.1,RefSeq,match,122804,123550,122805,123551 

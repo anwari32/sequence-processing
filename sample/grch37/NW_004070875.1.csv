@@ -1,7 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end
-NW_004070875.1,Curated Genomic,pseudogene,57114,61302,57115,61303 
-NW_004070875.1,Curated Genomic,exon,57114,57264,57115,57265 
-NW_004070875.1,Curated Genomic,exon,59561,59645,59562,59646 
-NW_004070875.1,Curated Genomic,exon,59795,59920,59796,59921 
-NW_004070875.1,Curated Genomic,exon,60066,61302,60067,61303 
-NW_004070875.1,RefSeq,match,57014,61402,57015,61403 

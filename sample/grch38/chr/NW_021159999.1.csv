@@ -1,0 +1,3 @@
+sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
+NW_021159999.1,RefSeq,sequence_feature,0,6832,1,6833,,,, 
+NW_021159999.1,RefSeq,sequence_feature,10462,25407,10463,25408,,,, 

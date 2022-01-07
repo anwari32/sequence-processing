@@ -1,0 +1,5 @@
+sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
+NW_003315928.1,RefSeq,sequence_feature,39943,162987,39944,162988,,,, 
+NW_003315928.1,Curated Genomic,pseudogene,62769,64194,62770,64195,RPL4P5,158345,, 
+NW_003315928.1,Curated Genomic,exon,62769,64194,62770,64195,RPL4P5,158345,, 
+NW_003315928.1,RefSeq,match,62669,64294,62670,64295,,,, 
