@@ -1,9 +1,6 @@
 *.fasta
 *.ft.txt
 *.zip
-data/delta
-data/beta
-data/raw
 *.tar
 *.fa
 *.gz
@@ -18,3 +15,5 @@ __pycache__
 .ipynb_checkpoints
 models
 .vscode
+sample
+dataset
