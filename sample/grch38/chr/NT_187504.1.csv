@@ -1,3 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
-NT_187504.1,Gnomon,pseudogene,81636,82167,81637,82168,LOC102723748,102723748,, 
-NT_187504.1,Gnomon,exon,81636,82167,81637,82168,LOC102723748,102723748,, 

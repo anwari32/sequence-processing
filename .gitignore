@@ -15,6 +15,5 @@ __pycache__
 .ipynb_checkpoints
 models
 .vscode
-sample
 dataset
 pretrained

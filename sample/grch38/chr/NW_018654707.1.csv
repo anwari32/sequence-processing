@@ -1,5 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
-NW_018654707.1,RefSeq,sequence_feature,0,30033,1,30034,,,, 
-NW_018654707.1,Curated Genomic,pseudogene,13711,14137,13712,14138,RPL31P12,100270887,, 
-NW_018654707.1,RefSeq,sequence_feature,68252,140354,68253,140355,,,, 
-NW_018654707.1,RefSeq,match,13611,14237,13612,14238,,,, 

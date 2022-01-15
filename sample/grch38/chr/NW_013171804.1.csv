@@ -1,6 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
-NW_013171804.1,RefSeq,sequence_feature,0,9368,1,9369,,,, 
-NW_013171804.1,RefSeq,sequence_feature,47115,163881,47116,163882,,,, 
-NW_013171804.1,Curated Genomic,pseudogene,112018,112456,112019,112457,RPS26P3,441386,, 
-NW_013171804.1,Curated Genomic,exon,112018,112456,112019,112457,RPS26P3,441386,, 
-NW_013171804.1,RefSeq,match,111918,112556,111919,112557,,,, 

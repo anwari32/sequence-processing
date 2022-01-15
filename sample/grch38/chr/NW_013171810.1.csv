@@ -1,6 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
-NW_013171810.1,RefSeq,sequence_feature,0,38016,1,38017,,,, 
-NW_013171810.1,RefSeq,sequence_feature,79085,168145,79086,168146,,,, 
-NW_013171810.1,RefSeqFE,enhancer,115096,115390,115097,115391,,112163672,, 
-NW_013171810.1,RefSeqFE,biological_region,115096,115390,115097,115391,,112163672,, 
-NW_013171810.1,RefSeq,match,114996,115490,114997,115491,,,, 

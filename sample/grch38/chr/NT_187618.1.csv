@@ -1,7 +1,0 @@
-sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl
-NT_187618.1,RefSeq,sequence_feature,0,117,1,118,,,, 
-NT_187618.1,RefSeq,sequence_feature,118,467,119,468,,,, 
-NT_187618.1,RefSeq,sequence_feature,468,15875,469,15876,,,, 
-NT_187618.1,RefSeq,sequence_feature,52095,81682,52096,81683,,,, 
-NT_187618.1,RefSeq,sequence_feature,81683,81770,81684,81771,,,, 
-NT_187618.1,RefSeq,sequence_feature,81771,111736,81772,111737,,,, 
