@@ -1,9 +1,6 @@
 *.fasta
 *.ft.txt
 *.zip
-data/delta
-data/beta
-data/raw
 *.tar
 *.fa
 *.gz
@@ -19,3 +16,5 @@ __pycache__
 models
 .vscode
 sample
+dataset
+pretrained
