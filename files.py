@@ -59,7 +59,7 @@ def merge_files(origin_files, merged_file_path, headers):
             merged_data += d
             
     merged_file = open(merged_file_path, 'w+')
-    print('writing to file {}'.format(merge_file_path))
+    print('writing to file {}'.format(merged_file_path))
     if (headers):
         header = headers[0]
         for h in headers[1:]:
