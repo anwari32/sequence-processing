@@ -1,6 +1,7 @@
 """
 Contains procedures and function related to data preparation.
 """
+import csv
 import os
 import pandas as pd
 
@@ -344,7 +345,7 @@ def _parse_pas_line(line):
     }
 
 
-def parse_pas(pas_file_path, pos_output_csv, neg_output_csv):
+def parse_pas(pas_file_path, pos_output_csv, neg_output_csv, chr_filter=[]):
     if not os.path.exists(pas_file_path):
         raise Exception('File {} not found'.format(pas_file_path))
 
@@ -368,10 +369,18 @@ def parse_pas(pas_file_path, pos_output_csv, neg_output_csv):
         for line in f:
             obj = _parse_pas_line(line)
             entry = '{},{},{},{}\n'.format(obj['pas_id'], obj['chr'], obj['position'], obj['label'])
-            if obj['label'] == 1:
-                pos.write(entry)
+            if chr_filter != []:
+                if obj['chr'] in chr_filter:
+                    if obj['label'] == 1:
+                        pos.write(entry)
+                    else:
+                        neg.write(entry)
             else:
-                neg.write(entry)
+                if obj['label'] == 1:
+                    pos.write(entry)
+                else:
+                    neg.write(entry)
+
         f.close()
         pos.close()
         neg.close()
@@ -426,12 +435,16 @@ def generate_polya_sequence(polya_index_csv, target_csv, chr_index_dir, chr_inde
         raise Exception('File {} not found.'.format(polya_index_csv))
 
     df = pd.read_csv(polya_index_csv)
+    len_df = len(df)
     header = 'sequence,label'
     f = {}
+    chr_cache = {} # cache to store fasta so no need to re-read chr fasta files.
+    progress_counter = 0
     try:
         if os.path.exists(target_csv): # Always remove if exists.
             os.remove(target_csv)
 
+        print('Generating Poly-A sequence from {} indices.'.format(len_df))
         f = open(target_csv, 'x')
         f.write('{}\n'.format(header))
         for i, r in df.iterrows():
@@ -439,23 +452,94 @@ def generate_polya_sequence(polya_index_csv, target_csv, chr_index_dir, chr_inde
             chr = r['chr']
             position = r['position']
             label = r['label']
+            progress_counter += 1
+
+            print('Processing {}/{}, pas id {}'.format(progress_counter, len_df, pas_id), end='\r')
 
             chr_fasta = '{}/{}.fasta'.format(chr_index_dir, chr_index[chr])
-            position = position - 1 # position from original poly-a database is not zero-based.
-            fastas = SeqIO.parse(chr_fasta, 'fasta')
-            for fasta in fastas:
-                seq = fasta.seq
-                seq = str(seq)
+            if chr_cache == {}:
+                fastas = SeqIO.parse(chr_fasta, 'fasta')
+                chr_cache = {
+                    'chr': chr,
+                    'fastas': fastas
+                }
+            else:
+                if chr_cache['chr'] != chr:
+                    fastas = SeqIO.parse(chr_fasta, 'fasta')
+                    chr_cache = {
+                        'chr': chr,
+                        'fastas': fastas
+                    }
+            
+            # position from original poly-a database is not zero-based.
+            position = position - 1 
+            for fasta in chr_cache['fastas']:
+                left_side_arr = []
+                right_side_arr = []
+                str_seq = str(fasta.seq)
 
-                left_side = seq[position-flank_left_size:flank_left_size] # Take flank_left_size amount of base from the left side of position.
-                right_side = seq[position:flank_right_size+1] # Take flank_right_size amount of base from the right side of position. This side include position.
+                # Take flank_left_size amount of base from the left side of position.
+                start = position-flank_left_size
+                for i in range(start, flank_left_size):
+                    left_side_arr.append(str_seq[i]) 
 
+                # Take flank_right_size amount of base from the right side of position. This side include position.
+                for j in range(position, flank_right_size):
+                    right_side_arr.append(str_seq[i])
+
+                left_side = ''.join(left_side_arr)
+                right_side = ''.join(right_side_arr)
                 entry = ''.join([left_side, right_side])
-                f.write('{}\n'.format(entry))
+                f.write('{},{}\n'.format(entry, label))
+                # print('Processing {}/{}, pas id {} => {} ...'.format(progress_counter, len_df, pas_id, entry[0:10]), end='\r')
 
         f.close()
+        return True
     except Exception as e:
         print('Error {}'.format(e))        
         f.close()
         return False
+
+def merge_file_into_csv(dir_path, target_csv, label):
+    try:
+        if os.path.exists(target_csv):
+            os.remove(target_csv)
+        h = open(target_csv, 'x')
+        h.write('{},{}\n'.format('sequence', 'label'))
+        for fname in os.listdir(dir_path):
+            path = '{}/{}'.format(dir_path, fname)
+            f = open(path, 'r')
+            for line in f:
+                line = line.strip()
+                h.write('{},{}\n'.format(line, label))
+            f.close()
+        h.close()
+        return True
+    except Exception as e:
+        print('error {}'.format(e))
+        return False
+
+def merge_csv(csv_files, csv_target):
+    """
+    Merge multiple csv files. CSV files to be merge have to have the same header.
+    @param  csv_files (array of string): array of csv file path to be merged.
+    @param  csv_target (string): csv target file path.
+    @return (boolean): True if success.
+    """
+    if all([os.path.exists(a) for a in csv_files]):
+
+        if os.path.exists(csv_target):
+            os.remove(csv_target)
+
+        t = open(csv_target, 'x')
+        t.write('sequence,label\n')
+        for a in csv_files:
+            f = open(a, 'r')
+            next(f) # Skip first line.
+            for line in f:
+                t.write(line)
+            f.close()
+        t.close()
+        return True
+
     return False
