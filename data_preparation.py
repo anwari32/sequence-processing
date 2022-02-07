@@ -1,9 +1,17 @@
 """
 Contains procedures and function related to data preparation.
 """
+from contextlib import suppress
 import csv
+from inspect import trace
+from msilib import sequence
+from operator import index
 import os
+from numpy import product
 import pandas as pd
+import traceback
+
+from torch import frac, positive
 
 def _parse_desc(desc):
     """
@@ -35,16 +43,37 @@ def _parse_desc(desc):
                     desc_obj['ensembl'] = dbxref_val
                 else:
                     break
-    
     return desc_obj
 
-def _gff_parseline(line, regions):
+def _check_segment_product(product_keywords, product_desc):
     """
-    
+    @param  product_keywords (array of string): array containing keywords.
+    @param  product_desc (string): a string in which keyword will be searched.
+    @return (boolean): True if keyword found.
+    """
+    found = False
+    len_keywords = len(product_keywords)
+    arr_product_desc = product_desc.strip().split(' ') # Split words by space.
+    i = 0
+    while not found and i < len_keywords:
+        keyword = product_keywords[i]
+        if keyword in arr_product_desc:
+            found = True
+        else:
+            i += 1
+    return found
+
+def _gff_parseline(line, regions=None, products=None):
+    """
+    Parse GFF line.
+    @param  line (string): line in GFF.
+    @param  regions (array): which region will be retrieved. If None then all regions are retrieved. 
+    @return (object): Object containing sequence_id, refseq, region, start, end, start_index, end_index, desc, gene, gene_id, genbank, and emsembl.
     """
     if line[0] == '#':
         return False
     else:
+        line = line.strip()
         words = line.split('\t')
         sequence_id = words[0]
         refseq = words[1]
@@ -59,91 +88,120 @@ def _gff_parseline(line, regions):
         gene_id = desc_obj['gene_id'] if 'gene_id' in desc_obj.keys() else '' # Gene ID
         genbank = desc_obj['genbank'] if 'genbank' in desc_obj.keys() else '' # GeneBank
         ensembl = desc_obj['ensembl'] if 'ensembl' in desc_obj.keys() else '' # Ensembl
-        if regions is None:
-            return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl}
-        elif region in regions:
-            return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl}
+        product = desc_obj['product'] if 'product' in desc_obj.keys() else '' # Product
+        if regions is None and product is None:
+            return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product}
         else:
-            return False
+            if (regions != None and region not in regions) or (products != None and not _check_segment_product(products, product)):
+                return False
+            else:
+                return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product}
 
-def gff_to_csv(file, csv_output, regions):
+
+def gff_to_csv(file, csv_output, regions=None):
     """
-    
+    Procedure to create csv file based on GFF file.
+    @param  file (string): path to GFF.
+    @param  csv_output (string): path to target csv.
+    @param  regions (array): which region will be retrieved. If None then all regions are retrieved.
     """
-    if os.path.exists(file):
-        # Prepare file and dataframe.
-        if os.path.exists(csv_output):
-            os.remove(csv_output)
-        colnames = ['sequence_id', 'refseq', 'region', 'start_index', 'end_index', 'start', 'end', 'gene', 'gene_id', 'genebank', 'ensembl']
-        header = ",".join(colnames)
-        f = open(file, 'r')
-        out = open(csv_output, 'x')
-        out.write("{} \n".format(header))
-        
-        for line in f:
-            d = _gff_parseline(line, regions)
-            try:
-                if d != False:
-                    if d:
-                        output = "{},{},{},{},{},{},{},{},{},{},{}\n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'])
-                        out.write(output)
-                    else:
-                        break
-            except:
-                out.close()
-                f.close()
+    f = {}
+    out = {}
+    try:
+        if os.path.exists(file):
+            # Prepare file and dataframe.
+            if os.path.exists(csv_output):
+                os.remove(csv_output)
+            colnames = ['sequence_id', 'refseq', 'region', 'start_index', 'end_index', 'start', 'end', 'gene', 'gene_id', 'genebank', 'ensembl']
+            header = ",".join(colnames)
+            f = open(file, 'r')
+            out = open(csv_output, 'x')
+            out.write("{} \n".format(header))
+            
+            for line in f:
+                d = _gff_parseline(line, regions)
+                try:
+                    if d != False:
+                        if d:
+                            output = "{},{},{},{},{},{},{},{},{},{},{}\n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'])
+                            out.write(output)
+                        else:
+                            break
+                except Exception as e:
+                    print('Error {}'.format(e))
+                    out.close()
+                    f.close()
+            out.close()
+            f.close()
+            return True
+        else:
+            raise Exception('File {} not found'.format(file))
+    except Exception as e:
+        print('Error {}'.format(e))
         out.close()
         f.close()
 
-def gff_to_csvs(gff_file, target_folder, regions, header):
+
+def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl', regions=None):
     """
-    Convert gff file into CSV file.
+    Convert gff file into multiple CSV files. Each file is for one sequence_id or chromosome.
     @param  gff_file (string): filepath to gff file.
     @param  target_folder (string): path to directory to which converted gff will be saved.
     @param  regions (array of string): array containing what region to look for.
     @param  header (string): header of converted file.
+    @return (boolean): True if success.
     """
-    f = open(gff_file)
-    target_file = target_folder + '/'
-    cur_seq = ""
-    temp_seq = ""
-    output_file = ""
+    f = {}
     file_to_write = {}
-    for line in f:
-        d = _gff_parseline(line, regions)
-        if d:
-            output = "{},{},{},{},{},{},{},{},{},{},{} \n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'])
-            temp_seq = d['sequence_id']
-            if cur_seq == "":
-                cur_seq = temp_seq
+    try:
+        f = open(gff_file)
+        target_file = target_folder + '/'
+        cur_seq = ""
+        temp_seq = ""
+        output_file = ""
+        file_to_write = {}
+        for line in f:
+            d = _gff_parseline(line, regions)
+            if d:
+                output = "{},{},{},{},{},{},{},{},{},{},{} \n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'])
+                temp_seq = d['sequence_id']
+                if cur_seq == "":
+                    cur_seq = temp_seq
 
-            # Prepare desired file to write.
-            output_file = target_file + temp_seq + '.csv'
+                # Prepare desired file to write.
+                output_file = target_file + temp_seq + '.csv'
 
-            # Compare if this sequence_id is the as previous sequence_id.
-            if temp_seq == cur_seq:
+                # Compare if this sequence_id is the as previous sequence_id.
+                if temp_seq == cur_seq:
 
-                # If it is then write to desired file.
-                # Check if file exists. If not then create file.
-                if os.path.exists(output_file):
-                    file_to_write.write(output)
-                else:
-                    file_to_write = open(output_file, 'x')
+                    # If it is then write to desired file.
+                    # Check if file exists. If not then create file.
+                    if os.path.exists(output_file):
+                        file_to_write.write(output)
+                    else:
+                        file_to_write = open(output_file, 'x')
 
-                    # Write header first.
-                    file_to_write.write("{}\n".format(header))
-                    file_to_write.write(output)
-            
-            # If this sequence_id is not the same as previous sequence_id, close the existing file.
-            elif cur_seq != temp_seq:
-                file_to_write.close()
-                cur_seq = temp_seq
+                        # Write header first.
+                        file_to_write.write("{}\n".format(header))
+                        file_to_write.write(output)
+                
+                # If this sequence_id is not the same as previous sequence_id, close the existing file.
+                elif cur_seq != temp_seq:
+                    file_to_write.close()
+                    cur_seq = temp_seq
 
-    # Close any file related to this procedure.
-    file_to_write.close()
-    f.close()    
+        # Close any file related to this procedure.
+        file_to_write.close()
+        f.close()
+        return True
+    except Exception as e:
+        print('Error {}'.format(e))
+        file_to_write.close()
+        f.close()
+        return False
 
-def generate_sample(src_csv, target_csv, n_sample=10, seed=1337):
+
+def generate_sample(src_csv, target_csv, n_sample=10, frac_sample=0, seed=1337):
     """
     Generate sample data from csv with header: 'sequence' and 'label'.
     Data generated is saved in different csv.
@@ -153,7 +211,14 @@ def generate_sample(src_csv, target_csv, n_sample=10, seed=1337):
     @seed : random state.
     """
     df = pd.read_csv(src_csv)
-    sampled = df.sample(n=n_sample, random_state=seed)
+    sampled = {}
+
+    # fraction take over n_sample.
+    print('Generate sample for {} => {}'.format(src_csv, target_csv))
+    if frac_sample > 0:
+        sampled = df.sample(frac=frac_sample, random_state=1337)
+    else:
+        sampled = df.sample(n=n_sample, random_state=seed)
     try:
         if os.path.exists(target_csv):
             os.remove(target_csv)
@@ -163,6 +228,23 @@ def generate_sample(src_csv, target_csv, n_sample=10, seed=1337):
         print('Error {}'.format(e))
         return False
 
+def generate_sample_from_dir(dir_path, n_sample=0, frac_sample=0, seed=1337):
+    try:
+        if not os.path.isdir(dir_path):
+            raise Exception("Location <{}> is not valid directory.".format(dir_path))
+
+        files = os.listdir(dir_path)
+        for f in files:
+            src_path = "{}/{}".format(dir_path, f)
+            target_path = "{}/{}_sample.csv".format(dir_path, f.split('.')[0])
+            if not generate_sample(src_path, target_path, n_sample=n_sample, frac_sample=frac_sample, seed=seed):
+                raise Exception("Failed generating sample for <{}>".format(src_path))
+        #endfor
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
 
 from Bio import SeqIO
 
@@ -178,30 +260,40 @@ def generate_csv_from_fasta(src_fasta, target_csv, label, max_seq_length=512, sl
     @param  max_seq_length (int): default 512,
     @param  sliding_window_size (int): default 1,
     """
+    if not os.path.exists(src_fasta):
+        raise Exception("File {} not found.".format(src_fasta))
     fasta = SeqIO.parse(src_fasta, 'fasta')
     target = {}
-    if os.path.exists(target_csv):
-        os.remove(target_csv)
-    target = open(target_csv, 'x')
-    target.write('{},{}\n'.format('sequence', 'label'))
-    for f in fasta:
-        seq = str(f.seq)
-        if expand:
-            if len(seq) > max_seq_length:
-                kmers = kmer(seq, max_seq_length, sliding_window_size)
-                for sub in kmers:
-                    target.write('{},{}\n'.format(sub, label))
+    try:
+        if os.path.exists(target_csv):
+            os.remove(target_csv)
+        target = open(target_csv, 'x')
+        target.write('{},{}\n'.format('sequence', 'label'))
+        for f in fasta:
+            seq = str(f.seq)
+            if expand:
+                if len(seq) > max_seq_length:
+                    kmers = kmer(seq, max_seq_length, sliding_window_size)
+                    for sub in kmers:
+                        target.write('{},{}\n'.format(sub, label))
+                else:
+                    target.write('{},{}\n'.format(seq, label))
             else:
                 target.write('{},{}\n'.format(seq, label))
-        else:
-            target.write('{},{}\n'.format(seq, label))
-    target.close()
+        target.close()
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
 
 from random import shuffle
 
 def shuffle_sequence(seq, chunk_size):
     """
-    Shuffle a sequence by dividing sequence into several parts with equal parts.
+    Shuffle a sequence by dividing sequence into several parts with equal parts. 
+    If there is an extra part, this part will be excluded from shuffling and will be concatenated after shuffled sequence.
     Parts are then categorized into odds and even parts, and shuffle the odds parts.
     Merge shuffle parts (odds) and even.
     i.e. AAA BBB CCC DDD => AAA DDD CCC BBB
@@ -211,10 +303,14 @@ def shuffle_sequence(seq, chunk_size):
     @return (string) a new sequence.
     """
     lenseq = len(seq)
-    if lenseq % chunk_size > 0:
-        raise Exception('sequence cannot be divided into equal parts. {} & {}'.format(lenseq, chunk_size))
+    last_chunk = ""
+    rem = lenseq % chunk_size
+    if rem > 0:
+        # raise Exception('sequence cannot be divided into equal parts. {} & {}'.format(lenseq, chunk_size))
+        last_chunk = seq[lenseq-rem:]
+    main_chunk = seq[0:lenseq-rem]
 
-    arr = kmer(seq, chunk_size, chunk_size)
+    arr = kmer(main_chunk, chunk_size, chunk_size)
     arr_even = [arr[i] for i in range(0, len(arr), 2)]
     arr_odds = [arr[i] for i in range(1, len(arr), 2)]
 
@@ -226,7 +322,10 @@ def shuffle_sequence(seq, chunk_size):
         else:
             shuffled.append(arr_odds.pop(0))
 
-    return ''.join(shuffled)
+    shuffled_seq = ''.join(shuffled)
+    shuffled_seq = ''.join([shuffled_seq, last_chunk])
+
+    return shuffled_seq
 
 from Bio import SeqIO
 
@@ -269,12 +368,12 @@ def generate_shuffled_data(fasta_src, target_shuffled_csv, label=0, max_sequence
 def generate_datasets(src_csv, target_dir, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed=1337):
     """
     Split dataset into three parts: training, validation, and test.
-    @param src_csv : CSV source file from which dataset is generated.
-    @param target_dir : which directory datasets are generated. Filename is created as 'train.csv', 'validation.csv', and 'test.csv'
-    @param train_frac : training fraction.
-    @param val_frac : validation fraction.
-    @param test_frac : testing fraction.
-    @param seed : random state.
+    @param  src_csv (string): CSV source file from which dataset is generated.
+    @param  target_dir (string): which directory datasets are generated. Filename is created as 'train.csv', 'validation.csv', and 'test.csv'
+    @param  train_frac (float): Default is 0.8, training fraction.
+    @param  val_frac (float): Default is 0.1, validation fraction.
+    @param  test_frac (float): Default is 0.1, testing fraction.
+    @param  seed (int): Default is 1337, random state.
     @return array of string: path of train file path, validation file path, and test file path.
     """
     df = pd.read_csv(src_csv)
@@ -294,38 +393,6 @@ def generate_datasets(src_csv, target_dir, train_frac=0.8, val_frac=0.1, test_fr
     test_df.to_csv(testfile, index=False)
 
     return [trainfile, validationfile, testfile]
-
-def expand_sequence_csv(csv_src, csv_output, length, sliding_window=1):
-    """
-    Expand sequence in csv file. For each sequence, if length of sequence is more than `length`
-    then create kmers with k='length'. Each of mers is written to file as expansion of original sequence.
-    param   csv_src (string): path to csv file containing sequences to expanded.
-    param   csv_output (string): path to csv file to which expanded sequence will be written.
-    param   length (int): size of sequence chunk.
-    param   sliding_window (int): default 1, size of window.
-    return  (boolean): True if success.
-    """
-    g = {}
-    try:
-        df = pd.read_csv(csv_src)
-        columns = df.columns.tolist()
-        columns = ','.join(columns)
-        if os.path.exists(csv_output):
-            os.remove(csv_output)
-        g = open(csv_output, 'x')
-        g.write('{}\n'.format(columns))
-        for i, r in df.iterrows():
-            seq = r['sequence']
-            label = r['label']
-            kmers = [seq[i:i+length] for i in range(len(seq)+1-length)]
-            for mer in kmers:
-                g.write('{},{}\n'.format(mer, label))
-        g.close()
-        return True
-    except Exception as e:
-        g.close()
-        print('Error {}'.format(e))
-        return False
 
 def _parse_pas_line(line):
     """
@@ -419,6 +486,10 @@ chr_dict = {
     'chr24': 'NC_000024.10', 'chrY': 'NC_000024.10', # chr24 is chr Y
     'mitochondrion': 'NC_012920.1'
 }
+
+def _get_chr_fasta_path(chr_index, dirpath='./data/chr'):
+    fpath = '{}/{}.fasta'.format(dirpath, chr_index)
+    return fpath
 
 def generate_polya_sequence(polya_index_csv, target_csv, chr_index_dir, chr_index, flank_left_size=256, flank_right_size=256):
     """
@@ -541,5 +612,285 @@ def merge_csv(csv_files, csv_target):
             f.close()
         t.close()
         return True
-
     return False
+
+def merge_prom_ss_polya_csv(csv_file_map, csv_target):
+    """
+    Merge dataset from promoter, splice site, and poly-a into one csv.
+    @param  csv_file_map (object): object containing array of file paths.
+            csv_file_map = {
+                'prom': [<path1>, <path2>, ...],
+                'ss': [<path1>, <path2>, ...],
+                'polya': [<path1>, <path2>, ...],
+            }
+    @param csv_target (string): csv target path.
+    @return (boolean): True if success.
+    """
+    try:
+        if os.path.exists(csv_target):
+            os.remove(csv_target)
+        
+        df = pd.DataFrame(columns=['sequence', 'label_prom', 'label_ss', 'label_polya'])
+        prom_dataset = csv_file_map['prom']
+        for path in prom_dataset:
+            prom_df = pd.read_csv(path)
+            for i, r in prom_df.iterrows():
+                row = {}
+                row['sequence'] = r['sequence']
+                row['label_prom'] = r['label']
+                df = df.append(row, ignore_index=True)
+
+        ss_dataset = csv_file_map['ss']
+        for path in ss_dataset:
+            ss_df = pd.read_csv(path)
+            for i, r in ss_df.iterrows():
+                row = {}
+                row['sequence'] = r['sequence']
+                row['label_ss'] = r['label']
+                df = df.append(row, ignore_index=True)
+
+        polya_dataset = csv_file_map['polya']
+        for path in polya_dataset:
+            polya_df = pd.read_csv(path)
+            for i, r in polya_df.iterrows():
+                row = {}
+                row['sequence'] = r['sequence']
+                row['label_polya'] = r['label']
+                df = df.append(row, ignore_index=True)
+
+        df.to_csv(csv_target, index=False)
+        return True
+    except Exception as e:
+        print('Error {}'.format(e))
+        return False
+
+def generate_polya_index_from_annotated_genome(annotated_genome_gff_path, target_csv_path, polya_keywords=['poly a', 'poly(a)', 'polya-a'], label=1, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl,product'):
+    """
+    Special purpose function to generate polya index.
+    @param  annotated_genome_path (string): path to annotated genome GFF file.
+    @param  target_csv (string): path to target file to write index.
+    @param  label (int): default 1, means positive label or the genome segment contains Poly-A. Put zero to generate negative index.
+    @return (boolean): True if success.
+    """
+    gff = {}
+    target_csv = {}
+    try:
+        gff = open(annotated_genome_gff_path)
+        if os.path.exists(target_csv_path):
+            os.remove(target_csv_path)
+
+        target_csv = open(target_csv_path, 'x')
+        target_csv.write('{}\n'.format(header))
+        for line in gff:
+            gff_line = _gff_parseline(line)
+            if gff_line:
+                gff_line_product_desc = gff_line['product'].lower().strip()
+                is_polya = _check_segment_product(polya_keywords, gff_line_product_desc)
+                if is_polya:
+                    target_csv.write('{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+                        gff_line['sequence_id'],
+                        gff_line['refseq'],
+                        gff_line['region'],
+                        gff_line['start_index'],
+                        gff_line['end_index'],
+                        gff_line['start'],
+                        gff_line['end'],
+                        gff_line['gene'],
+                        gff_line['gene_id'],
+                        gff_line['genbank'],
+                        gff_line['ensembl'],
+                        gff_line['product']
+                    ))
+        target_csv.close()
+        gff.close()
+        return True
+    except Exception as e:
+        print('Error {}'.format(e))
+        print('Error Trace {}'.format(traceback.format_exc()))
+        target_csv.close()
+        gff.close()
+        return False
+
+def generate_polya_positive_dataset_from_index(polya_index_path, target_csv_path, tokenize=False):
+    cur_seq = {} # current sequence stored in variable to avoid reading the same fasta multiple times.
+    cur_seq_id = None
+    try:
+        if os.path.exists(target_csv_path):
+            os.remove(target_csv_path)
+        target_csv = open(target_csv_path, 'x')
+        target_csv.write('{},{}\n'.format('sequence','label'))
+
+        df_index = pd.read_csv(polya_index_path)
+        for i, r in df_index.iterrows():
+            sequence_id = r['sequence_id']
+            start_index = r['start_index']
+            end_index = r['end_index']
+
+            sequence = ''
+            if cur_seq_id == None:
+                chr_fasta = SeqIO.parse(_get_chr_fasta_path(sequence_id), 'fasta')
+                chr_fasta_record = next(chr_fasta) # Get first record only.
+                chr_seq = str(chr_fasta_record.seq)
+
+                cur_seq_id = sequence_id
+                cur_seq = chr_seq
+            else:
+                if sequence_id != cur_seq_id:
+                    cur_seq_id = sequence_id
+                    chr_fasta = SeqIO.parse(_get_chr_fasta_path(sequence_id), 'fasta')
+                    chr_fasta_record = next(chr_fasta) # Get first record only.
+                    chr_seq = str(chr_fasta_record.seq)
+                    cur_seq = chr_seq
+
+            sequence = cur_seq[start_index:end_index + 1]
+            if tokenize:
+                sequence = ' '.join(kmer(sequence, 3))
+            target_csv.write('{},{}\n'.format(sequence, 1))
+        
+        #endfor
+        target_csv.close()
+
+        return True
+    except Exception as e:
+        print('error {}'.format(e))
+        print('error stacktrace {}'.format(traceback.format_exc()))
+        return False
+
+def generate_kmer_csv(src_csv_path, target_csv_path, kmer_size=3):
+    try:
+        if not os.path.exists(src_csv_path):
+            raise Exception("File {} not found.".format(src_csv_path))
+
+        if os.path.exists(target_csv_path):
+            os.remove(target_csv_path)
+        
+        src_df = pd.read_csv(src_csv_path)
+        target_df = pd.DataFrame(columns=src_df.columns.tolist())
+
+        for i, r in src_df.iterrows():
+            sequence = r['sequence']
+            kmer_sequence = kmer(sequence, kmer_size)
+            kmer_sequence = ' '.join(kmer_sequence)
+            target_df = target_df.append({
+                'sequence': kmer_sequence,
+                'label': r['label']
+            }, ignore_index=True)
+        #endfor
+        target_df.to_csv(target_csv_path, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        return False
+
+def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_size=16, negative_label=0):
+    """
+    Generate negative dataset by shuffling positive dataset. 
+    Each instance in positive dataset is divided into several chunks and the order of those chunks are pseudorandomly rearranged.
+    @param  positive_csv_path (string): path to positive csv.
+    @param  target_csv_path (string): path to target csv to which negative or shuffled dataset is written.
+    @param  shuffle_chunk_size (int): default value is 16.
+    @param  negative_label (int): default value is 0. Label for negative data.
+    @return (boolean): True if success.
+    """
+    try:
+        if not os.path.exists(positive_csv_path):
+            raise Exception("File {} not found.".format(positive_csv_path))
+        
+        src_df = pd.read_csv(positive_csv_path)
+        target_csv_df = pd.DataFrame(columns=src_df.columns.tolist())
+        for i, r in src_df.iterrows():
+            sequence = r['sequence']
+            shuffled_sequence = shuffle_sequence(sequence, chunk_size=shuffle_chunk_size)
+            target_csv_df = target_csv_df.append({
+                'sequence': shuffled_sequence,
+                'label': negative_label
+            }, ignore_index=True)
+        # endfor
+        target_csv_df.to_csv(target_csv_path, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
+def expand_by_sliding_window(src_csv, target_csv, sliding_window_size=1, length=512):
+    """
+    Expand sequence in csv file. CSV must have 'sequence' and 'label' column.
+    Sequence is array of token (kmer) seperated by space.
+    @param  src_csv (string): path to csv source file.
+    @param  target_csv (string): path to csv target file.
+    @param  sliding_window_size (int): default is 1. Set value for how much character is skipped for each slide.
+    @param  length (int): default is 512. Length of each window.
+    @return (boolean): True if sucess.
+    """
+    try:
+        if not os.path.exists(src_csv):
+            raise Exception("File {} not found.".format(src_csv))
+        src_df = pd.read_csv(src_csv)
+        src_df_len = len(src_df)
+        _columns = src_df.columns.tolist()
+
+        # Remove existing target_csv.
+        if os.path.exists(target_csv):
+            os.remove(target_csv)
+
+        target_df = pd.DataFrame(columns=_columns)
+        for i, r in src_df.iterrows():
+            print("Processing source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
+            sequence = r['sequence'].split(' ')
+            label = r['label']
+            expanded_seq = kmer(sequence, 512)
+            for seq in expanded_seq:
+                seq = ' '.join(seq)
+                frame = pd.DataFrame([[seq, label]], columns=_columns)
+                target_df = pd.concat([target_df, frame])
+        #endfor
+        target_df.to_csv(target_csv, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
+def expand_by_sliding_window_no_pandas(src_csv, target_csv, sliding_window_size=1, length=512):
+    """
+    Expand sequence in csv file. CSV must have 'sequence' and 'label' column.
+    Sequence is array of token (kmer) seperated by space.
+    THIS FUNCTION DOESN'T USE PANDAS!
+    @param  src_csv (string): path to csv source file.
+    @param  target_csv (string): path to csv target file.
+    @param  sliding_window_size (int): default is 1. Set value for how much character is skipped for each slide.
+    @param  length (int): default is 512. Length of each window.
+    @return (boolean): True if sucess.
+    """
+    try:
+
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
+def expand_files_in_dir(dir_path, sliding_window_size=1, length=512):
+    """
+    @param  dir_path (string): path to directory.
+    @param  sliding_window_size (int): default is 1. Set value for how much character is skipped for each slide.
+    @param  length (int): default is 512. Length of each window.
+    @return (boolean): True if success.
+    """
+    try:
+        if not os.path.isdir(dir_path):
+            raise Exception("Path <{}> is not valid directory.".format(dir_path))
+        
+        for file in os.listdir(dir_path):
+            src_csv_path = "{}/{}".format(dir_path, file)
+            if os.path.isfile(src_csv_path):
+                target_csv_path = "{}/{}_expanded.csv".format(dir_path, file.split('.')[0])
+                if not expand_by_sliding_window(src_csv_path, target_csv_path, sliding_window_size=sliding_window_size, length=length):
+                    raise Exception("Failed executing sequence expansion.")
+        #endfor            
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False

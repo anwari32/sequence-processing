@@ -1,9 +1,21 @@
-from aifc import Error
-import torch
-import os
-from torch import nn
+from torch import cuda
 
-from transformers import BertForMaskedLM, PreTrainedModel, BertModel
+_device = "cuda" if cuda.is_available() else "cpu"
+_device
+"""
+Create simple multitask learning architecture with three task.
+1. Promoter detection.
+2. Splice-site detection.
+3. poly-A detection.
+"""
+from torch import nn
+from torch.optim import AdamW
+from transformers import BertForMaskedLM
+
+crossentropy_loss_func = nn.CrossEntropyLoss()
+
+def _get_adam_optimizer(parameters, lr=0, eps=0, beta=0):
+    return AdamW(parameters, lr=lr, eps=eps, betas=beta)
 
 class PromoterHead(nn.Module):
     """
@@ -39,6 +51,7 @@ class SpliceSiteHead(nn.Module):
         x = self.stack(x)
         return x
 
+
 class PolyAHead(nn.Module):
     """
     Network configuration can be found in DeeReCT-PolyA (Xia et. al., 2018).
@@ -56,7 +69,7 @@ class PolyAHead(nn.Module):
         x = self.stack(x)
         return x
 
-class DNAMultiTask(nn.Module):
+class MTModel(nn.Module):
     """
     Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
     """
@@ -67,6 +80,7 @@ class DNAMultiTask(nn.Module):
         self.splice_site_layer = splice_site_head
         self.polya_layer = polya_head
 
+
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
         x = x[0][:, 0, :]
@@ -75,38 +89,14 @@ class DNAMultiTask(nn.Module):
         x3 = self.polya_layer(x)
         return {'prom': x1, 'ss': x2, 'polya': x3}
 
-def initialize_training_model(pretrained_path=None, device='cpu'):
-    prom_head = PromoterHead()
-    ss_head = SpliceSiteHead()
-    polya_head = PolyAHead()
-    if os.path.isdir(pretrained_path):
-        bert_layer = BertForMaskedLM.from_pretrained(pretrained_path).bert
-        model = DNAMultiTask(bert_layer, prom_head, ss_head, polya_head)
-        return model
-    else:
-        raise Error('Pretrained path not found.')
 
-class DNASeqLabelling(nn.Module):
-    """
-    Core architecture of sequential labelling.
-    """
-    def __init__(self, bert, device='cpu'):
-        super().__init__()
-        self.bert = bert
-        self.stack = nn.Sequential(
-            nn.Linear(768, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512)
-        )
+polya_head = PolyAHead(_device)
+promoter_head = PromoterHead(_device)
+splice_head = SpliceSiteHead(_device)
 
-    def forward(self, input_ids, attention_masks):
-        output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
-        output = output[0][:,0,:]
-        output = self.stack(output)
-        return output
+dnabert_3_pretrained = './pretrained/3-new-12w-0'
+shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
 
-def initialize_sequence_labelling_model(pretrained_path, device='cpu'):
-    bert = BertModel.from_pretrained(pretrained_path)
-    dnabertseq = DNASeqLabelling(bert)
-    return dnabertseq
+model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head).to(_device)
 
+def initialize_multitask_leaning(bert_pretrained_path, )

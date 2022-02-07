@@ -1,3 +1,6 @@
+.vscode
+__pycache__
+.ipynb_checkpoints
 *.fasta
 *.ft.txt
 *.zip
@@ -11,10 +14,8 @@
 *.fna
 *.jsonl
 data
-__pycache__
-.ipynb_checkpoints
 models
-.vscode
 dataset
 pretrained
 result
+sample
