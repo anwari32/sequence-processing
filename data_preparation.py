@@ -228,7 +228,7 @@ def generate_sample(src_csv, target_csv, n_sample=10, frac_sample=0, seed=1337):
         print('Error {}'.format(e))
         return False
 
-def generate_sample_from_dir(dir_path, n_sample=0, frac_sample=0, seed=1337):
+def generate_sample_from_dir(dir_path, n_sample=0, frac_sample=0, seed=1337, files=[]):
     try:
         if not os.path.isdir(dir_path):
             raise Exception("Location <{}> is not valid directory.".format(dir_path))
@@ -765,16 +765,17 @@ def generate_kmer_csv(src_csv_path, target_csv_path, kmer_size=3):
             os.remove(target_csv_path)
         
         src_df = pd.read_csv(src_csv_path)
-        target_df = pd.DataFrame(columns=src_df.columns.tolist())
+        len_src_df = len(src_df)
+        _columns = src_df.columns.tolist()
+        target_df = pd.DataFrame(columns=_columns)
 
         for i, r in src_df.iterrows():
+            print("Generating kmer for <{}>: {}/{}".format(src_csv_path, i+1, len_src_df), end='\r')
             sequence = r['sequence']
             kmer_sequence = kmer(sequence, kmer_size)
             kmer_sequence = ' '.join(kmer_sequence)
-            target_df = target_df.append({
-                'sequence': kmer_sequence,
-                'label': r['label']
-            }, ignore_index=True)
+            frame = pd.DataFrame([[kmer_sequence, r['label']]], columns=_columns)
+            target_df = pd.concat([target_df, frame])
         #endfor
         target_df.to_csv(target_csv_path, index=False)
         return True
@@ -836,10 +837,10 @@ def expand_by_sliding_window(src_csv, target_csv, sliding_window_size=1, length=
 
         target_df = pd.DataFrame(columns=_columns)
         for i, r in src_df.iterrows():
-            print("Processing source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
             sequence = r['sequence'].split(' ')
             label = r['label']
             expanded_seq = kmer(sequence, 512)
+            print("Processing source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
             for seq in expanded_seq:
                 seq = ' '.join(seq)
                 frame = pd.DataFrame([[seq, label]], columns=_columns)
