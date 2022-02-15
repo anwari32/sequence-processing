@@ -1,4 +1,8 @@
 from torch import cuda
+from transformers import BertForMaskedLM
+import numpy as np
+
+import torch
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -11,7 +15,6 @@ Create simple multitask learning architecture with three task.
 from torch import nn
 from torch.optim import AdamW
 from transformers import BertForMaskedLM
-
 crossentropy_loss_func = nn.CrossEntropyLoss()
 
 def _get_adam_optimizer(parameters, lr=0, eps=0, beta=0):
@@ -89,14 +92,147 @@ class MTModel(nn.Module):
         x3 = self.polya_layer(x)
         return {'prom': x1, 'ss': x2, 'polya': x3}
 
+def evaluate(model, dataloader, loss_fn, device='cpu'):
+    model.eval()
+    model.to(device)
+    val_prom_acc = []
+    val_prom_loss = []
+    val_ss_acc = []
+    val_ss_loss = []
+    val_polya_acc = []
+    val_polya_loss = []
 
-polya_head = PolyAHead(_device)
-promoter_head = PromoterHead(_device)
-splice_head = SpliceSiteHead(_device)
+    for step, batch in dataloader:
+        b_input_ids, b_attn_masks, b_label_prom, b_label_ss, b_label_polya = tuple(t.to(device) for t in batch)
 
-dnabert_3_pretrained = './pretrained/3-new-12w-0'
-shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
+        # Compute logits.
+        with torch.no_grad():
+            logits = model(b_input_ids, b_attn_masks)
 
-model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head).to(_device)
+            prom_logits = logits['prom']
+            ss_logits = logits['ss']
+            polya_logits = logits['polya']
 
-def initialize_multitask_leaning(bert_pretrained_path, )
+            # Compute loss.
+            prom_loss = loss_fn(prom_logits, b_label_prom)
+            ss_loss = loss_fn(ss_logits, b_label_ss)
+            polya_loss = loss_fn(polya_logits, b_label_polya)
+            val_prom_loss.append(prom_loss)
+            val_ss_loss.append(ss_loss)
+            val_polya_loss.append(polya_loss)
+
+            # Prediction.
+            preds_prom = torch.argmax(prom_logits, dim=1).flatten()
+            preds_ss = torch.argmax(ss_logits, dim=1).flatten()
+            preds_polya = torch.argmax(polya_logits, dim=1).flatten()
+
+            # Accuracy
+            prom_acc = (preds_prom == b_label_prom).cpu().numpy().mean() * 100
+            ss_acc = (preds_ss == b_label_ss).cpu().numpy().mean() * 100
+            polya_acc = (preds_polya == b_label_polya).cpu().numpy().mean() * 100
+            val_prom_acc.append(prom_acc)
+            val_ss_acc.append(ss_acc)
+            val_polya_acc.append(polya_acc)
+
+    # Compute average acc and loss.
+    avg_prom_acc = np.mean(val_prom_acc)
+    avg_ss_acc = np.mean(val_ss_acc)
+    avg_polya_acc = np.mean(val_polya_acc)
+    avg_prom_loss = np.mean(val_prom_loss)
+    avg_ss_loss = np.mean(val_ss_loss)
+    avg_polya_loss = np.mean(val_polya_loss)
+
+    return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
+
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file, device='cpu', eval=False, val_dataloader=None):
+    size = len(dataloader.dataset)
+    model.to(device)
+    model.train()
+    batch_counts = 0
+    batch_loss = 0
+    batch_loss_prom, batch_loss_ss, batch_loss_polya = 0, 0, 0
+    total_loss = 0
+    total_loss_prom, total_loss_ss, total_loss_polya = 0, 0, 0
+    _count = 0
+    _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya']
+
+    log_file = open(log_file, 'x')
+    log_file.write("{}\n".format(','.join(_cols)))
+
+    for i in range(epoch_size):
+        for step, batch in enumerate(dataloader):
+            batch_counts += 1
+            print("Epoch {}, Step {}".format(i, step), end='\r')
+
+            # Load batch to device.
+            b_input_ids, b_attn_masks, b_labels_prom, b_labels_ss, b_labels_polya = tuple(t.to(device) for t in batch)
+
+            # Zero out any previously calculated gradients.
+            model.zero_grad()
+            
+            # Perform forward pass.
+            outputs = model(b_input_ids, b_attn_masks)
+
+            # Compute error.
+            loss_prom = loss_fn(outputs['prom'], b_labels_prom)
+            loss_ss = loss_fn(outputs['ss'], b_labels_ss)
+            loss_polya = loss_fn(outputs['polya'], b_labels_polya)
+
+            # Following MTDNN (Liu et. al., 2019), loss is summed.
+            loss = loss_prom + loss_ss + loss_polya
+
+            # Compute this batch error.
+            batch_loss_prom += loss_prom
+            batch_loss_ss += loss_ss
+            batch_loss_polya += loss_polya
+            batch_loss += loss
+
+            # Log loss values.
+            log_file.write("{},{},{},{},{}\n".format(i, batch_counts, loss_prom, loss_ss, loss_polya))
+
+            # Backpropagation.
+            loss.backward()
+
+            # Update parameters and learning rate.
+            optimizer.step()
+            scheduler.step()
+
+            # Print training process.
+            if (step % batch_size == 0 and step != 0) or (step == len(dataloader) - 1):
+                batch_loss = 0
+                batch_loss_prom = 0
+                batch_loss_ss = 0
+                batch_loss_polya = 0
+                batch_counts = 0
+        
+            torch.cuda.empty_cache()
+        # endfor batch.
+
+        # Evaluate.
+        if eval and val_dataloader:
+            pa, ssa, pola, pl, ssl, poll = evaluate(model, val_dataloader)
+            print('-----')
+            print('prom acc: {}, prom loss: {}'.format(pa, pl))
+            print('ss acc: {}, ss loss: {}'.format(ssa, ssl))
+            print('polya acc: {}, polya loss: {}'.format(pola, poll))
+            print('-----')
+    # endfor epoch.
+    log_file.close()
+    return True
+
+def test(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
+    size = len(dataloader.dataset)
+    num_batches = len(dataloader)
+    model.eval() # Set model on evaluation model.
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for X, y in dataloader:
+            X = X.to(device)
+            y = y.to(device)
+            pred = model(X)
+            test_loss += loss_fn(pred, y).item()
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+            test_loss /= num_batches
+            correct /= size
+            print(f"Test error: \n Accuracy: {(100*correct):>0.1f}% \n Avg Loss: {test_loss:>8f} \n")

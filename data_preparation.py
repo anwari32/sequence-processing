@@ -1,8 +1,10 @@
 """
 Contains procedures and function related to data preparation.
 """
+from cmath import exp
 from contextlib import suppress
 import csv
+from curses import window
 from inspect import trace
 from msilib import sequence
 from operator import index
@@ -13,9 +15,37 @@ import traceback
 
 from torch import frac, positive
 
+chr_dict = {
+    'chr1': 'NC_000001.11',
+    'chr2': 'NC_000002.12',
+    'chr3': 'NC_000003.12',
+    'chr4': 'NC_000004.12',
+    'chr5': 'NC_000005.10',
+    'chr6': 'NC_000006.12',
+    'chr7': 'NC_000007.14',
+    'chr8': 'NC_000008.11',
+    'chr9': 'NC_000009.12',
+    'chr10': 'NC_000010.11',
+    'chr11': 'NC_000011.10',
+    'chr12': 'NC_000012.12',
+    'chr13': 'NC_000013.11',
+    'chr14': 'NC_000014.9',
+    'chr15': 'NC_000015.10',
+    'chr16': 'NC_000016.10',
+    'chr17': 'NC_000017.11',
+    'chr18': 'NC_000018.10',
+    'chr19': 'NC_000019.10',
+    'chr20': 'NC_000020.11',
+    'chr21': 'NC_000021.9',
+    'chr22': 'NC_000022.11',
+    'chr23': 'NC_000023.11', 'chrX': 'NC_000023.11', # chr23 is chr X
+    'chr24': 'NC_000024.10', 'chrY': 'NC_000024.10', # chr24 is chr Y
+    'mitochondrion': 'NC_012920.1'
+}
+
 def _parse_desc(desc):
     """
-    
+    Parse description in GFF row.
     """
     # desc_obj = {'gene': '', 'gene_id': '', 'genebank': '', 'ensembl': ''}
     desc_obj = {}
@@ -47,6 +77,7 @@ def _parse_desc(desc):
 
 def _check_segment_product(product_keywords, product_desc):
     """
+    Check of certain keywords are in product description `product_desc`.
     @param  product_keywords (array of string): array containing keywords.
     @param  product_desc (string): a string in which keyword will be searched.
     @return (boolean): True if keyword found.
@@ -200,6 +231,70 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
         f.close()
         return False
 
+def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False, do_expand=False, kmer_size=3, expand_size=512, refseq='exon'):
+    """
+    Generate sequence labelling from given chromosome index and chromosome fasta.
+    This function reads chr index to get all exon ranges and create labelling based on the index.
+    After that sequence and its label sequence will be written into `target_csv`.
+    If `do_expand` = True then sequence from `chr_fasta` will be expanded into 512-character chunks before being written.
+    If `do_kmer` = True then sequence from `chr_fasta` will be converted into kmer sequence with `k` = `kmer_size`.
+    Expansion is carried out before conversion to kmer.
+    @param      chr_index (string):
+    @param      chr_fasta (string):
+    @param      target_csv (string):
+    @param      do_kmer (boolean):
+    @param      do_expand (boolean):
+    @param      kmer_size (int): default is 3.
+    @param      expand_size (int): default is 512.
+    @param      refseq (string):
+    @return     (boolean): True if success
+    """
+    if not os.path.exists(chr_index):
+        raise FileNotFoundError("Chromosome index file {} not found".format(chr_index))
+    if not os.path.exists(chr_fasta):
+        raise FileNotFoundError("Chromosome source file {} not found.".format(chr_fasta))
+    
+    print("Processing {}".format(chr_index), end='\r')
+    records = SeqIO.parse(chr_fasta, 'fasta')
+    record = next(records) # Assume that chromosome fasta contain just one record so get first record only.
+    chr_sequence = str(record.seq) # Get string representation of chr sequence.
+    label_sequence = '.' * len(chr_sequence) # Construct dot string with same length as chr_sequence.
+    index_df = pd.read_csv(chr_index)
+    index_df = index_df[index_df['refseq'] == refseq]
+    len_df = len(index_df)
+    _count = 0
+    for i, r in index_df.iterrows():
+        _count += 1
+        print("Processing {}: [{}/{}]".format(chr_index, _count, len_df), end='\r')
+        # Change label in label_sequence based on selected region.
+        for j in range(r['start_index'], r['end']):
+            label_sequence[j] = 'E'
+        #endfor
+    #endfor
+
+    if os.path.exists(target_csv):
+        os.remove(target_csv)
+    target_file = open(target_csv, 'x')
+    target_file.write('sequence,label\n')
+    if do_expand:
+        arr_chr_sequence = kmer(chr_sequence, expand_size)
+        arr_label_sequence = kmer(label_sequence, expand_size)
+        _count = 0
+        _len = len(arr_chr_sequence)
+        for seq, label in zip(arr_chr_sequence, arr_label_sequence):
+            _count += 1
+            print("Processing index {}, with fasta {}, to seq. labelling {}, expanding [{}/{}]".format(chr_index, chr_fasta, target_csv, _count, _len), end='\r')
+            if do_kmer:
+                seq = ' '.join(kmer(seq, 3))
+                label = ' '.join(kmer(label, 3))
+            target_file.write("{},{}\n".format(seq, label))
+    else:
+        print("Processing index {}, with fasta {}, to seq. labelling {}".format(chr_index, chr_fasta, target_csv), end='\r')
+        target_file.write("{},{}\n".format(chr_sequence, label_sequence))
+    
+    target_file.close()
+    return True
+
 
 def generate_sample(src_csv, target_csv, n_sample=10, frac_sample=0, seed=1337):
     """
@@ -214,9 +309,9 @@ def generate_sample(src_csv, target_csv, n_sample=10, frac_sample=0, seed=1337):
     sampled = {}
 
     # fraction take over n_sample.
-    print('Generate sample for {} => {}'.format(src_csv, target_csv))
+    print('Generate sample for {} => {}'.format(src_csv, target_csv), end='\r')
     if frac_sample > 0:
-        sampled = df.sample(frac=frac_sample, random_state=1337)
+        sampled = df.sample(frac=frac_sample, random_state=seed)
     else:
         sampled = df.sample(n=n_sample, random_state=seed)
     try:
@@ -394,6 +489,52 @@ def generate_datasets(src_csv, target_dir, train_frac=0.8, val_frac=0.1, test_fr
 
     return [trainfile, validationfile, testfile]
 
+def split_csv(src_csv, fractions=[0.5, 0.5]):
+    """
+    Split data from src_csv using Pandas.
+    @param      src_csv (string): path to csv file.
+    @param      fractions (array of float): array containing fraction of each split.
+    @returns    frames (array of pd.DataFrame): each frame contains data split.
+    """
+    if fractions == []:
+        print('No splitting.')
+        return False
+    if sum(fractions) > 1:
+        raise Exception("Sum of fractions not equal to one.")
+    frames = []
+    df = pd.read_csv(src_csv)
+    for frac in fractions:
+        split = df.sample(frac=frac)
+        frames.append(split)
+        df = df.drop(split.index)
+    #endfor
+    return frames
+
+def split_and_store_csv(src_csv, fractions=[], store_paths=[]):
+    """
+    Split data from src_csv and store each split in store path.
+    Each fraction corresponds to each store path.
+    @param      src_csv (string): path to src csv.
+    @param      fractions (array of float): array containing fraction of each split.
+    @param      store_paths (array of string): array containing path of each split.
+    @return     (boolean): True if success
+    """
+    if len(fractions) != len(store_paths):
+        raise Exception("Not enough path to store splits.")
+    if sum(fractions) > 1:
+        raise Exception("Sum of fractions not equal to one.")
+    frames = []
+    df = pd.read_csv(src_csv)
+    for frac, path in zip(fractions, store_paths):
+        split = df.sample(frac=frac)
+        split.to_csv(path, index=False)
+        frames.append(split)
+        df = df.drop(split.index)
+        print("Splitting and storing split to {}".format(path))
+    #endfor
+    return True
+
+
 def _parse_pas_line(line):
     """
     Parse line from PAS database. This function is special purpose.
@@ -458,34 +599,6 @@ def parse_pas(pas_file_path, pos_output_csv, neg_output_csv, chr_filter=[]):
         neg.close()
         print('error {}'.format(e))
         return False
-
-chr_dict = {
-    'chr1': 'NC_000001.11',
-    'chr2': 'NC_000002.12',
-    'chr3': 'NC_000003.12',
-    'chr4': 'NC_000004.12',
-    'chr5': 'NC_000005.10',
-    'chr6': 'NC_000006.12',
-    'chr7': 'NC_000007.14',
-    'chr8': 'NC_000008.11',
-    'chr9': 'NC_000009.12',
-    'chr10': 'NC_000010.11',
-    'chr11': 'NC_000011.10',
-    'chr12': 'NC_000012.12',
-    'chr13': 'NC_000013.11',
-    'chr14': 'NC_000014.9',
-    'chr15': 'NC_000015.10',
-    'chr16': 'NC_000016.10',
-    'chr17': 'NC_000017.11',
-    'chr18': 'NC_000018.10',
-    'chr19': 'NC_000019.10',
-    'chr20': 'NC_000020.11',
-    'chr21': 'NC_000021.9',
-    'chr22': 'NC_000022.11',
-    'chr23': 'NC_000023.11', 'chrX': 'NC_000023.11', # chr23 is chr X
-    'chr24': 'NC_000024.10', 'chrY': 'NC_000024.10', # chr24 is chr Y
-    'mitochondrion': 'NC_012920.1'
-}
 
 def _get_chr_fasta_path(chr_index, dirpath='./data/chr'):
     fpath = '{}/{}.fasta'.format(dirpath, chr_index)
@@ -613,6 +726,53 @@ def merge_csv(csv_files, csv_target):
         t.close()
         return True
     return False
+
+def merge_dataset(prom_dataset_dir, ss_dataset_dir, polya_dataset_dir, csv_target_dir, file_to_merge=['train.csv', 'validation.csv', 'test.csv']):
+    """
+    Merge data from each directory based on mentioned files.
+    e.g. certain file from a directory will be merged with the same file from another directory.
+    @param  prom_dataset_dir (string):
+    @param  ss_dataset_dir (string):
+    @param  polya_dataset_dir (string):
+    @param  csv_target_dir (string):
+    @file_to_merge  (array): array of string containing file names with file extension.
+    @return (boolean): True if success.
+    """
+    try:
+        if not os.path.isdir(prom_dataset_dir):
+            raise Exception('Promoter directory path is not valid.')
+        if not os.path.isdir(ss_dataset_dir):
+            raise Exception('Splice site directory path is not valid.')
+        if not os.path.isdir(polya_dataset_dir):
+            raise Exception('Poly A directory path is not valid.')
+
+        _columns = ['sequence', 'label_prom', 'label_ss', 'label_polya']
+        for fname in file_to_merge:
+            print("Merging {}".format(fname), end='\r')
+            target_df = pd.DataFrame(columns=_columns)
+            target_file = "{}/{}".format(csv_target_dir, fname)
+
+            prom_df = pd.read_csv("{}/{}".format(prom_dataset_dir, fname))
+            prom_df = prom_df.rename(columns={'label': 'label_prom'})
+            prom_df['label_ss'] = 0
+            prom_df['label_polya'] = 0
+
+            ss_df = pd.read_csv("{}/{}".format(ss_dataset_dir, fname))
+            ss_df = ss_df.rename(columns={'label': 'label_ss'})
+            ss_df['label_prom'] = 0
+            ss_df['label_polya'] = 0
+
+            polya_df = pd.read_csv("{}/{}".format(polya_dataset_dir, fname))
+            polya_df = polya_df.rename(columns={'label': 'label_polya'})
+            polya_df['label_prom'] = 0
+            polya_df['label_ss'] = 0
+            
+            target_df = pd.concat([target_df, prom_df, ss_df, polya_df])
+            target_df.to_csv(target_file, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        return False
 
 def merge_prom_ss_polya_csv(csv_file_map, csv_target):
     """
@@ -814,6 +974,101 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
         print("Error {}".format(traceback.format_exc()))
         return False
 
+def expand(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence', length=512):
+    """
+    Expand sequence in csv file. CSV must have 'sequence', 'label_prom', 'label_ss', 'label_polya' column in this precise order.
+    Sequence is array of token (kmer) seperated by space.
+    @param  src_csv (string): path to csv source file.
+    @param  target_csv (string): path to csv target file.
+    @param  col_to_expand (string): column whose content will be expanded.
+    @param  sliding_window_size (int): default is 1. Set value for how much character is skipped for each slide.
+    @param  length (int): default is 512. Length of each window.
+    @return (boolean): True if sucess.
+    """
+    try:
+        df = pd.read_csv(src_csv)
+        _columns = df.columns.tolist()
+        _len_df = len(df)
+        target_df = pd.DataFrame(columns=_columns)
+        for i, r in df.iterrows():
+            _i = i + 1
+            if _i < _len_df:
+                print("Processing {} [{}/{}]".format(src_csv, _i, _len_df), end='\r')
+            else:
+                print("Processing {} [{}/{}]".format(src_csv, _i, _len_df))
+            sequence = r[col_to_expand]
+            arr_sequence = kmer(sequence, length, window_size=sliding_window_size)
+            for seq in arr_sequence:
+                frame = pd.DataFrame([[seq, r['label_prom'], r['label_ss'], r['label_polya']]], columns=_columns)
+                target_df = pd.concat([target_df, frame])
+            #endfor
+        #endfor
+        target_df.to_csv(target_csv, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
+def expand_no_pandas(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence', length=512):
+    """
+    Expand sequence in csv file. CSV must have 'sequence', 'label_prom', 'label_ss', 'label_polya' column in this precise order.
+    THIS IMPLEMENTATION DOES NOT USE PANDAS.
+    Sequence is array of token (kmer) seperated by space.
+    @param  src_csv (string): path to csv source file.
+    @param  target_csv (string): path to csv target file.
+    @param  col_to_expand (string): column whose content will be expanded.
+    @param  sliding_window_size (int): default is 1. Set value for how much character is skipped for each slide.
+    @param  length (int): default is 512. Length of each window.
+    @return (boolean): True if sucess.
+    """
+    target_file = {}
+    src_file = {}
+    try:
+        if not os.path.exists(src_csv):
+            raise Exception("File source {} not found.".format(src_csv))
+        if os.path.exists(target_csv):
+            os.remove(target_csv)
+        
+        _f = open(src_csv, 'r')
+        _len_src = len(_f.readlines())
+        _f.close()
+        src_file = open(src_csv, 'r')
+        next(src_file)
+        _count = 0
+        target_file = open(target_csv, 'x')
+        target_file.write("{}\n".format('sequence,label_prom,label_ss,label_polya'.strip()))
+        for line in src_file:
+            _count += 1
+            if _count < _len_src:
+                print("Expanding {} [{}/{}]".format(src_csv, _count, _len_src), end='\r') 
+            else:
+                print("Expanding {} [{}/{}]".format(src_csv, _count, _len_src)) 
+
+            arr_line = line.strip().split(',')
+            sequence = arr_line[0]
+            label_prom = arr_line[1]
+            label_ss = arr_line[2]
+            label_polya = arr_line[3]
+            sequence_to_kmer = sequence.split(' ')
+            arr_sequence = kmer(sequence_to_kmer, length, window_size=sliding_window_size)
+            for seq in arr_sequence:
+                str_seq = ' '.join(seq)
+                entry = '{},{},{},{}\n'.format(str_seq, label_prom, label_ss, label_polya)
+                target_file.write(entry)
+
+        src_file.close()
+        target_file.close()
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        if src_file != {}:
+            src_file.close()
+        if target_file != {}:
+            target_file.close()
+        return False
+
 def expand_by_sliding_window(src_csv, target_csv, sliding_window_size=1, length=512):
     """
     Expand sequence in csv file. CSV must have 'sequence' and 'label' column.
@@ -839,7 +1094,7 @@ def expand_by_sliding_window(src_csv, target_csv, sliding_window_size=1, length=
         for i, r in src_df.iterrows():
             sequence = r['sequence'].split(' ')
             label = r['label']
-            expanded_seq = kmer(sequence, 512)
+            expanded_seq = kmer(sequence, length)
             print("Processing source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
             for seq in expanded_seq:
                 seq = ' '.join(seq)
@@ -864,12 +1119,50 @@ def expand_by_sliding_window_no_pandas(src_csv, target_csv, sliding_window_size=
     @param  length (int): default is 512. Length of each window.
     @return (boolean): True if sucess.
     """
+    src_file = {}
+    target_file = {}
     try:
+        if not os.path.exists(src_csv):
+            raise Exception("File {} not found.".format(src_csv))
+        if os.path.exists(target_csv):
+            os.remove(target_csv)
 
+        _f = open(src_csv, 'r')
+        _len = len(_f.readlines())
+        _f.close()
+
+        src_file = open(src_csv, 'r')
+        next(src_file) # Skip header.
+        target_file = open(target_csv, 'x')
+        target_file.write('sequence,label\n')
+        _count = 0
+        for line in src_file:
+            _count += 1
+            arr_line = line.strip().split(',')
+            sequence = arr_line[0]
+            label = arr_line[1]
+            tokens = sequence.split(' ')
+            arr_subtokens = kmer(tokens, 510, window_size=sliding_window_size)
+            if _count < _len:
+                print('Expanding {} [{}/{}]'.format(src_csv, _count, _len), end='\r')
+            else:
+                print('Expanding {} [{}/{}]'.format(src_csv, _count, _len))
+            for seq in arr_subtokens:
+                str_seq = ' '.join(seq)
+                entry = "{},{}\n".format(str_seq, label)
+                target_file.write(entry)
+            #endfor
+        #endfor
+        target_file.close()
+        src_file.close()
         return True
     except Exception as e:
         print("Error {}".format(e))
         print("Error {}".format(traceback.format_exc()))
+        if src_file != {}:
+            src_file.close()
+        if target_file != {}:
+            target_file.close()
         return False
 
 def expand_files_in_dir(dir_path, sliding_window_size=1, length=512):
