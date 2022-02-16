@@ -1,4 +1,4 @@
-from torch import nn
+import torch
 from transformers import BertModel
 
 Labels = [

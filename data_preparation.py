@@ -231,7 +231,7 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
         f.close()
         return False
 
-def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False, do_expand=False, kmer_size=3, expand_size=512, refseq='exon'):
+def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False, do_expand=False, kmer_size=3, expand_size=512, region='exon', limit_index=0, random=True, random_seed=1337):
     """
     Generate sequence labelling from given chromosome index and chromosome fasta.
     This function reads chr index to get all exon ranges and create labelling based on the index.
@@ -247,6 +247,9 @@ def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False,
     @param      kmer_size (int): default is 3.
     @param      expand_size (int): default is 512.
     @param      refseq (string):
+    @param      limit_index (int): Limit how many rows are processed from `chr_index`
+    @param      random (boolean): If the number of rows are chosen randomly.
+    @param      random_seed (int): random seed.
     @return     (boolean): True if success
     """
     if not os.path.exists(chr_index):
@@ -254,22 +257,29 @@ def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False,
     if not os.path.exists(chr_fasta):
         raise FileNotFoundError("Chromosome source file {} not found.".format(chr_fasta))
     
-    print("Processing {}".format(chr_index), end='\r')
+    print("Processing index {}".format(chr_index), end='\r')
     records = SeqIO.parse(chr_fasta, 'fasta')
     record = next(records) # Assume that chromosome fasta contain just one record so get first record only.
     chr_sequence = str(record.seq) # Get string representation of chr sequence.
     label_sequence = '.' * len(chr_sequence) # Construct dot string with same length as chr_sequence.
+    arr_label_sequence = list(label_sequence) # Convert dot string into array of character.
     index_df = pd.read_csv(chr_index)
-    index_df = index_df[index_df['refseq'] == refseq]
+    index_df = index_df[index_df['region'] == region]
+
+    # Get maximum range of index.
+    end_range = max(index_df['end_index'])
+
     len_df = len(index_df)
     _count = 0
+    print("Processing index {} [0/{}]".format(chr_index, len_df), end='\r')
     for i, r in index_df.iterrows():
         _count += 1
-        print("Processing {}: [{}/{}]".format(chr_index, _count, len_df), end='\r')
+        print("Processing index {}: [{}/{}]".format(chr_index, _count, len_df), end='\r')
         # Change label in label_sequence based on selected region.
         for j in range(r['start_index'], r['end']):
-            label_sequence[j] = 'E'
+            arr_label_sequence[j] = 'E'
         #endfor
+        label_sequence = ''.join(arr_label_sequence) # Convert array of character back to string.
     #endfor
 
     if os.path.exists(target_csv):
