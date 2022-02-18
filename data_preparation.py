@@ -1,19 +1,10 @@
 """
 Contains procedures and function related to data preparation.
 """
-from cmath import exp
-from contextlib import suppress
-import csv
-from curses import window
-from inspect import trace
-from msilib import sequence
-from operator import index
 import os
-from numpy import product
 import pandas as pd
 import traceback
-
-from torch import frac, positive
+from tqdm import tqdm
 
 chr_dict = {
     'chr1': 'NC_000001.11',
@@ -984,6 +975,45 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
         print("Error {}".format(traceback.format_exc()))
         return False
 
+def expand_and_split(src_csv, target_dir, stride=1, length=512, prefix='part'):
+    """
+    Expand each sequence in CSV source into fixed length.
+    CSV source has column `sequence` and `label`. Each sequence is composed by tokens separated by space.
+    @param      src_csv (string): path to csv source.
+    @param      target_dir (string): directory to store expanded files.
+    @param      stride (int): default is 1.
+    @param      length (int): length of each expanded sequence, default is 512 tokens.
+    @return     (boolean): True if success.
+    """
+    if not os.path.exists(src_csv):
+        raise FileNotFoundError(src_csv)
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+    try:
+        df = pd.read_csv(src_csv)
+        _columns = df.columns.tolist()
+        _part = 0
+        for i, r in tqdm(df.iterrows(), total=df.shape[0]):
+            arr_tokens = r['sequence'].strip().split(' ')
+            label = r['label']
+            arr_kmers = kmer(arr_tokens, length, stride)
+            temp_df = pd.DataFrame(columns=_columns)
+            for arr_kmer in arr_kmers:
+                str_kmer = ' '.join(arr_kmer)
+                _df = pd.DataFrame([[str_kmer, label]], columns=_columns)
+                temp_df = pd.concat([temp_df, _df])
+            #endfor
+            _part += 1
+            _path = "{}/{}_{}.csv".format(target_dir, prefix, _part)
+            temp_df.to_csv(_path, index=False)
+        #endfor
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
+
 def expand(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence', length=512):
     """
     Expand sequence in csv file. CSV must have 'sequence', 'label_prom', 'label_ss', 'label_polya' column in this precise order.
@@ -1006,7 +1036,7 @@ def expand(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence',
                 print("Processing {} [{}/{}]".format(src_csv, _i, _len_df), end='\r')
             else:
                 print("Processing {} [{}/{}]".format(src_csv, _i, _len_df))
-            sequence = r[col_to_expand]
+            sequence = r[col_to_expand].strip().split(' ')
             arr_sequence = kmer(sequence, length, window_size=sliding_window_size)
             for seq in arr_sequence:
                 frame = pd.DataFrame([[seq, r['label_prom'], r['label_ss'], r['label_polya']]], columns=_columns)

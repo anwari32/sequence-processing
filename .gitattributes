@@ -1,0 +1,4 @@
+rawdata/* filter=lfs diff=lfs merge=lfs -text
+rawdata/promoter/*.csv filter=lfs diff=lfs merge=lfs -text
+rawdata/splice-sites/*.csv filter=lfs diff=lfs merge=lfs -text
+rawdata/poly-a/*.csv filter=lfs diff=lfs merge=lfs -text
