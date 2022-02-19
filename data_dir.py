@@ -85,7 +85,9 @@ Chromosome and genome.
 data_chr_dir = '{}/chr'.format(data_dir)
 data_genome_dir = '{}/genome'.format(data_dir)
 data_genome_grch38_dir = '{}/grch38'.format(data_genome_dir)
-data_genome_grch38_index_dir = '{}/exon'.format(data_genome_grch38_dir)
+data_genome_grch38_index_dir = '{}/csvs'.format(data_genome_grch38_dir)
+data_genome_grch38_exon_dir = '{}/exon'.format(data_genome_grch38_dir)
+data_genome_grch38_labels_dir = '{}/labels'.format(data_genome_grch38_dir)
 
 annotated_grch38_gff = '{}/GRCh38_latest_genomic.gff'.format(data_genome_grch38_dir)
 annotated_grch38_gff_dir = '{}/csvs'.format(data_genome_grch38_dir)
