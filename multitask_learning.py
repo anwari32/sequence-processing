@@ -1,8 +1,8 @@
 from torch import cuda
 from transformers import BertForMaskedLM
 import numpy as np
-
 import torch
+from datetime import datetime
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -158,7 +158,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
 
     log_file = open(log_file, 'x')
     log_file.write("{}\n".format(','.join(_cols)))
-
+    _start_time = datetime.now()
     for i in range(epoch_size):
         for step, batch in enumerate(dataloader):
             batch_counts += 1
@@ -218,6 +218,9 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             print('-----')
     # endfor epoch.
     log_file.close()
+    _end_time = datetime.now()
+    _elapsed_time = _end_time - _start_time
+    print("Training time {}".format(_elapsed_time))
     return True
 
 def test(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):

@@ -209,6 +209,9 @@ workspace_dir = './workspace'
 if not os.path.exists(workspace_dir):
     os.mkdir(workspace_dir)
 
+workspace_promoter_dir = '{}/promoter'.format(workspace_dir)
+workspace_ss_dir = '{}/ss'.format(workspace_dir)
+workspace_polya_dir = '{}/polya'.format(workspace_dir)
 """
 `chr` folder.
 This folder contains chromosome fasta files.
@@ -237,3 +240,11 @@ chr21_fasta = '{}/NC_000021.9.fasta'.format(data_chr_dir)
 chr22_fasta = '{}/NC_000022.11.fasta'.format(data_chr_dir)
 chr23_fasta = '{}/NC_000023.11.fasta'.format(data_chr_dir)
 chr24_fasta = '{}/NC_000024.10.fasta'.format(data_chr_dir)
+
+"""
+`rawdata` folder.
+"""
+raw_data_dir = './rawdata'
+raw_data_promoter_dir = '{}/promoter'.format(raw_data_dir)
+raw_data_ss_dir = '{}/splice-sites'.format(raw_data_dir)
+raw_data_polya_dir = '{}/polya'.format(raw_data_dir)
