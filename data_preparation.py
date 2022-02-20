@@ -526,12 +526,21 @@ def split_and_store_csv(src_csv, fractions=[], store_paths=[]):
         raise Exception("Sum of fractions not equal to one.")
     frames = []
     df = pd.read_csv(src_csv)
-    for frac, path in zip(fractions, store_paths):
-        split = df.sample(frac=frac)
-        split.to_csv(path, index=False)
-        frames.append(split)
-        df = df.drop(split.index)
-        print("Splitting and storing split to {}".format(path))
+    _i = 0
+    _length = len(fractions)
+    for _i in range(_length):
+        _frac = fractions[_i]
+        _path = store_paths[_i]
+        if _i + 1 == _length:
+            print("Splitting and storing split to {}".format(_path))
+            df.to_csv(_path, index=False)
+        else:
+            split = df.sample(frac=_frac)
+            print("Splitting and storing split to {}".format(_path))
+            split.to_csv(_path, index=False)
+            frames.append(split)
+            df = df.drop(split.index)
+            
     #endfor
     return True
 
