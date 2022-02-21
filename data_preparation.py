@@ -734,48 +734,35 @@ def merge_csv(csv_files, csv_target):
     t.close()
     return True
     
-def merge_dataset(prom_dataset_dir, ss_dataset_dir, polya_dataset_dir, csv_target_dir, file_to_merge=['train.csv', 'validation.csv', 'test.csv']):
+def merge_dataset(prom_file, ss_file, polya_file, csv_target):
     """
     Merge data from each directory based on mentioned files.
     e.g. certain file from a directory will be merged with the same file from another directory.
-    @param  prom_dataset_dir (string):
-    @param  ss_dataset_dir (string):
-    @param  polya_dataset_dir (string):
-    @param  csv_target_dir (string):
-    @file_to_merge  (array): array of string containing file names with file extension.
+    @param  prom_file (string):
+    @param  ss_file (string):
+    @param  polya_file (string):
+    @param  csv_target (string):
     @return (boolean): True if success.
     """
     try:
-        if not os.path.isdir(prom_dataset_dir):
-            raise Exception('Promoter directory path is not valid.')
-        if not os.path.isdir(ss_dataset_dir):
-            raise Exception('Splice site directory path is not valid.')
-        if not os.path.isdir(polya_dataset_dir):
-            raise Exception('Poly A directory path is not valid.')
+        prom_df = pd.read_csv(prom_file)
+        prom_df = prom_df.rename(columns={'label': 'label_prom'})
+        prom_df['label_ss'] = 0
+        prom_df['label_polya'] = 0
 
-        _columns = ['sequence', 'label_prom', 'label_ss', 'label_polya']
-        for fname in file_to_merge:
-            print("Merging {}".format(fname), end='\r')
-            target_df = pd.DataFrame(columns=_columns)
-            target_file = "{}/{}".format(csv_target_dir, fname)
+        ss_df = pd.read_csv(ss_file)
+        ss_df = ss_df.rename(columns={'label': 'label_ss'})
+        ss_df['label_prom'] = 0
+        ss_df['label_polya'] = 0
 
-            prom_df = pd.read_csv("{}/{}".format(prom_dataset_dir, fname))
-            prom_df = prom_df.rename(columns={'label': 'label_prom'})
-            prom_df['label_ss'] = 0
-            prom_df['label_polya'] = 0
+        polya_df = pd.read_csv(ss_file)
+        polya_df = polya_df.rename(columns={'label': 'label_polya'})
+        polya_df['label_prom'] = 0
+        polya_df['label_ss'] = 0
 
-            ss_df = pd.read_csv("{}/{}".format(ss_dataset_dir, fname))
-            ss_df = ss_df.rename(columns={'label': 'label_ss'})
-            ss_df['label_prom'] = 0
-            ss_df['label_polya'] = 0
+        target_df = pd.concat([prom_df, ss_df, polya_df])
+        target_df.to_csv(csv_target, index=False)
 
-            polya_df = pd.read_csv("{}/{}".format(polya_dataset_dir, fname))
-            polya_df = polya_df.rename(columns={'label': 'label_polya'})
-            polya_df['label_prom'] = 0
-            polya_df['label_ss'] = 0
-            
-            target_df = pd.concat([target_df, prom_df, ss_df, polya_df])
-            target_df.to_csv(target_file, index=False)
         return True
     except Exception as e:
         print("Error {}".format(e))
@@ -1154,10 +1141,51 @@ def expand_by_sliding_window(src_csv, target_csv, sliding_window_size=1, length=
         print("Error {}".format(traceback.format_exc()))
         return False
 
+def expand_complete_data(src_csv, target_csv, stride=1, length=512):
+    """
+    Expand sequence in csv file. CSV must have `sequence`, `label_prom`, `label_ss`, and `label_polya`.
+    Sequence in column `sequence` is array of token (kmer) separated by space.
+    @param      src_csv (string):
+    @param      target_csv (string):
+    @param      stride (int):
+    @param      length (int):
+    @return     (boolean): True if success.
+    """
+    try:
+        if not os.path.exists(src_csv):
+            raise Exception("File {} not found.".format(src_csv))
+        src_df = pd.read_csv(src_csv)
+        src_df_len = len(src_df)
+        _columns = src_df.columns.tolist()
+
+        # Remove existing target_csv.
+        if os.path.exists(target_csv):
+            os.remove(target_csv)
+
+        target_df = pd.DataFrame(columns=_columns)
+        for i, r in src_df.iterrows():
+            sequence = r['sequence'].split(' ')
+            label_prom = r['label_prom']
+            label_ss = r['label_ss']
+            label_polya = r['label_polya']
+            expanded_seq = kmer(sequence, length)
+            print("Expanding source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
+            for seq in expanded_seq:
+                seq = ' '.join(seq)
+                frame = pd.DataFrame([[seq, label_prom, label_ss, label_polya]], columns=_columns)
+                target_df = pd.concat([target_df, frame])
+        #endfor
+        target_df.to_csv(target_csv, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        print("Error {}".format(traceback.format_exc()))
+        return False
+
 def expand_by_sliding_window_no_pandas(src_csv, target_csv, sliding_window_size=1, length=512):
     """
     Expand sequence in csv file. CSV must have 'sequence' and 'label' column.
-    Sequence is array of token (kmer) seperated by space.
+    Sequence is array of token (kmer) separated by space.
     THIS FUNCTION DOESN'T USE PANDAS!
     @param  src_csv (string): path to csv source file.
     @param  target_csv (string): path to csv target file.
