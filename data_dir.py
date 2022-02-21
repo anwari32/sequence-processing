@@ -60,24 +60,24 @@ sample_polya_test_csv = '{}/test.csv'.format(sample_polya_dir)
 The end products of this folder are `train.csv`, `validation.csv`, and `test.csv` files.
 Sequence in these files is tokenized and each token is separated by single space.
 """
-data_dir = './data'
-data_epd_dir = '{}/epd'.format(data_dir)
-epd_tata = '{}/human_tata.fasta'.format(data_epd_dir)
-epd_pos_tata_csv = '{}/human_tata.csv'.format(data_epd_dir)
-epd_neg_tata_csv = '{}/human_non_tata.csv'.format(data_epd_dir)
-epd_pos_tata_kmer_csv = '{}/human_tata_kmer.csv'.format(data_epd_dir)
-epd_neg_tata_kmer_csv = '{}/human_non_tata_kmer.csv'.format(data_epd_dir)
-epd_pos_tata_kmer_dir = '{}/human_tata_kmer'.format(data_epd_dir)
-epd_neg_tata_kmer_dir = '{}/human_non_tata_kmer'.format(data_epd_dir)
-epd_pos_tata_train_csv = '{}/train_expanded.csv'.format(epd_pos_tata_kmer_dir)
-epd_neg_tata_train_csv = '{}/train_expanded.csv'.format(epd_neg_tata_kmer_dir)
-epd_pos_tata_validation_csv = '{}/validation_expanded.csv'.format(epd_pos_tata_kmer_dir)
-epd_neg_tata_validation_csv = '{}/validation_expanded.csv'.format(epd_neg_tata_kmer_dir)
-epd_pos_tata_test_csv = '{}/test_expanded.csv'.format(epd_pos_tata_kmer_dir)
-epd_neg_tata_test_csv = '{}/test_expanded.csv'.format(epd_neg_tata_kmer_dir)
-epd_train_csv = '{}/train.csv'.format(data_epd_dir)
-epd_validation_csv = '{}/validation.csv'.format(data_epd_dir)
-epd_test_csv = '{}/test.csv'.format(data_epd_dir)
+data_dir = os.path.join('data')
+data_epd_dir = os.path.join(data_dir, 'epd')
+epd_tata = os.path.join(data_epd_dir, 'human_tata.fasta')
+epd_pos_tata_csv = os.path.join(data_epd_dir, 'human_tata.csv')
+epd_neg_tata_csv = os.path.join(data_epd_dir, 'human_non_tata.csv')
+epd_pos_tata_kmer_csv = os.path.join(data_epd_dir, 'human_tata_kmer.csv')
+epd_neg_tata_kmer_csv = os.path.join(data_epd_dir, 'human_non_tata_kmer.csv')
+epd_pos_tata_kmer_dir = os.path.join(data_epd_dir, 'human_tata_kmer')
+epd_neg_tata_kmer_dir = os.path.join(data_epd_dir, 'human_non_tata_kmer')
+epd_pos_tata_train_csv = os.path.join(epd_pos_tata_kmer_dir, 'train_expanded.csv')
+epd_neg_tata_train_csv = os.path.join(epd_neg_tata_kmer_dir, 'train_expanded.csv')
+epd_pos_tata_validation_csv = os.path.join(epd_pos_tata_kmer_dir, 'validation_expanded.csv')
+epd_neg_tata_validation_csv = os.path.join(epd_neg_tata_kmer_dir, 'validation_expanded.csv')
+epd_pos_tata_test_csv = os.path.join(epd_pos_tata_kmer_dir, 'test_expanded.csv')
+epd_neg_tata_test_csv = os.path.join(epd_neg_tata_kmer_dir, 'test_expanded.csv')
+epd_train_csv = os.path.join(data_epd_dir, 'train.csv')
+epd_validation_csv = os.path.join(data_epd_dir, 'validation.csv')
+epd_test_csv = os.path.join(data_epd_dir, 'test.csv')
 
 """
 Chromosome and genome.
@@ -207,13 +207,13 @@ def get_current_log_name():
 `workspace` folder.
 `workspace` folder is used for training, validating, testing, and experiments.
 """
-workspace_dir = './workspace'
+workspace_dir = os.path.join('workspace')
 if not os.path.exists(workspace_dir):
     os.mkdir(workspace_dir)
 
-workspace_promoter_dir = '{}/promoter'.format(workspace_dir)
-workspace_ss_dir = '{}/ss'.format(workspace_dir)
-workspace_polya_dir = '{}/polya'.format(workspace_dir)
+workspace_promoter_dir = os.path.join(workspace_dir, 'promoter')
+workspace_ss_dir = os.path.join(workspace_dir, 'ss')
+workspace_polya_dir = os.path.join(workspace_dir, 'polya')
 """
 `chr` folder.
 This folder contains chromosome fasta files.
@@ -246,7 +246,7 @@ chr24_fasta = '{}/NC_000024.10.fasta'.format(data_chr_dir)
 """
 `rawdata` folder.
 """
-raw_data_dir = './rawdata'
-raw_data_promoter_dir = '{}/promoter'.format(raw_data_dir)
-raw_data_ss_dir = '{}/splice-sites'.format(raw_data_dir)
-raw_data_polya_dir = '{}/polya'.format(raw_data_dir)
+raw_data_dir = os.path.join('rawdata')
+raw_data_promoter_dir = os.path.join(raw_data_dir, 'promoter')
+raw_data_ss_dir = os.path.join(raw_data_dir, 'splice-sites')
+raw_data_polya_dir = os.path.join(raw_data_dir, 'poly-a')

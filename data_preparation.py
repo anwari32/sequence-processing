@@ -719,24 +719,21 @@ def merge_csv(csv_files, csv_target):
     @param  csv_files (array of string): array of csv file path to be merged.
     @param  csv_target (string): csv target file path.
     @return (boolean): True if success.
-    """
-    if all([os.path.exists(a) for a in csv_files]):
+    """            
+    if os.path.exists(csv_target):
+        os.remove(csv_target)
 
-        if os.path.exists(csv_target):
-            os.remove(csv_target)
-
-        t = open(csv_target, 'x')
-        t.write('sequence,label\n')
-        for a in csv_files:
-            f = open(a, 'r')
-            next(f) # Skip first line.
-            for line in f:
-                t.write(line)
-            f.close()
-        t.close()
-        return True
-    return False
-
+    t = open(csv_target, 'x')
+    t.write('sequence,label\n')
+    for a in csv_files:
+        f = open(a, 'r')
+        next(f) # Skip first line.
+        for line in f:
+            t.write(line)
+        f.close()
+    t.close()
+    return True
+    
 def merge_dataset(prom_dataset_dir, ss_dataset_dir, polya_dataset_dir, csv_target_dir, file_to_merge=['train.csv', 'validation.csv', 'test.csv']):
     """
     Merge data from each directory based on mentioned files.
@@ -1144,7 +1141,7 @@ def expand_by_sliding_window(src_csv, target_csv, sliding_window_size=1, length=
             sequence = r['sequence'].split(' ')
             label = r['label']
             expanded_seq = kmer(sequence, length)
-            print("Processing source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
+            print("Expanding source {}: {}/{}".format(src_csv, i+1, src_df_len), end='\r')
             for seq in expanded_seq:
                 seq = ' '.join(seq)
                 frame = pd.DataFrame([[seq, label]], columns=_columns)
