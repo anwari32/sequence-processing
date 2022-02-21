@@ -7,7 +7,8 @@ from data_preparation import merge_csv, expand_complete_data, merge_dataset
 import os
 
 _types = ['train', 'validation']
-_n_samples = [500, 1000, 2000, 3000]
+# _n_samples = [500, 1000, 2000, 3000]
+_n_samples = [500, 1000]
 
 # Merge train.csv and validation.csv
 for _type in _types:
