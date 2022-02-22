@@ -222,13 +222,95 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
         f.close()
         return False
 
+def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
+    """
+    Read chromosome annotation index and chromosome fasta and generate label for each of base character in chromosome.
+    @param      chr_index_csv (string): path to chromosome csv index.
+    @param      chr_fasta (string): path to chromosome fasta.
+    @param      chr_annotation_file: path to save chromosome sequence and its label.
+    @return     (boolean): True if success.
+    """
+    records = SeqIO.parse(chr_fasta, 'fasta')
+    genome_record = next(records)
+    genome_str = str(genome_record.seq)
+    genome_length = len(genome_str)
+    annotation = ['.' for i in range(genome_length)]
+
+    f = open(chr_index_csv, 'r')
+    next(f) # Skip first line since first line is just header.
+
+
+    for line in tqdm(f):
+        """
+        Since the file is basically CSV, parsing CSV is carried out manually line by line.
+        The header is this.
+        `sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl`
+        Enjoy tah siah!
+        """
+        arr_line = line.strip().split(',')
+        seq_id = arr_line[0]
+        refseq = arr_line[1]
+        region = arr_line[2]
+        start_index = int(arr_line[3])
+        end_index = int(arr_line[4])
+        start = int(arr_line[5])
+        end = int(arr_line[6])
+        
+        if region == 'region':
+            """
+            This is the genome range. `annotation` has been initialized based on sequence in genome fasta file.
+            Compare the size and use the largest.
+            """
+            if len(annotation) < end:
+                annotation = ['.' for i in range(end)]
+            
+        elif region == 'exon':
+            """
+            This is exon. Take the region and write 'E' on annotation sequence.
+            """
+            start_region = start_index
+            end_region = end
+            for j in range(start_index, end):
+                annotation[j] = 'E'
+        else:
+            continue
+    #endfor
+    """
+    Compare the sequence and the annotation sequence. 
+    If annotation sequence is smaller than sequence, pad it with '.'.
+    If DNA sequence is smaller, pad it with 'N'.
+    """
+    annotation_length = len(annotation)
+    delta = genome_length - annotation_length
+    if (delta > 0):
+        print('padding annotation')
+        for k in range(0, delta):
+            annotation.append('.')
+    if (delta < 0):
+        print('padding sequence')
+        for k in range(0, delta):
+            genome_str = genome_str + 'N'
+
+    annotation_str = ''.join(annotation)
+    arr_annotation_str = kmer(annotation_str, 512, 1)
+    arr_genome_str = kmer(genome_str, 512, 1)
+    path = chr_annotation_file
+    if os.path.exists(path):
+        os.remove(path)
+    g = open(path, 'x')
+    g.write('sequence,label\n')
+    for seq, label in tqdm(zip(arr_genome_str, arr_annotation_str), total=len(arr_genome_str)):
+        g.write('{},{}\n'.format(seq, label))
+    g.close()
+    return True
+
 def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False, do_expand=False, kmer_size=3, expand_size=512, region='exon', limit_index=0, random=True, random_seed=1337):
     """
     Generate sequence labelling from given chromosome index and chromosome fasta.
     This function reads chr index to get all exon ranges and create labelling based on the index.
     After that sequence and its label sequence will be written into `target_csv`.
     If `do_expand` = True then sequence from `chr_fasta` will be expanded into 512-character chunks before being written.
-    If `do_kmer` = True then sequence from `chr_fasta` will be converted into kmer sequence with `k` = `kmer_size`.
+    If `do_kmer` = True then sequence from `chr_fasta` will be converted into kmer sequence with `k` = `kmer_size`. Only works if `do_expand` is True.
     Expansion is carried out before conversion to kmer.
     @param      chr_index (string):
     @param      chr_fasta (string):
@@ -345,7 +427,23 @@ def generate_sample_from_dir(dir_path, n_sample=0, frac_sample=0, seed=1337, fil
 from Bio import SeqIO
 
 def kmer(seq, length, window_size=1):
+    """
+    Convert string `seq` into array of fixed `length` token (kmer) .
+    @param      seq (string):
+    @param      length (int):
+    @param      window_size (int): stride.
+    @return     (array of string): array of kmer.
+    """
     return [seq[i:i+length] for i in range(0, len(seq)+1-length, window_size)]
+
+def chunk_string(seq, length):
+    """
+    Chunk string `seq` into fixed `length` parts.
+    @param      seq (string): string to break.
+    @param      length (int): size of each chunk.
+    @return     (array of string): array of `seq` parts.
+    """
+    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
 def generate_csv_from_fasta(src_fasta, target_csv, label, max_seq_length=512, sliding_window_size=1, expand=False):
     """

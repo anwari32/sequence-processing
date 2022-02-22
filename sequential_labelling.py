@@ -16,15 +16,20 @@ Labels = [
     'EEE',
 ]
 
+
+Label_Begin = '[BEGIN]'
+Label_End = '[END]'
 Label_Dictionary = {
-    '...': 0,
-    '..E': 1,
-    '.E.': 2,
-    'E..': 3,
-    '.EE': 4,
-    'EE.': 5,
-    'E.E': 6,
-    'EEE': 7,
+    '[BEGIN]': 0,
+    '...': 1,
+    '..E': 2,
+    '.E.': 3,
+    'E..': 4,
+    '.EE': 5,
+    'EE.': 6,
+    'E.E': 7,
+    'EEE': 8,
+    '[END]': 9
 }
 
 class DNASeqLabelling(nn.Module):
