@@ -10,7 +10,7 @@ from multitask_learning import get_sequences, preprocessing, train, MTModel, Pro
 
 
 def _parse_arg(args):
-    opts, arguments = getopt.getopt(args, "p:t:v:e:b:d:l:", ["pretrained=", "train_data=", "validation_data=", "epoch=", "batch_size=", "learning_rate=", "device=", "epsilon=", "warm_up=", "do_eval=", "log=", "limit_train=", "limit_val="])
+    opts, arguments = getopt.getopt(args, "p:t:v:e:b:d:l:", ["pretrained=", "train_data=", "validation_data=", "epoch=", "batch_size=", "learning_rate=", "device=", "epsilon=", "warm_up=", "do_eval=", "log=", "limit_train=", "limit_val=", "loss_strategy="])
     output = {}
     for option, argument in opts:
         print('{} - {}'.format(option, argument))
@@ -40,6 +40,8 @@ def _parse_arg(args):
             output['limit_train'] = int(argument)
         elif option in ['--limit_val']:
             output['limit_val'] = int(argument)
+        elif option in ['--loss_strategy']:
+            output['loss_strategy'] = argument
         else:
             print("Argument {} not recognized.".format(option))
             sys.exit(2)
@@ -60,6 +62,7 @@ if __name__ == "__main__":
     warmup = int(arguments['warm_up']) or 0
     limit_train = int(arguments['limit_train']) or 0
     limit_valid = int(arguments['limit_val']) or 0
+    loss_strategy = arguments['loss_strategy'] or 'sum' # Either `sum` or `average`
 
     """
     Initialize tokenizer using BertTokenizer with pretrained weights from DNABERT (Ji et. al., 2021).

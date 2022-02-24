@@ -33,11 +33,14 @@ class PromoterHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(768, out_features=128, device=device), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
             nn.ReLU(), # Asssume using ReLU.
-            nn.Linear(128, 2, device=device),
+            nn.Dropout(),
+            nn.Linear(128, 1, device=device),
         )
+        self.activation = nn.Sigmoid()
 
     def forward(self, x):
         x = self.stack(x)
+        x = self.activation(x)
         return x
 
 class SpliceSiteHead(nn.Module):
@@ -50,11 +53,14 @@ class SpliceSiteHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(768, out_features=512, device=device),
             nn.ReLU(),
+            nn.Dropout(),
             nn.Linear(512, 2, device=device)
         )
+        self.activation = nn.Softmax()
 
     def forward(self, x):
         x = self.stack(x)
+        x = self.activation(x)
         return x
 
 
@@ -68,11 +74,14 @@ class PolyAHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(768, 64, device=device), # Adapt from BERT layer which provide 768 outputs.
             nn.ReLU(), # Assume using ReLU.
+            nn.Dropout(),
             nn.Linear(64, 2, device=device),
         )
+        self.activation = nn.Softmax()
 
     def forward(self, x):
         x = self.stack(x)
+        x = self.activation(x)
         return x
 
 class MTModel(nn.Module):
@@ -147,7 +156,7 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
 
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', eval=False, val_dataloader=None):
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', eval=False, val_dataloader=None, loss_strategy='sum'):
     log_file = {}
     
     size = len(dataloader.dataset)
@@ -188,7 +197,10 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             loss_polya = loss_fn(outputs['polya'], b_labels_polya)
 
             # Following MTDNN (Liu et. al., 2019), loss is summed.
-            loss = loss_prom + loss_ss + loss_polya
+            if loss_strategy == 'average':
+                loss = (loss_prom + loss_ss + loss_polya)/3
+            else:
+                loss = loss_prom + loss_ss + loss_polya
 
             # Compute this batch error.
             batch_loss_prom += loss_prom
