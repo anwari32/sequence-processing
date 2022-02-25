@@ -5,6 +5,7 @@ import torch
 from datetime import datetime
 import pandas as pd
 import os
+from tqdm import tqdm
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -14,11 +15,10 @@ Create simple multitask learning architecture with three task.
 2. Splice-site detection.
 3. poly-A detection.
 """
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCELoss
 from torch import nn
 from torch.optim import AdamW
 from transformers import BertForMaskedLM
-crossentropy_loss_func = CrossEntropyLoss()
 
 def _get_adam_optimizer(parameters, lr=0, eps=0, beta=0):
     return AdamW(parameters, lr=lr, eps=eps, betas=beta)
@@ -56,13 +56,12 @@ class SpliceSiteHead(nn.Module):
             nn.Dropout(),
             nn.Linear(512, 2, device=device)
         )
-        self.activation = nn.Softmax()
+        self.activation = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.stack(x)
         x = self.activation(x)
         return x
-
 
 class PolyAHead(nn.Module):
     """
@@ -77,7 +76,8 @@ class PolyAHead(nn.Module):
             nn.Dropout(),
             nn.Linear(64, 2, device=device),
         )
-        self.activation = nn.Softmax()
+        self.activation = nn.Softmax(dim=1)
+        
 
     def forward(self, x):
         x = self.stack(x)
@@ -94,6 +94,9 @@ class MTModel(nn.Module):
         self.promoter_layer = promoter_head
         self.splice_site_layer = splice_site_head
         self.polya_layer = polya_head
+        self.promoter_loss_function = nn.BCELoss()
+        self.splice_site_loss_function = nn.CrossEntropyLoss()
+        self.polya_loss_function = nn.CrossEntropyLoss()
 
 
     def forward(self, input_ids, attention_masks):
@@ -120,15 +123,14 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
         # Compute logits.
         with torch.no_grad():
             logits = model(b_input_ids, b_attn_masks)
-
             prom_logits = logits['prom']
             ss_logits = logits['ss']
             polya_logits = logits['polya']
 
             # Compute loss.
-            prom_loss = loss_fn(prom_logits, b_label_prom).cpu().numpy().mean() * 100
-            ss_loss = loss_fn(ss_logits, b_label_ss).cpu().numpy().mean() * 100
-            polya_loss = loss_fn(polya_logits, b_label_polya).cpu().numpy().mean() * 100
+            prom_loss = loss_fn['prom'](prom_logits, b_label_prom.float().reshape(-1,1)).cpu().numpy().mean() * 100
+            ss_loss = loss_fn['ss'](ss_logits, b_label_ss).cpu().numpy().mean() * 100
+            polya_loss = loss_fn['polya'](polya_logits, b_label_polya).cpu().numpy().mean() * 100
             val_prom_loss.append(prom_loss)
             val_ss_loss.append(ss_loss)
             val_polya_loss.append(polya_loss)
@@ -157,30 +159,39 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
 def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', eval=False, val_dataloader=None, loss_strategy='sum'):
-    log_file = {}
-    
-    size = len(dataloader.dataset)
+    """
+    @param      dataloader:
+    @param      model:
+    @param      loss_fn:
+    @param      optimizer:
+    @param      scheduler:
+    @param      batch_size:
+    @param      epoch_size:
+    @param      log_file_path:
+    @param      device:
+    @param      eval:
+    @param      val_dataloader:
+    @param      loss_strategy:
+    """
+    log_file = {}    
     model.to(device)
     model.train()
     batch_counts = 0
     batch_loss = 0
     batch_loss_prom, batch_loss_ss, batch_loss_polya = 0, 0, 0
-    total_loss = 0
-    total_loss_prom, total_loss_ss, total_loss_polya = 0, 0, 0
-    _count = 0
-    _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya']
 
     if not os.path.exists(log_file_path):
         os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     if os.path.exists(log_file_path):
         os.remove(log_file_path)
+    _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya']
     log_file = open(log_file_path, 'x')
     log_file.write("{}\n".format(','.join(_cols)))
     _start_time = datetime.now()
     for i in range(epoch_size):
-        for step, batch in enumerate(dataloader):
+        for step, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
             batch_counts += 1
-            print("Epoch {}, Step {}".format(i, step), end='\r')
+            # print("Epoch {}, Step {}".format(i, step), end='\r')
 
             # Load batch to device.
             b_input_ids, b_attn_masks, b_labels_prom, b_labels_ss, b_labels_polya = tuple(t.to(device) for t in batch)
@@ -191,10 +202,15 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             # Perform forward pass.
             outputs = model(b_input_ids, b_attn_masks)
 
+            # Define loss function
+            prom_loss_function = loss_fn['prom'] if loss_fn['prom'] != None else model.promoter_loss_function
+            ss_loss_function = loss_fn['ss'] if loss_fn['ss'] != None else model.splice_sites_loss_function
+            polya_loss_function = loss_fn['polya'] if loss_fn['polya'] != None else model.polya_loss_function
+            
             # Compute error.
-            loss_prom = loss_fn(outputs['prom'], b_labels_prom)
-            loss_ss = loss_fn(outputs['ss'], b_labels_ss)
-            loss_polya = loss_fn(outputs['polya'], b_labels_polya)
+            loss_prom = prom_loss_function(outputs['prom'], b_labels_prom.float().reshape(-1, 1))
+            loss_ss = ss_loss_function(outputs['ss'], b_labels_ss)
+            loss_polya = polya_loss_function(outputs['polya'], b_labels_polya)
 
             # Following MTDNN (Liu et. al., 2019), loss is summed.
             if loss_strategy == 'average':
@@ -218,14 +234,15 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             optimizer.step()
             scheduler.step()
 
-            # Print training process.
+            # Reset accumulation loss.
             if (step % batch_size == 0 and step != 0) or (step == len(dataloader) - 1):
                 batch_loss = 0
                 batch_loss_prom = 0
                 batch_loss_ss = 0
                 batch_loss_polya = 0
                 batch_counts = 0
-        
+
+            # Empty cuda cache to save memory.
             torch.cuda.empty_cache()
         # endfor batch.
 
@@ -238,28 +255,12 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             print('polya acc: {}, polya loss: {}'.format(pola, poll))
             print('-----')
     # endfor epoch.
+
     log_file.close()
     _end_time = datetime.now()
     _elapsed_time = _end_time - _start_time
-    print("Training time {}".format(_elapsed_time))
-    return True
-    
-def test(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
-    size = len(dataloader.dataset)
-    num_batches = len(dataloader)
-    model.eval() # Set model on evaluation model.
-    test_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for X, y in dataloader:
-            X = X.to(device)
-            y = y.to(device)
-            pred = model(X)
-            test_loss += loss_fn(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-            test_loss /= num_batches
-            correct /= size
-            print(f"Test error: \n Accuracy: {(100*correct):>0.1f}% \n Avg Loss: {test_loss:>8f} \n")
+    print("Training Duration {}".format(_elapsed_time))
+    return model
 
 def get_sequences(csv_path, n_sample=10, random_state=1337):
     r"""
@@ -269,6 +270,8 @@ def get_sequences(csv_path, n_sample=10, random_state=1337):
     @param      random_state (int): random seed for randomly retriving `n_sample` instances.
     @return     (list, list, list, list): sequence, label_prom, label_ss, label_polya.
     """
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError("File {} not found.".format(csv_path))
     df = pd.read_csv(csv_path)
     if (n_sample > 0):
         df = df.sample(n=n_sample, random_state=random_state)
@@ -282,14 +285,14 @@ def get_sequences(csv_path, n_sample=10, random_state=1337):
 def preprocessing(data, tokenizer):
     """
     Preprocessing for pretrained BERT.
-    @param  data (string): string containing kmers separated by spaces.
-    @param  tokenizer (Tokenizer): tokenizer initialized from pretrained values.
-    @return input_ids (torch.Tensor): tensor of token ids to be fed to model.
-    @return attention_masks (torch.Tensor): tensor of indices (a bunch of 'indexes') specifiying which token needs to be attended by model.
+    @param      data (array of string): array of string, each string contains kmers separated by spaces.
+    @param      tokenizer (Tokenizer): tokenizer initialized from pretrained values.
+    @return     input_ids, attention_masks (tuple of torch.Tensor): tensor of token ids to be fed to model,
+                tensor of indices (a bunch of 'indexes') specifiying which token needs to be attended by model.
     """
     input_ids = []
     attention_masks = []
-
+    _start_time = datetime.now()
     _count = 0
     _len_data = len(data)
     for sequence in data:
@@ -312,5 +315,7 @@ def preprocessing(data, tokenizer):
     # Convert input_ids and attention_masks to tensor.
     input_ids = torch.tensor(input_ids)
     attention_masks = torch.tensor(attention_masks)
-
+    _end_time = datetime.now()
+    _elapsed_time = _end_time - _start_time
+    print("Preprocessing Duration {}".format(_elapsed_time))
     return input_ids, attention_masks

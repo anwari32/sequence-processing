@@ -1,13 +1,11 @@
+import os
 from sched import scheduler
-from click import argument
 import torch
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCELoss
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler
 import getopt, os, sys
 from transformers import AdamW, BertTokenizer, BertModel, get_linear_schedule_with_warmup
 from multitask_learning import get_sequences, preprocessing, train, MTModel, PromoterHead, SpliceSiteHead, PolyAHead
-
-
 
 def _parse_arg(args):
     opts, arguments = getopt.getopt(args, "p:t:v:e:b:d:l:", ["pretrained=", "train_data=", "validation_data=", "epoch=", "batch_size=", "learning_rate=", "device=", "epsilon=", "warm_up=", "do_eval=", "log=", "limit_train=", "limit_val=", "loss_strategy="])
@@ -68,7 +66,6 @@ if __name__ == "__main__":
     Initialize tokenizer using BertTokenizer with pretrained weights from DNABERT (Ji et. al., 2021).
     """
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
-
     train_seq, train_label_prom, train_label_ss, train_label_polya = get_sequences(train_path, n_sample=limit_train)
     validation_seq, val_label_prom, val_label_ss, val_label_polya = get_sequences(validation_path, n_sample=limit_valid)
 
@@ -97,19 +94,41 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_data, sampler=val_sampler, batch_size=BATCH_SIZE)
 
     print('# of training data: {}'.format(len(train_seq)))  
-    print('# of training data: {}'.format(len(validation_seq)))
+    print('# of validation data: {}'.format(len(validation_seq)))
 
     """
-    Initialize model.
+    Initialize and train-validate model.
     """
     prom_head = PromoterHead(device)
     ss_head = SpliceSiteHead(device)
     polya_head = PolyAHead(device)
     bert_layer = BertModel.from_pretrained(pretrained_path)
     model = MTModel(bert_layer, prom_head, ss_head, polya_head).to(device)
-    loss_fn = CrossEntropyLoss()
+    loss_fn = {
+        'prom':BCELoss(), 
+        'ss': CrossEntropyLoss(), 
+        'polya': CrossEntropyLoss()
+    }
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon)
     training_steps = len(train_dataloader) * EPOCH_SIZE
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
 
-    train(train_dataloader, model, loss_fn, optimizer, scheduler, BATCH_SIZE, EPOCH_SIZE, log, device, True, val_dataloader)
+    trained_model = train(train_dataloader, model, loss_fn, optimizer, scheduler, BATCH_SIZE, EPOCH_SIZE, log, device, True, val_dataloader)
+
+    """
+    Save model.
+    """
+    from datetime import datetime
+    now = datetime.now().strftime('%Y-%m-%d')
+
+    bert_model_path = os.path.join('result', 'cpu', 'bert', now)
+    whole_model_path = os.path.join('result', 'cpu', 'whole', now)
+    if device != 'cpu':
+        bert_model_path = os.path.join('result', 'gpu', 'bert', now)
+        whole_model_path = os.path.join('result', 'gpu', 'whole', now)
+    os.makedirs(bert_model_path, exist_ok=True)
+    print("Saving BERT layer and whole model.")
+    trained_model.shared_layer.save_pretrained(bert_model_path)
+    torch.save(trained_model.state_dict(), whole_model_path)
+
+
