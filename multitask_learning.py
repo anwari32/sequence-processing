@@ -1,11 +1,16 @@
-from torch import cuda
-from transformers import BertForMaskedLM
-import numpy as np
 import torch
+from torch import cuda
+from torch.nn import CrossEntropyLoss, BCELoss
+from torch import nn
+from torch.optim import AdamW
+from torch import tensor
+from torch.utils.data import TensorDataset, DataLoader
+from transformers import BertForMaskedLM, BertTokenizer
+from tqdm import tqdm
+import numpy as np
 from datetime import datetime
 import pandas as pd
 import os
-from tqdm import tqdm
 import sys
 
 _device = "cuda" if cuda.is_available() else "cpu"
@@ -16,10 +21,6 @@ Create simple multitask learning architecture with three task.
 2. Splice-site detection.
 3. poly-A detection.
 """
-from torch.nn import CrossEntropyLoss, BCELoss
-from torch import nn
-from torch.optim import AdamW
-from transformers import BertForMaskedLM
 
 def _get_adam_optimizer(parameters, lr=0, eps=0, beta=0):
     return AdamW(parameters, lr=lr, eps=eps, betas=beta)
@@ -108,6 +109,20 @@ class MTModel(nn.Module):
         x3 = self.polya_layer(x)
         return {'prom': x1, 'ss': x2, 'polya': x3}
 
+def init_model_mtl(pretrained_path, device="cpu"):
+    polya_head = PolyAHead()
+    promoter_head = PromoterHead()
+    splice_head = SpliceSiteHead()
+
+    dnabert_3_pretrained = pretrained_path
+    shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
+    model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head)
+    return model
+
+def forward(model, input_ids, attention_mask):
+    pred_prom, pred_ss, pred_polya = model(input_ids, attention_mask)
+    return pred_prom, pred_ss, pred_polya
+
 def evaluate(model, dataloader, loss_fn, device='cpu'):
     model.eval()
     model.to(device)
@@ -119,27 +134,25 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
     val_polya_loss = []
 
     for step, batch in enumerate(dataloader):
-        b_input_ids, b_attn_masks, b_label_prom, b_label_ss, b_label_polya = tuple(t.to(device) for t in batch)
+        b_input_ids, b_attn_mask, b_label_prom, b_label_ss, b_label_polya = tuple(t.to(device) for t in batch)
 
         # Compute logits.
         with torch.no_grad():
-            logits = model(b_input_ids, b_attn_masks)
-            prom_logits = logits['prom']
-            ss_logits = logits['ss']
-            polya_logits = logits['polya']
+            # Forward.
+            pred_prom, pred_ss, pred_polya = forward(model, b_input_ids, b_attn_mask)
 
             # Compute loss.
-            prom_loss = loss_fn['prom'](prom_logits, b_label_prom.float().reshape(-1,1)).cpu().numpy().mean() * 100
-            ss_loss = loss_fn['ss'](ss_logits, b_label_ss).cpu().numpy().mean() * 100
-            polya_loss = loss_fn['polya'](polya_logits, b_label_polya).cpu().numpy().mean() * 100
+            prom_loss = loss_fn['prom'](pred_prom, b_label_prom.float().reshape(-1,1)).cpu().numpy().mean() * 100
+            ss_loss = loss_fn['ss'](pred_ss, b_label_ss).cpu().numpy().mean() * 100
+            polya_loss = loss_fn['polya'](pred_polya, b_label_polya).cpu().numpy().mean() * 100
             val_prom_loss.append(prom_loss)
             val_ss_loss.append(ss_loss)
             val_polya_loss.append(polya_loss)
 
             # Prediction.
-            preds_prom = torch.argmax(prom_logits, dim=1).flatten()
-            preds_ss = torch.argmax(ss_logits, dim=1).flatten()
-            preds_polya = torch.argmax(polya_logits, dim=1).flatten()
+            preds_prom = torch.argmax(pred_prom, dim=1).flatten()
+            preds_ss = torch.argmax(pred_ss, dim=1).flatten()
+            preds_polya = torch.argmax(pred_polya, dim=1).flatten()
 
             # Accuracy
             prom_acc = (preds_prom == b_label_prom).cpu().numpy().mean() * 100
@@ -159,7 +172,7 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
 
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', eval=False, val_dataloader=None, loss_strategy='sum', save_model_path=None):
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', loss_strategy='sum', save_model_path=None):
     """
     @param      dataloader:
     @param      model:
@@ -170,9 +183,8 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
     @param      epoch_size:
     @param      log_file_path:
     @param      device:
-    @param      eval:
-    @param      val_dataloader:
     @param      loss_strategy:
+    @param      save_model_path (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
     """
     log_file = {}    
     model.to(device)
@@ -256,16 +268,13 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
                     sys.exit(2)
             else:
                 os.makedirs(save_path)
-            torch.save(model, save_path)
+            save_path_model = os.path.join(save_path, 'epoch-{}'.format(i))
+            torch.save(model, save_path_model)
+            
+            # Remove old model.
+            if (i-1) >= 0:
+                os.remove(os.path.join(save_path, 'epoch-{}'.format(i-1)))
         
-        # After and epoch, Evaluate!
-        if eval and val_dataloader:
-            pa, ssa, pola, pl, ssl, poll = evaluate(model, val_dataloader, loss_fn, device)
-            print('-----EPOCH-{}-----'.format(i+1))
-            print('prom acc: {}, prom loss: {}'.format(pa, pl))
-            print('ss acc: {}, ss loss: {}'.format(ssa, ssl))
-            print('polya acc: {}, polya loss: {}'.format(pola, poll))
-            print('--------END-------')
     # endfor epoch.
 
     log_file.close()
@@ -331,3 +340,23 @@ def preprocessing(data, tokenizer):
     _elapsed_time = _end_time - _start_time
     print("Preprocessing Duration {}".format(_elapsed_time))
     return input_ids, attention_masks
+
+def prepare_data(csv_file, pretrained_tokenizer_path, batch_size=2000, n_sample=0, random_state=1337):
+    """
+    @return dataloader (torch.utils.data.DataLoader)
+    """
+    if not os.path.exists(csv_file):
+        raise FileNotFoundError("File {} not found.".format(csv_file))
+        sys.exit(2)
+    tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
+    sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state)
+    arr_input_ids, arr_attn_mask = preprocessing(sequences, tokenizer)
+    prom_labels_tensor = tensor(prom_labels)
+    ss_labels_tensor = tensor(ss_labels)
+    polya_labels_tensor = tensor(polya_labels)
+
+    dataset = TensorDataset(arr_input_ids, arr_attn_mask, prom_labels_tensor, ss_labels_tensor, polya_labels_tensor)
+    dataloader = DataLoader(dataset, batch_size=batch_size)
+    return dataloader
+
+
