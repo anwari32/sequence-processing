@@ -69,11 +69,13 @@ class DNABERTSeq2Seq(nn.Module):
         self.bert = bert_layer
         self.seq2seq_head = seq2seq_head
         self.loss_function = nn.NLLLoss()
+        self.activation = nn.Softmax(dim=1)
 
     def forward(self, input_ids, attention_masks):
         output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
         output = output[0][:,0,:]
         output = self.seq2seq_head(output)
+        output = self.activation(output)
         return output
 
 def initialize_seq2seq(bert_pretrained_path, in_out_dims):

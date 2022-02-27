@@ -6,6 +6,7 @@ from datetime import datetime
 import pandas as pd
 import os
 from tqdm import tqdm
+import sys
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -158,7 +159,7 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
 
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', eval=False, val_dataloader=None, loss_strategy='sum'):
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', eval=False, val_dataloader=None, loss_strategy='sum', save_model_path=None):
     """
     @param      dataloader:
     @param      model:
@@ -246,14 +247,25 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             torch.cuda.empty_cache()
         # endfor batch.
 
-        # Evaluate.
+        # After and epoch, Save the model if `save_model_path` is not None.
+        if save_model_path != None:
+            save_path = os.path.join(save_model_path)
+            if os.path.exists(save_path):
+                if not os.path.isdir(save_path):
+                    print('Save path is not path to directory.')
+                    sys.exit(2)
+            else:
+                os.makedirs(save_path)
+            torch.save(model, save_path)
+        
+        # After and epoch, Evaluate!
         if eval and val_dataloader:
             pa, ssa, pola, pl, ssl, poll = evaluate(model, val_dataloader, loss_fn, device)
-            print('-----')
+            print('-----EPOCH-{}-----'.format(i+1))
             print('prom acc: {}, prom loss: {}'.format(pa, pl))
             print('ss acc: {}, ss loss: {}'.format(ssa, ssl))
             print('polya acc: {}, polya loss: {}'.format(pola, poll))
-            print('-----')
+            print('--------END-------')
     # endfor epoch.
 
     log_file.close()
