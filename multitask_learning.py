@@ -119,11 +119,18 @@ def init_model_mtl(pretrained_path, device="cpu"):
     model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head)
     return model
 
+def restore_model(model_path, device="cpu"):
+    """
+    @return     model
+    """
+    model = torch.load(model_path)
+    return model.to(device)
+
 def forward(model, input_ids, attention_mask):
     pred_prom, pred_ss, pred_polya = model(input_ids, attention_mask)
     return pred_prom, pred_ss, pred_polya
 
-def evaluate(model, dataloader, loss_fn, device='cpu'):
+def evaluate(dataloader, model, loss_fn, log, device='cpu'):
     model.eval()
     model.to(device)
     val_prom_acc = []
@@ -133,6 +140,11 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
     val_polya_acc = []
     val_polya_loss = []
 
+    if os.path.exists(log):
+        os.remove(log)
+    os.makedirs(os.path.dirname(log), exist_ok=True)
+    log_file = open(log, 'x')
+    log_file.write('step,loss_prom,loss_ss,loss_polya,acc_prom,acc_ss,acc_polya\n')
     for step, batch in enumerate(dataloader):
         b_input_ids, b_attn_mask, b_label_prom, b_label_ss, b_label_polya = tuple(t.to(device) for t in batch)
 
@@ -141,10 +153,15 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
             # Forward.
             pred_prom, pred_ss, pred_polya = forward(model, b_input_ids, b_attn_mask)
 
+            # Get loss function.
+            prom_loss_function = loss_fn['prom']
+            ss_loss_function = loss_fn['ss']
+            polya_loss_function = loss_fn['polya']
+
             # Compute loss.
-            prom_loss = loss_fn['prom'](pred_prom, b_label_prom.float().reshape(-1,1)).cpu().numpy().mean() * 100
-            ss_loss = loss_fn['ss'](pred_ss, b_label_ss).cpu().numpy().mean() * 100
-            polya_loss = loss_fn['polya'](pred_polya, b_label_polya).cpu().numpy().mean() * 100
+            prom_loss = prom_loss_function(pred_prom, b_label_prom.float().reshape(-1,1)).cpu().numpy().mean() * 100
+            ss_loss = ss_loss_function(pred_ss, b_label_ss).cpu().numpy().mean() * 100
+            polya_loss = polya_loss_function(pred_polya, b_label_polya).cpu().numpy().mean() * 100
             val_prom_loss.append(prom_loss)
             val_ss_loss.append(ss_loss)
             val_polya_loss.append(polya_loss)
@@ -162,6 +179,18 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
             val_ss_acc.append(ss_acc)
             val_polya_acc.append(polya_acc)
 
+            log_file.write('{},{},{},{},{},{},{}\n'.format(
+                step,
+                prom_loss,
+                ss_loss,
+                polya_loss,
+                prom_acc,
+                ss_acc,
+                polya_acc
+            ))
+    #endfor
+
+    log_file.close()
     # Compute average acc and loss.
     avg_prom_acc = np.mean(val_prom_acc)
     avg_ss_acc = np.mean(val_ss_acc)
@@ -172,7 +201,7 @@ def evaluate(model, dataloader, loss_fn, device='cpu'):
 
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', loss_strategy='sum', save_model_path=None):
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', loss_strategy='sum', save_model_path=None, remove_old_model=False):
     """
     @param      dataloader:
     @param      model:
@@ -272,8 +301,9 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             torch.save(model, save_path_model)
             
             # Remove old model.
-            if (i-1) >= 0:
-                os.remove(os.path.join(save_path, 'epoch-{}'.format(i-1)))
+            if remove_old_model:
+                if (i-1) >= 0:
+                    os.remove(os.path.join(save_path, 'epoch-{}'.format(i-1)))
         
     # endfor epoch.
 

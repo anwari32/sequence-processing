@@ -24,7 +24,8 @@ def _parse_arg(args):
         "log=", 
         "limit_train=", 
         "loss_strategy=", 
-        "save_model_path="]
+        "save_model_path=",
+        "remove_old_model="]
     )
     output = {}
     
@@ -59,6 +60,8 @@ def _parse_arg(args):
             output['save_model_path'] = argument
         elif option in ['-l', '--log']:
             output['log'] = argument
+        elif option in ['--remove_old_model']:
+            output['remove_old_model'] = bool(argument)
         else:
             print("Argument {} not recognized.".format(option))
             sys.exit(2)
@@ -82,6 +85,7 @@ if __name__ == "__main__":
     limit_train = int(arguments['limit_train']) if 'limit_train' in arguments.keys() else 0
     loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
     save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else None
+    remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
 
     for key in arguments.keys():
         print('{} - {}'.format(key, arguments[key]))
