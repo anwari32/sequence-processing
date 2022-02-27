@@ -1,0 +1,2 @@
+HOW TO RUN MULTITASK LEARNING
+$ python .\run_train_and_eval_mtl.py -p pretrained\3-new-12w-0 -t workspace\train.2000.kmer.all.expanded.csv -v workspace\validation.2000.expanded.csv -e 5 -b 2 --learning_rate=5e-5 --device=cuda --epsilon=1e-8 --warm_up=0 --do_eval=True --log=logs\2022-02-25\2022-02-25.all.epoch1.batch_size2000.t2000.vsample.loss_sum.txt --limit_train=0 --limit_val=0 --loss_strategy=sum
