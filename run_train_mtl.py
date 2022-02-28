@@ -115,6 +115,18 @@ if __name__ == "__main__":
     }
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
     training_steps = len(train_dataloader) * EPOCH_SIZE
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
+    optim_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
 
-    trained_model = train(train_dataloader, model, loss_fn, optimizer, scheduler, BATCH_SIZE, EPOCH_SIZE, log, device, loss_strategy=loss_strategy, save_model_path=save_model_path)
+    trained_model = train(
+        train_dataloader, 
+        model, 
+        loss_fn, 
+        optimizer, 
+        optim_scheduler, 
+        BATCH_SIZE, 
+        EPOCH_SIZE, 
+        log, 
+        device, 
+        loss_strategy=loss_strategy, 
+        save_model_path=save_model_path, 
+        remove_old_model=remove_old_model)

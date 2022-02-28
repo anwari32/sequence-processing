@@ -170,4 +170,11 @@ def train_and_validation(model, optimizer, scheduler, train_dataloader, validati
         #endfor batch
     #endfor range
     return model
-    
+
+def convert_pred_to_label(pred, label_dict=Label_Dictionary):
+    """
+    @param      pred: tensor (<seq_length>, <dim>)
+    @param      label_dict: 
+    @return     array: []
+    """
+    return []
