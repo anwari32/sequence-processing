@@ -32,3 +32,34 @@ def read_sequence_from_file(source_file):
 def clean_up(sequence):
     sequence = ''.join(c for c in sequence if c not in ['N'])
     return sequence
+
+
+import torch
+import os
+def save_model_state_dict(model, save_path, save_filename):
+    """
+    Save model state dictionary.
+    """
+    save_model_path = os.path.join(save_path, save_filename)
+    if os.path.exists(save_model_path):
+        os.remove(save_model_path)
+    else:
+        os.makedirs(save_model_path, exist_ok=True)
+
+    model_save_path = os.path.join(save_path, os.path.basename(save_filename))
+    torch.save(model.state_dict(), model_save_path)
+
+def load_model_state_dict(model, load_path):
+    """
+    Load model state dictionary.
+    """
+    # If path does not exists, raise Error.
+    if not os.path.exists(load_path):
+        raise FileNotFoundError("File at {} not found.".format(load_path))
+    
+    # If path exists but it's a directory, raise Error.
+    if not os.path.isfile(load_path):
+        raise FileNotFoundError("Path {} doesn't point to file.".format(load_path))
+
+    model.load_state_dict(torch.load(load_path))
+    return model

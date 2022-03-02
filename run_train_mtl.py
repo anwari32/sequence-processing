@@ -86,6 +86,8 @@ if __name__ == "__main__":
     loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
     save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else None
     remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
+    resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
+    training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
 
     for key in arguments.keys():
         print('{} - {}'.format(key, arguments[key]))
@@ -107,7 +109,10 @@ if __name__ == "__main__":
     ss_head = SpliceSiteHead(device)
     polya_head = PolyAHead(device)
     bert_layer = BertModel.from_pretrained(pretrained_path)
-    model = MTModel(bert_layer, prom_head, ss_head, polya_head).to(device)
+    model = MTModel(bert_layer, prom_head, ss_head, polya_head)
+    if resume_from_checkpoint:
+        model.load_state_dict(torch.load(resume_from_checkpoint))
+    model.to(device)
     loss_fn = {
         'prom':BCELoss(), 
         'ss': CrossEntropyLoss(), 
@@ -129,4 +134,5 @@ if __name__ == "__main__":
         device, 
         loss_strategy=loss_strategy, 
         save_model_path=save_model_path, 
-        remove_old_model=remove_old_model)
+        remove_old_model=remove_old_model,
+        training_counter=training_counter)

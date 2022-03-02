@@ -15,23 +15,23 @@ _generic_filenames = ['train.csv', 'validation.csv', 'test.csv']
 File paths for Promoter, SS, and Poly-A.
 Datasets: Promoter, SS, and Poly-A
 """
-dataset_dir = './dataset'
-dataset_full_dir = '{}/full'.format(dataset_dir)
-dataset_full_prom_dir = '{}/promoter'.format(dataset_full_dir)
-dataset_full_ss_dir = '{}/splice-sites'.format(dataset_full_dir)
-dataset_full_polya_dir = '{}/polya'.format(dataset_full_dir)
-dataset_sample_dir = '{}/sample'.format(dataset_dir)
-dataset_sample_prom_dir = '{}/promoter'.format(dataset_sample_dir)
-dataset_sample_ss_dir = '{}/splice-sites'.format(dataset_sample_dir)
-dataset_sample_polya_dir = '{}/polya'.format(dataset_sample_dir)
-dataset_full_prom_train_csv = "{}/train.csv".format(dataset_full_prom_dir)
-dataset_full_polya_train_csv = "{}/train.csv".format(dataset_full_polya_dir)
-dataset_full_ss_train_csv = "{}/train.csv".format(dataset_full_ss_dir)
+dataset_dir = os.path.join("dataset")
+dataset_full_dir = os.path.join(dataset_dir, "full")
+dataset_full_prom_dir = os.path.join(dataset_full_dir, "promoter")
+dataset_full_ss_dir = os.path.join(dataset_full_dir, "splice-sites")
+dataset_full_polya_dir = os.path.join(dataset_full_dir, "polya")
+dataset_sample_dir = os.path.join(dataset_dir, "sample")
+dataset_sample_prom_dir = os.path.join(dataset_sample_dir, "promoter")
+dataset_sample_ss_dir = os.path.join(dataset_sample_dir, "splice-sites")
+dataset_sample_polya_dir = os.path.join(dataset_sample_dir, "polya")
+dataset_full_prom_train_csv = os.path.join(dataset_full_prom_dir, "train.csv")
+dataset_full_polya_train_csv = os.path.join(dataset_full_polya_dir, "train.csv")
+dataset_full_ss_train_csv = os.path.join(dataset_full_ss_dir, "train.csv")
 """
 Samples.
 """
-sample_dir = './sample'
-sample_prom_dir = '{}/promoter'.format(sample_dir)
+sample_dir = os.path.join('sample')
+sample_prom_dir = os.path.join(sample_dir, "promoter")
 sample_prom_pos_dir = '{}/positive'.format(sample_prom_dir)
 sample_prom_neg_dir = '{}/negative'.format(sample_prom_dir)
 sample_prom_train_csv = '{}/train.csv'.format(sample_prom_dir)
@@ -82,118 +82,150 @@ epd_test_csv = os.path.join(data_epd_dir, 'test.csv')
 """
 Chromosome and genome.
 """
-data_chr_dir = '{}/chr'.format(data_dir)
-data_genome_dir = '{}/genome'.format(data_dir)
-data_genome_grch38_dir = '{}/grch38'.format(data_genome_dir)
-data_genome_grch38_index_dir = '{}/csvs'.format(data_genome_grch38_dir)
-data_genome_grch38_exon_dir = '{}/exon'.format(data_genome_grch38_dir)
-data_genome_grch38_labels_dir = '{}/labels'.format(data_genome_grch38_dir)
+data_chr_dir = os.path.join(data_dir, 'chr')
+data_genome_dir = os.path.join(data_dir, 'genome')
+data_genome_grch38_dir = os.path.join(data_genome_dir, 'grch38')
+data_genome_grch38_index_dir = os.path.join(data_genome_grch38_dir, 'csvs')
+data_genome_grch38_exon_dir = os.path.join(data_genome_grch38_dir, 'exon')
+data_genome_grch38_labels_dir = os.path.join(data_genome_grch38_dir, 'labels')
 
-annotated_grch38_gff = '{}/GRCh38_latest_genomic.gff'.format(data_genome_grch38_dir)
-annotated_grch38_gff_dir = '{}/csvs'.format(data_genome_grch38_dir)
-annotated_grch38_gtf = '{}/GCF_000001405.39_GRCh38.p13_genomic.gtf'.format(data_genome_grch38_dir)
-annotated_grch38_gff_csv = '{}/grch38_gff.csv'.format(data_genome_grch38_dir)
-annotated_grch38_gtf_csv = '{}/grch38_gtf.csv'.format(data_genome_grch38_dir)
+annotated_grch38_gff = os.path.join(data_genome_grch38_dir, 'GRCh38_latest_genomic.gff')
+annotated_grch38_gff_dir = os.path.join(data_genome_grch38_dir, 'csvs')
+annotated_grch38_gtf = os.path.join(data_genome_grch38_dir, 'GCF_000001405.39_GRCh38.p13_genomic.gtf')
+annotated_grch38_gff_csv = os.path.join(data_genome_grch38_dir, 'grch38_gff.csv')
+annotated_grch38_gtf_csv = os.path.join(data_genome_grch38_dir, 'grch38_gtf.csv')
 
-chr1_index_csv = '{}/NC_000001.11.csv'.format(data_genome_grch38_index_dir)
-chr2_index_csv = '{}/NC_000002.12.csv'.format(data_genome_grch38_index_dir)
-chr3_index_csv = '{}/NC_000003.12.csv'.format(data_genome_grch38_index_dir)
-chr4_index_csv = '{}/NC_000004.12.csv'.format(data_genome_grch38_index_dir)
-chr5_index_csv = '{}/NC_000005.10.csv'.format(data_genome_grch38_index_dir)
-chr6_index_csv = '{}/NC_000006.12.csv'.format(data_genome_grch38_index_dir)
-chr7_index_csv = '{}/NC_000007.14.csv'.format(data_genome_grch38_index_dir)
-chr8_index_csv = '{}/NC_000008.11.csv'.format(data_genome_grch38_index_dir)
-chr9_index_csv = '{}/NC_000009.12.csv'.format(data_genome_grch38_index_dir)
-chr10_index_csv = '{}/NC_000010.11.csv'.format(data_genome_grch38_index_dir)
-chr11_index_csv = '{}/NC_000011.10.csv'.format(data_genome_grch38_index_dir)
-chr12_index_csv = '{}/NC_000012.12.csv'.format(data_genome_grch38_index_dir)
-chr13_index_csv = '{}/NC_000013.11.csv'.format(data_genome_grch38_index_dir)
-chr14_index_csv = '{}/NC_000014.9.csv'.format(data_genome_grch38_index_dir)
-chr15_index_csv = '{}/NC_000015.10.csv'.format(data_genome_grch38_index_dir)
-chr16_index_csv = '{}/NC_000016.10.csv'.format(data_genome_grch38_index_dir)
-chr17_index_csv = '{}/NC_000017.11.csv'.format(data_genome_grch38_index_dir)
-chr18_index_csv = '{}/NC_000018.10.csv'.format(data_genome_grch38_index_dir)
-chr19_index_csv = '{}/NC_000019.10.csv'.format(data_genome_grch38_index_dir)
-chr20_index_csv = '{}/NC_000020.11.csv'.format(data_genome_grch38_index_dir)
-chr21_index_csv = '{}/NC_000021.9.csv'.format(data_genome_grch38_index_dir)
-chr22_index_csv = '{}/NC_000022.11.csv'.format(data_genome_grch38_index_dir)
-chr23_index_csv = '{}/NC_000023.11.csv'.format(data_genome_grch38_index_dir)
-chr24_index_csv = '{}/NC_000024.10.csv'.format(data_genome_grch38_index_dir)
+chr1_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000001.11.csv')
+chr2_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000002.12.csv')
+chr3_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000003.12.csv')
+chr4_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000004.12.csv')
+chr5_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000005.10.csv')
+chr6_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000006.12.csv')
+chr7_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000007.14.csv')
+chr8_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000008.11.csv')
+chr9_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000009.12.csv')
+chr10_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000010.11.csv')
+chr11_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000011.10.csv')
+chr12_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000012.12.csv')
+chr13_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000013.11.csv')
+chr14_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000014.9.csv')
+chr15_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000015.10.csv')
+chr16_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000016.10.csv')
+chr17_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000017.11.csv')
+chr18_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000018.10.csv')
+chr19_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000019.10.csv')
+chr20_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000020.11.csv')
+chr21_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000021.9.csv')
+chr22_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000022.11.csv')
+chr23_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000023.11.csv')
+chr24_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000024.10.csv')
 
-labseq_dir = "{}/labseq".format(data_genome_dir)
+chr_index_csvs = [
+    chr1_index_csv,
+    chr2_index_csv,
+    chr3_index_csv,
+    chr4_index_csv,
+    chr5_index_csv,
+    chr6_index_csv,
+    chr7_index_csv,
+    chr8_index_csv,
+    chr9_index_csv,
+    chr10_index_csv,
+    chr11_index_csv,
+    chr12_index_csv,
+    chr13_index_csv,
+    chr14_index_csv,
+    chr15_index_csv,
+    chr16_index_csv,
+    chr17_index_csv,
+    chr18_index_csv,
+    chr19_index_csv,
+    chr20_index_csv,
+    chr21_index_csv,
+    chr22_index_csv,
+    chr23_index_csv,
+    chr24_index_csv
+]
+
+labseq_dir = os.path.join(data_genome_dir, 'labseq')
 labseq_names = [
     'chr1.csv','chr2.csv','chr3.csv','chr4.csv','chr5.csv','chr6.csv','chr7.csv','chr8.csv','chr9.csv','chr10.csv',
     'chr11.csv','chr12.csv','chr13.csv','chr14.csv','chr15.csv','chr16.csv','chr17.csv','chr18.csv','chr19.csv','chr20.csv',
     'chr21.csv','chr22.csv','chr23.csv','chr24.csv'
 ]
 
+labseq_chr_files = [os.path.join(labseq_dir, a) for a in labseq_names]
+
 """
 Poly A.
 """
-polya_grch38_dir = '{}/poly-a/grch38'.format(data_dir)
-polya_grch38_index_csv = '{}/polya_index.csv'.format(polya_grch38_dir)
-polya_grch38_positive_csv = '{}/polya_positive.csv'.format(polya_grch38_dir)
-polya_grch38_negative_csv = '{}/polya_negative.csv'.format(polya_grch38_dir)
-polya_grch38_positive_kmer_csv = '{}/polya_positive_kmer.csv'.format(polya_grch38_dir)
-polya_grch38_negative_kmer_csv = '{}/polya_negative_kmer.csv'.format(polya_grch38_dir)
-polya_grch38_positive_dir = '{}/positive'.format(polya_grch38_dir)
-polya_grch38_negative_dir = '{}/negative'.format(polya_grch38_dir)
-polya_grch38_train_csv = '{}/train.csv'.format(polya_grch38_dir)
-polya_grch38_validation_csv = '{}/validation.csv'.format(polya_grch38_dir)
-polya_grch38_test_csv = '{}/test.csv'.format(polya_grch38_dir)
+polya_grch38_dir = os.path.join(data_dir, 'poly-a/grch38') 
+polya_grch38_index_csv = os.path.join(polya_grch38_dir, 'polya_index.csv')
+polya_grch38_positive_csv = os.path.join(polya_grch38_dir, 'polya_positive.csv')
+polya_grch38_negative_csv = os.path.join(polya_grch38_dir, 'polya_negative.csv')
+polya_grch38_positive_kmer_csv = os.path.join(polya_grch38_dir, 'polya_positive_kmer.csv')
+polya_grch38_negative_kmer_csv = os.path.join(polya_grch38_dir, 'polya_negative_kmer.csv')
+polya_grch38_positive_dir = os.path.join(polya_grch38_dir, 'positive')
+polya_grch38_negative_dir = os.path.join(polya_grch38_dir, 'negative')
+polya_grch38_train_csv = os.path.join(polya_grch38_dir, 'train.csv')
+polya_grch38_validation_csv = os.path.join(polya_grch38_dir, 'validation.csv')
+polya_grch38_test_csv = os.path.join(polya_grch38_dir, 'test.csv')
 
 """
 Splice sites.
 """
-ss_dir = "{}/splice-sites/splice-deep".format(data_dir)
-ss_pos_acc_dir = "{}/pos_acc".format(ss_dir)
-ss_pos_don_dir = "{}/pos_don".format(ss_dir)
-ss_neg_acc_dir = "{}/neg_acc".format(ss_dir)
-ss_neg_don_dir = "{}/neg_don".format(ss_dir)
+ss_dir = os.path.join(data_dir, "splice-sites/splice-deep")
+ss_pos_acc_dir = os.path.join(ss_dir, "pos_acc")
+ss_pos_don_dir = os.path.join(ss_dir, "pos_don")
+ss_neg_acc_dir = os.path.join(ss_dir, "neg_acc")
+ss_neg_don_dir = os.path.join(ss_dir, "neg_don")
 
-ss_pos_acc_hs_csv = "{}/pos_ss_acc_hs.csv".format(ss_dir)
-ss_pos_don_hs_csv = "{}/pos_ss_don_hs.csv".format(ss_dir)
-ss_neg_acc_hs_csv = "{}/neg_ss_acc_hs.csv".format(ss_dir)
-ss_neg_don_hs_csv = "{}/neg_ss_don_hs.csv".format(ss_dir)
+ss_pos_acc_hs_csv = os.path.join(ss_dir, "pos_ss_acc_hs.csv")
+ss_pos_don_hs_csv = os.path.join(ss_dir, "pos_ss_don_hs.csv")
+ss_neg_acc_hs_csv = os.path.join(ss_dir, "neg_ss_acc_hs.csv")
+ss_neg_don_hs_csv = os.path.join(ss_dir, "neg_ss_don_hs.csv")
 
-ss_pos_acc_hs_kmer_csv = "{}/pos_ss_acc_hs_kmer.csv".format(ss_dir)
-ss_pos_don_hs_kmer_csv = "{}/pos_ss_don_hs_kmer.csv".format(ss_dir)
-ss_neg_acc_hs_kmer_csv = "{}/neg_ss_acc_hs_kmer.csv".format(ss_dir)
-ss_neg_don_hs_kmer_csv = "{}/neg_ss_don_hs_kmer.csv".format(ss_dir)
+ss_pos_acc_hs_kmer_csv = os.path.join(ss_dir, "pos_ss_acc_hs_kmer.csv")
+ss_pos_don_hs_kmer_csv = os.path.join(ss_dir, "pos_ss_don_hs_kmer.csv")
+ss_neg_acc_hs_kmer_csv = os.path.join(ss_dir, "neg_ss_acc_hs_kmer.csv")
+ss_neg_don_hs_kmer_csv = os.path.join(ss_dir, "neg_ss_don_hs_kmer.csv")
 
-ss_pos_acc_hs_non_kmer_csv = "{}/pos_ss_acc_hs_non_kmer.csv".format(ss_dir)
-ss_pos_don_hs_non_kmer_csv = "{}/pos_ss_don_hs_non_kmer.csv".format(ss_dir)
-ss_neg_acc_hs_non_kmer_csv = "{}/neg_ss_acc_hs_non_kmer.csv".format(ss_dir)
-ss_neg_don_hs_non_kmer_csv = "{}/neg_ss_don_hs_non_kmer.csv".format(ss_dir)
+ss_pos_acc_hs_non_kmer_csv = os.path.join(ss_dir, "pos_ss_acc_hs_non_kmer.csv")
+ss_pos_don_hs_non_kmer_csv = os.path.join(ss_dir, "pos_ss_don_hs_non_kmer.csv")
+ss_neg_acc_hs_non_kmer_csv = os.path.join(ss_dir, "neg_ss_acc_hs_non_kmer.csv")
+ss_neg_don_hs_non_kmer_csv = os.path.join(ss_dir, "neg_ss_don_hs_non_kmer.csv")
 
-ss_pos_acc_hs_fasta = "{}/positive_DNA_seqs_acceptor_hs.fa"
-ss_pos_don_hs_fasta = "{}/positive_DNA_seqs_donor_hs.fa"
-ss_neg_acc_hs_fasta = "{}/negative_DNA_seqs_acceptor_hs.fa"
-ss_neg_don_hs_fasta = "{}/negative_DNA_seqs_donor_hs.fa"
+ss_pos_acc_hs_fasta = os.path.join(ss_dir, "positive_DNA_seqs_acceptor_hs.fa")
+ss_pos_don_hs_fasta = os.path.join(ss_dir, "positive_DNA_seqs_donor_hs.fa")
+ss_neg_acc_hs_fasta = os.path.join(ss_dir, "negative_DNA_seqs_acceptor_hs.fa")
+ss_neg_don_hs_fasta = os.path.join(ss_dir, "negative_DNA_seqs_donor_hs.fa")
 
-ss_train_csv = "{}/train.csv".format(ss_dir)
-ss_validation_csv = "{}/validation.csv".format(ss_dir)
-ss_test_csv = "{}/test.csv".format(ss_dir)
+ss_train_csv = os.path.join(ss_dir, "train.csv")
+ss_validation_csv = os.path.join(ss_dir, "validation.csv")
+ss_test_csv = os.path.join(ss_dir, "test.csv")
 
 """
 `result` folder.
 """
-result_dir = "./result"
-pretrained_dir = "./pretrained"
-pretrained_3kmer_dir = "{}/3-new-12w-0".format(pretrained_dir)
+result_dir = os.path.join('result')
+"""
+`pretrained` folder.
+"""
+pretrained_dir = os.path.join('pretrained')
+pretrained_3kmer_dir = os.path.join(pretrained_dir, "3-new-12w-0")
 
 """
 `logs` folder.
 """
-log_dir = './log'
-def get_current_log_folder():
+log_dir = os.path.join('log')
+def get_current_log_folder(root=log_dir):
     import datetime
     import os
     _now = datetime.datetime.now()
     _str_now = _now.strftime('%Y-%m-%d')
-    _log_dir = "{}/{}".format(log_dir, _str_now)
+    _log_dir = os.path.join(log_dir, _str_now)
     if not os.path.exists(_log_dir):
-        os.mkdir(_log_dir)
+        os.makedirs(_log_dir, exist_ok=True)
     return _log_dir
 
 def get_current_log_name():
@@ -218,30 +250,30 @@ workspace_polya_dir = os.path.join(workspace_dir, 'polya')
 `chr` folder.
 This folder contains chromosome fasta files.
 """
-chr1_fasta = '{}/NC_000001.11.fasta'.format(data_chr_dir)
-chr2_fasta = '{}/NC_000002.12.fasta'.format(data_chr_dir)
-chr3_fasta = '{}/NC_000003.12.fasta'.format(data_chr_dir)
-chr4_fasta = '{}/NC_000004.12.fasta'.format(data_chr_dir)
-chr5_fasta = '{}/NC_000005.10.fasta'.format(data_chr_dir)
-chr6_fasta = '{}/NC_000006.12.fasta'.format(data_chr_dir)
-chr7_fasta = '{}/NC_000007.14.fasta'.format(data_chr_dir)
-chr8_fasta = '{}/NC_000008.11.fasta'.format(data_chr_dir)
-chr9_fasta = '{}/NC_000009.12.fasta'.format(data_chr_dir)
-chr10_fasta = '{}/NC_000010.11.fasta'.format(data_chr_dir)
-chr11_fasta = '{}/NC_000011.10.fasta'.format(data_chr_dir)
-chr12_fasta = '{}/NC_000012.12.fasta'.format(data_chr_dir)
-chr13_fasta = '{}/NC_000013.11.fasta'.format(data_chr_dir)
-chr14_fasta = '{}/NC_000014.9.fasta'.format(data_chr_dir)
-chr15_fasta = '{}/NC_000015.10.fasta'.format(data_chr_dir)
-chr16_fasta = '{}/NC_000016.10.fasta'.format(data_chr_dir)
-chr17_fasta = '{}/NC_000017.11.fasta'.format(data_chr_dir)
-chr18_fasta = '{}/NC_000018.10.fasta'.format(data_chr_dir)
-chr19_fasta = '{}/NC_000019.10.fasta'.format(data_chr_dir)
-chr20_fasta = '{}/NC_000020.11.fasta'.format(data_chr_dir)
-chr21_fasta = '{}/NC_000021.9.fasta'.format(data_chr_dir)
-chr22_fasta = '{}/NC_000022.11.fasta'.format(data_chr_dir)
-chr23_fasta = '{}/NC_000023.11.fasta'.format(data_chr_dir)
-chr24_fasta = '{}/NC_000024.10.fasta'.format(data_chr_dir)
+chr1_fasta = os.path.join(data_chr_dir, 'NC_000001.11.fasta')
+chr2_fasta = os.path.join(data_chr_dir, 'NC_000002.12.fasta')
+chr3_fasta = os.path.join(data_chr_dir, 'NC_000003.12.fasta')
+chr4_fasta = os.path.join(data_chr_dir, 'NC_000004.12.fasta')
+chr5_fasta = os.path.join(data_chr_dir, 'NC_000005.10.fasta')
+chr6_fasta = os.path.join(data_chr_dir, 'NC_000006.12.fasta')
+chr7_fasta = os.path.join(data_chr_dir, 'NC_000007.14.fasta')
+chr8_fasta = os.path.join(data_chr_dir, 'NC_000008.11.fasta')
+chr9_fasta = os.path.join(data_chr_dir, 'NC_000009.12.fasta')
+chr10_fasta = os.path.join(data_chr_dir, 'NC_000010.11.fasta')
+chr11_fasta = os.path.join(data_chr_dir, 'NC_000011.10.fasta')
+chr12_fasta = os.path.join(data_chr_dir, 'NC_000012.12.fasta')
+chr13_fasta = os.path.join(data_chr_dir, 'NC_000013.11.fasta')
+chr14_fasta = os.path.join(data_chr_dir, 'NC_000014.9.fasta')
+chr15_fasta = os.path.join(data_chr_dir, 'NC_000015.10.fasta')
+chr16_fasta = os.path.join(data_chr_dir, 'NC_000016.10.fasta')
+chr17_fasta = os.path.join(data_chr_dir, 'NC_000017.11.fasta')
+chr18_fasta = os.path.join(data_chr_dir, 'NC_000018.10.fasta')
+chr19_fasta = os.path.join(data_chr_dir, 'NC_000019.10.fasta')
+chr20_fasta = os.path.join(data_chr_dir, 'NC_000020.11.fasta')
+chr21_fasta = os.path.join(data_chr_dir, 'NC_000021.9.fasta')
+chr22_fasta = os.path.join(data_chr_dir, 'NC_000022.11.fasta')
+chr23_fasta = os.path.join(data_chr_dir, 'NC_000023.11.fasta')
+chr24_fasta = os.path.join(data_chr_dir, 'NC_000024.10.fasta')
 
 """
 `rawdata` folder.

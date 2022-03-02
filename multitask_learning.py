@@ -1,3 +1,4 @@
+from tkinter.tix import FileSelectBox
 import torch
 from torch import cuda
 from torch.nn import CrossEntropyLoss, BCELoss
@@ -12,6 +13,7 @@ from datetime import datetime
 import pandas as pd
 import os
 import sys
+from utils import save_model_state_dict
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -80,7 +82,6 @@ class PolyAHead(nn.Module):
         )
         self.activation = nn.Softmax(dim=1)
         
-
     def forward(self, x):
         x = self.stack(x)
         x = self.activation(x)
@@ -90,7 +91,7 @@ class MTModel(nn.Module):
     """
     Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
     """
-    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head):
+    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head, loss_strategy="sum"):
         super().__init__()
         self.shared_layer = shared_parameters
         self.promoter_layer = promoter_head
@@ -99,6 +100,7 @@ class MTModel(nn.Module):
         self.promoter_loss_function = nn.BCELoss()
         self.splice_site_loss_function = nn.CrossEntropyLoss()
         self.polya_loss_function = nn.CrossEntropyLoss()
+        self.loss_strategy = loss_strategy
 
 
     def forward(self, input_ids, attention_masks):
@@ -201,7 +203,7 @@ def evaluate(dataloader, model, loss_fn, log, device='cpu'):
 
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', loss_strategy='sum', save_model_path=None, remove_old_model=False):
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0):
     """
     @param      dataloader:
     @param      model:
@@ -212,7 +214,6 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
     @param      epoch_size:
     @param      log_file_path:
     @param      device:
-    @param      loss_strategy:
     @param      save_model_path (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
     """
     log_file = {}    
@@ -225,7 +226,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
     if not os.path.exists(log_file_path):
         os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     if os.path.exists(log_file_path):
-        os.remove(log_file_path)
+        raise FileExistsError("Log exists at {}. Consider a new log.".format(log_file_path))
     _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya']
     log_file = open(log_file_path, 'x')
     log_file.write("{}\n".format(','.join(_cols)))
@@ -255,7 +256,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
             loss_polya = polya_loss_function(outputs['polya'], b_labels_polya)
 
             # Following MTDNN (Liu et. al., 2019), loss is summed.
-            if loss_strategy == 'average':
+            if model.loss_strategy == 'average':
                 loss = (loss_prom + loss_ss + loss_polya)/3
             else:
                 loss = loss_prom + loss_ss + loss_polya
@@ -289,28 +290,16 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
         # endfor batch.
 
         # After and epoch, Save the model if `save_model_path` is not None.
-        if save_model_path != None:
-            save_path = os.path.join(save_model_path)
-            if os.path.exists(save_path):
-                if not os.path.isdir(save_path):
-                    print('Save path is not path to directory.')
-                    sys.exit(2)
-            else:
-                os.makedirs(save_path)
-            save_path_model = os.path.join(save_path, 'epoch-{}'.format(i))
-            torch.save(model, save_path_model)
-            
-            # Remove old model.
-            if remove_old_model:
-                if (i-1) >= 0:
-                    os.remove(os.path.join(save_path, 'epoch-{}'.format(i-1)))
-        
+        save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
+        if remove_old_model:
+            old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+
     # endfor epoch.
 
     log_file.close()
     _end_time = datetime.now()
     _elapsed_time = _end_time - _start_time
-    print("Training Duration {}".format(_elapsed_time))
+    print("Start Time: {}, End Time: {}, Training Duration {}".format(_start_time, _end_time, _elapsed_time))
     return model
 
 def get_sequences(csv_path, n_sample=10, random_state=1337):
