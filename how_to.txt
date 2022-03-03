@@ -25,10 +25,10 @@ $ python run_train_mtl.py \
     --learning_rate=4e-4 \
     --epsilon=1e-6 \
     --warm_up=10000 \
-    --log=logs/mtl/2022-03-03/2022-02-03.e10.b128.t1300.loss_sum.txt \
+    --log=logs/mtl/train_2000/2022-03-03/2022-02-03.e10.b128.t1300.loss_sum.txt \
     --limit_train=0 \
     --loss_strategy=sum \
-    --save_model_path=result/mtl/2022-02-03.e10.b128.t1300.loss_sum/ \
+    --save_model_path=result/mtl/train1300/2022-02-03.e10.b128.t1300.loss_sum/ \
     --beta1=0.9 \
     --beta2=0.98
 
@@ -42,9 +42,9 @@ $ python run_train_mtl.py \
     --learning_rate=4e-4 \
     --epsilon=1e-6 \
     --warm_up=10000 \
-    --log=logs/mtl/2022-03-03/2022-02-03.e10.b128.t2000.loss_sum.txt \
+    --log=logs/mtl/train_2000/2022-03-03/2022-02-03.e10.b128.t2000.loss_sum.txt \
     --limit_train=0 \
     --loss_strategy=sum \
-    --save_model_path=result/mtl/2022-03-03/2022-02-03.e10.b128.t2000.loss_sum/ \
+    --save_model_path=result/mtl/train_2000/2022-03-03/2022-02-03.e10.b128.t2000.loss_sum/ \
     --beta1=0.9 \
     --beta2=0.98
