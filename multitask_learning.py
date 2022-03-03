@@ -1,4 +1,4 @@
-from tkinter.tix import FileSelectBox
+import traceback
 import torch
 from torch import cuda
 from torch.nn import CrossEntropyLoss, BCELoss
@@ -102,7 +102,6 @@ class MTModel(nn.Module):
         self.polya_loss_function = nn.CrossEntropyLoss()
         self.loss_strategy = loss_strategy
 
-
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
         x = x[0][:, 0, :]
@@ -203,7 +202,7 @@ def evaluate(dataloader, model, loss_fn, log, device='cpu'):
 
     return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
 
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0):
+def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum"):
     """
     @param      dataloader:
     @param      model:
@@ -223,78 +222,89 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
     batch_loss = 0
     batch_loss_prom, batch_loss_ss, batch_loss_polya = 0, 0, 0
 
+    if save_model_path != None:
+        os.makedirs(save_model_path, exist_ok=True)
+
     if not os.path.exists(log_file_path):
         os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     if os.path.exists(log_file_path):
-        raise FileExistsError("Log exists at {}. Consider a new log.".format(log_file_path))
+        os.remove(log_file_path)
     _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya']
     log_file = open(log_file_path, 'x')
     log_file.write("{}\n".format(','.join(_cols)))
     _start_time = datetime.now()
-    for i in range(epoch_size):
-        for step, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
-            batch_counts += 1
-            # print("Epoch {}, Step {}".format(i, step), end='\r')
+    try:
+        for i in range(epoch_size):
+            for step, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
+                batch_counts += 1
+                # print("Epoch {}, Step {}".format(i, step), end='\r')
 
-            # Load batch to device.
-            b_input_ids, b_attn_masks, b_labels_prom, b_labels_ss, b_labels_polya = tuple(t.to(device) for t in batch)
+                # Load batch to device.
+                b_input_ids, b_attn_masks, b_labels_prom, b_labels_ss, b_labels_polya = tuple(t.to(device) for t in batch)
 
-            # Zero out any previously calculated gradients.
-            model.zero_grad()
-            
-            # Perform forward pass.
-            outputs = model(b_input_ids, b_attn_masks)
+                # Zero out any previously calculated gradients.
+                model.zero_grad()
+                
+                # Perform forward pass.
+                outputs = model(b_input_ids, b_attn_masks)
 
-            # Define loss function
-            prom_loss_function = loss_fn['prom'] if loss_fn['prom'] != None else model.promoter_loss_function
-            ss_loss_function = loss_fn['ss'] if loss_fn['ss'] != None else model.splice_sites_loss_function
-            polya_loss_function = loss_fn['polya'] if loss_fn['polya'] != None else model.polya_loss_function
-            
-            # Compute error.
-            loss_prom = prom_loss_function(outputs['prom'], b_labels_prom.float().reshape(-1, 1))
-            loss_ss = ss_loss_function(outputs['ss'], b_labels_ss)
-            loss_polya = polya_loss_function(outputs['polya'], b_labels_polya)
+                # Define loss function
+                prom_loss_function = loss_fn['prom'] if loss_fn['prom'] != None else model.promoter_loss_function
+                ss_loss_function = loss_fn['ss'] if loss_fn['ss'] != None else model.splice_sites_loss_function
+                polya_loss_function = loss_fn['polya'] if loss_fn['polya'] != None else model.polya_loss_function
+                
+                # Compute error.
+                loss_prom = prom_loss_function(outputs['prom'], b_labels_prom.float().reshape(-1, 1))
+                loss_ss = ss_loss_function(outputs['ss'], b_labels_ss)
+                loss_polya = polya_loss_function(outputs['polya'], b_labels_polya)
 
-            # Following MTDNN (Liu et. al., 2019), loss is summed.
-            if model.loss_strategy == 'average':
-                loss = (loss_prom + loss_ss + loss_polya)/3
-            else:
-                loss = loss_prom + loss_ss + loss_polya
+                # Following MTDNN (Liu et. al., 2019), loss is summed.
+                if model.loss_strategy == 'average':
+                    loss = (loss_prom + loss_ss + loss_polya)/3
+                else:
+                    loss = loss_prom + loss_ss + loss_polya
 
-            # Compute this batch error.
-            batch_loss_prom += loss_prom
-            batch_loss_ss += loss_ss
-            batch_loss_polya += loss_polya
-            batch_loss += loss
+                # Compute this batch error.
+                batch_loss_prom += loss_prom
+                batch_loss_ss += loss_ss
+                batch_loss_polya += loss_polya
+                batch_loss += loss
 
-            # Log loss values.
-            log_file.write("{},{},{},{},{}\n".format(i, batch_counts, loss_prom, loss_ss, loss_polya))
+                # Log loss values.
+                log_file.write("{},{},{},{},{}\n".format(i, batch_counts, loss_prom, loss_ss, loss_polya))
 
-            # Backpropagation.
-            loss.backward()
+                # Backpropagation.
+                loss.backward()
 
-            # Update parameters and learning rate.
-            optimizer.step()
-            scheduler.step()
+                # Update parameters and learning rate.
+                optimizer.step()
+                scheduler.step()
 
-            # Reset accumulation loss.
-            if (step % batch_size == 0 and step != 0) or (step == len(dataloader) - 1):
-                batch_loss = 0
-                batch_loss_prom = 0
-                batch_loss_ss = 0
-                batch_loss_polya = 0
-                batch_counts = 0
+                # Reset accumulation loss.
+                if (step % batch_size == 0 and step != 0) or (step == len(dataloader) - 1):
+                    batch_loss = 0
+                    batch_loss_prom = 0
+                    batch_loss_ss = 0
+                    batch_loss_polya = 0
+                    batch_counts = 0
 
-            # Empty cuda cache to save memory.
-            torch.cuda.empty_cache()
-        # endfor batch.
+                # Empty cuda cache to save memory.
+                torch.cuda.empty_cache()
+            # endfor batch.
 
-        # After and epoch, Save the model if `save_model_path` is not None.
-        save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
-        if remove_old_model:
-            old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
-
-    # endfor epoch.
+            # After and epoch, Save the model if `save_model_path` is not None.
+            save_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+            save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
+            # torch.save(model.state_dict(), os.path.join(save_model_path, "epoch-{}.pth".format(i+training_counter)))
+            if remove_old_model:
+                old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+                if os.path.exists(old_model_path):
+                    os.remove(old_model_path)
+        # endfor epoch.
+    except Exception as e:
+        log_file.close()
+        print(traceback.format_exc())
+        print(e)
 
     log_file.close()
     _end_time = datetime.now()

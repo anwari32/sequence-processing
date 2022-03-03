@@ -70,27 +70,28 @@ def _parse_arg(args):
 if __name__ == "__main__":
     now = datetime.now().strftime('%Y-%m-%d')
     arguments = _parse_arg(sys.argv[1:])
-    train_path = os.path.join(arguments['train_data'])
-    pretrained_path = os.path.join(arguments['pretrained'])
-    epoch_size = int(arguments['epoch']) if 'epoch' in arguments.keys() else 1
-    batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 2000
-    device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
-    log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join('logs', "log_{}.txt".format(now))
-    learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
-    epsilon = float(arguments['epsilon']) if 'epsilon' in arguments.keys() else 1e-6
-    beta1 = float(arguments['beta1']) if 'beta1' in arguments.keys() else 0.9
-    beta2 = float(arguments['beta2']) if 'beta2' in arguments.keys() else 0.98
-    weight_decay = float(arguments['weight_decay']) if 'weight_decay' in arguments.keys() else 0.01
-    warmup = int(arguments['warm_up']) if 'warm_up' in arguments.keys() else 0
-    limit_train = int(arguments['limit_train']) if 'limit_train' in arguments.keys() else 0
-    loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
-    save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else None
-    remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
-    resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
-    training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
+    parameters = {}
+    parameters['train_data'] = train_path = os.path.join(arguments['train_data']) if 'train_data' in arguments.keys() else None
+    parameters['pretrained'] = pretrained_path = os.path.join(arguments['pretrained']) if 'pretrained' in arguments.keys() else None
+    parameters['epoch'] = epoch_size = int(arguments['epoch']) if 'epoch' in arguments.keys() else 1
+    parameters['batch_size'] = batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 2000
+    parameters['device'] = device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
+    parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join('logs', "log_{}.txt".format(now))
+    parameters['learning_rate'] = learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
+    parameters['epsilon'] = epsilon = float(arguments['epsilon']) if 'epsilon' in arguments.keys() else 1e-6
+    parameters['beta1'] = beta1 = float(arguments['beta1']) if 'beta1' in arguments.keys() else 0.9
+    parameters['beta2'] = beta2 = float(arguments['beta2']) if 'beta2' in arguments.keys() else 0.98
+    parameters['weight_decay'] = weight_decay = float(arguments['weight_decay']) if 'weight_decay' in arguments.keys() else 0.01
+    parameters['warmup'] = warmup = int(arguments['warm_up']) if 'warm_up' in arguments.keys() else 0
+    parameters['limit_train'] = limit_train = int(arguments['limit_train']) if 'limit_train' in arguments.keys() else 0
+    parameters['loss_strategy'] = loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
+    parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else None
+    parameters['remove_old_model'] = remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
+    parameters['resume_from_checkpoint'] = resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
+    parameters['training_counter'] = training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
 
-    for key in arguments.keys():
-        print('{} - {}'.format(key, arguments[key]))
+    for key in parameters.keys():
+        print('{} - {}'.format(key, parameters[key]))
         
     """
     Create dataloader.

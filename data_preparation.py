@@ -119,7 +119,6 @@ def _gff_parseline(line, regions=None, products=None):
             else:
                 return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product}
 
-
 def gff_to_csv(file, csv_output, regions=None):
     """
     Procedure to create csv file based on GFF file.
@@ -162,7 +161,6 @@ def gff_to_csv(file, csv_output, regions=None):
         print('Error {}'.format(e))
         out.close()
         f.close()
-
 
 def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl', regions=None):
     """
@@ -378,7 +376,6 @@ def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False,
     target_file.close()
     return True
 
-
 def generate_sample(src_csv, target_csv, n_sample=10, frac_sample=0, seed=1337):
     """
     Generate sample data from csv with header: 'sequence' and 'label'.
@@ -480,7 +477,6 @@ def generate_csv_from_fasta(src_fasta, target_csv, label, max_seq_length=512, sl
         print("Error {}".format(e))
         print("Error {}".format(traceback.format_exc()))
         return False
-
 
 from random import shuffle
 
@@ -642,7 +638,6 @@ def split_and_store_csv(src_csv, fractions=[], store_paths=[]):
     #endfor
     return True
 
-
 def _parse_pas_line(line):
     """
     Parse line from PAS database. This function is special purpose.
@@ -659,7 +654,6 @@ def _parse_pas_line(line):
         'position': position,
         'label': 1 if 'NoPAS' not in arr_line else 0
     }
-
 
 def parse_pas(pas_file_path, pos_output_csv, neg_output_csv, chr_filter=[]):
     if not os.path.exists(pas_file_path):
@@ -1103,7 +1097,6 @@ def expand_and_split(src_csv, target_dir, stride=1, length=512, prefix='part'):
         print("Error {}".format(e))
         print("Error {}".format(traceback.format_exc()))
         return False
-
 
 def expand(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence', length=512):
     """
