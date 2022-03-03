@@ -48,6 +48,8 @@ def _parse_arg(args):
             output['beta1'] = float(argument)
         elif option in ['--beta2']:
             output['beta2'] = float(argument)
+        elif option in ['--weight_decay']:
+            output['weight_decay'] = float(argument)
         elif option in ['--warm_up']:
             output['warm_up'] = int(argument)
         elif option in ['--limit_train']:
