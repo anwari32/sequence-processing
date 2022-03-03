@@ -44,9 +44,9 @@ def _parse_arg(args):
             output['learning_rate'] = float(argument)
         elif option in ['--epsilon']:
             output['epsilon'] = float(argument)
-        elif option in ['beta1']:
+        elif option in ['--beta1']:
             output['beta1'] = float(argument)
-        elif option in ['beta2']:
+        elif option in ['--beta2']:
             output['beta2'] = float(argument)
         elif option in ['--warm_up']:
             output['warm_up'] = int(argument)
