@@ -25,7 +25,8 @@ def _parse_arg(args):
         "limit_train=", 
         "loss_strategy=", 
         "save_model_path=",
-        "remove_old_model="]
+        "remove_old_model=",
+        "grad_accumulation_steps=",]
     )
     output = {}
     
@@ -60,6 +61,8 @@ def _parse_arg(args):
             output['optimizer'] = argument
         elif option in ['--save_model_path']:
             output['save_model_path'] = argument
+        elif option in ['--grad_accumulation_steps']:
+            output['grad_accumulation_steps'] = int(argument)
         elif option in ['-l', '--log']:
             output['log'] = argument
         elif option in ['--remove_old_model']:
@@ -68,6 +71,16 @@ def _parse_arg(args):
             print("Argument {} not recognized.".format(option))
             sys.exit(2)
     return output
+
+def _format_logname(train_file, num_epoch, batch_size, loss_strategy, date_str=None):
+    if date_str == None:
+        date_str = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    return "log_{}_{}_e{}_b{}_{}.csv".format(date_str, os.path.basename(train_file), num_epoch, batch_size, loss_strategy)
+
+def _format_foldername(train_file, num_epoch, batch_size, loss_strategy, date_str=None):
+    if date_str == None:
+        date_str = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    return "model_{}_{}_e{}_b{}_{}".format(date_str, os.path.basename(train_file), num_epoch, batch_size, loss_strategy)
 
 if __name__ == "__main__":
     now = datetime.now().strftime('%Y-%m-%d')
@@ -78,7 +91,6 @@ if __name__ == "__main__":
     parameters['epoch'] = epoch_size = int(arguments['epoch']) if 'epoch' in arguments.keys() else 1
     parameters['batch_size'] = batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 2000
     parameters['device'] = device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
-    parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join('logs', "log_{}.txt".format(now))
     parameters['learning_rate'] = learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
     parameters['epsilon'] = epsilon = float(arguments['epsilon']) if 'epsilon' in arguments.keys() else 1e-6
     parameters['beta1'] = beta1 = float(arguments['beta1']) if 'beta1' in arguments.keys() else 0.9
@@ -87,10 +99,12 @@ if __name__ == "__main__":
     parameters['warmup'] = warmup = int(arguments['warm_up']) if 'warm_up' in arguments.keys() else 0
     parameters['limit_train'] = limit_train = int(arguments['limit_train']) if 'limit_train' in arguments.keys() else 0
     parameters['loss_strategy'] = loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
-    parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else None
+    parameters['grad_accumulation_steps'] = grad_accumulation_steps = arguments['grad_accumulation_steps'] if 'grad_accumulation_steps' in arguments.keys() else 1
     parameters['remove_old_model'] = remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     parameters['resume_from_checkpoint'] = resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     parameters['training_counter'] = training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
+    parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", now, _format_foldername(train_path, epoch_size, batch_size, loss_strategy))
+    parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join("logs", now, _format_logname(train_path, epoch_size, batch_size, loss_strategy))
 
     for key in parameters.keys():
         print('{} - {}'.format(key, parameters[key]))
@@ -138,4 +152,5 @@ if __name__ == "__main__":
         loss_strategy=loss_strategy, 
         save_model_path=save_model_path, 
         remove_old_model=remove_old_model,
-        training_counter=training_counter)
+        training_counter=training_counter,
+        grad_accumulation_steps=grad_accumulation_steps)

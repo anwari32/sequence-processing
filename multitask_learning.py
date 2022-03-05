@@ -37,7 +37,7 @@ class PromoterHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(768, out_features=128, device=device), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
             nn.ReLU(), # Asssume using ReLU.
-            nn.Dropout(),
+            nn.Dropout(p=0.1),
             nn.Linear(128, 1, device=device),
         )
         self.activation = nn.Sigmoid()
@@ -57,7 +57,7 @@ class SpliceSiteHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(768, out_features=512, device=device),
             nn.ReLU(),
-            nn.Dropout(),
+            nn.Dropout(p=0.1),
             nn.Linear(512, 2, device=device)
         )
         self.activation = nn.Softmax(dim=1)
@@ -77,7 +77,7 @@ class PolyAHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(768, 64, device=device), # Adapt from BERT layer which provide 768 outputs.
             nn.ReLU(), # Assume using ReLU.
-            nn.Dropout(),
+            nn.Dropout(p=0.1),
             nn.Linear(64, 2, device=device),
         )
         self.activation = nn.Softmax(dim=1)
@@ -91,7 +91,7 @@ class MTModel(nn.Module):
     """
     Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
     """
-    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head, loss_strategy="sum"):
+    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head):
         super().__init__()
         self.shared_layer = shared_parameters
         self.promoter_layer = promoter_head
@@ -100,11 +100,10 @@ class MTModel(nn.Module):
         self.promoter_loss_function = nn.BCELoss()
         self.splice_site_loss_function = nn.CrossEntropyLoss()
         self.polya_loss_function = nn.CrossEntropyLoss()
-        self.loss_strategy = loss_strategy
 
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
-        x = x[0][:, 0, :]
+        x = x[0][:,0,:]
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)
@@ -127,82 +126,53 @@ def restore_model(model_path, device="cpu"):
     model = torch.load(model_path)
     return model.to(device)
 
-def forward(model, input_ids, attention_mask):
-    pred_prom, pred_ss, pred_polya = model(input_ids, attention_mask)
-    return pred_prom, pred_ss, pred_polya
-
-def evaluate(dataloader, model, loss_fn, log, device='cpu'):
+def evaluate(dataloader, model, log_path, device='cpu'):
     model.eval()
-    model.to(device)
-    val_prom_acc = []
-    val_prom_loss = []
-    val_ss_acc = []
-    val_ss_loss = []
-    val_polya_acc = []
-    val_polya_loss = []
-
-    if os.path.exists(log):
-        os.remove(log)
-    os.makedirs(os.path.dirname(log), exist_ok=True)
-    log_file = open(log, 'x')
-    log_file.write('step,loss_prom,loss_ss,loss_polya,acc_prom,acc_ss,acc_polya\n')
-    for step, batch in enumerate(dataloader):
-        b_input_ids, b_attn_mask, b_label_prom, b_label_ss, b_label_polya = tuple(t.to(device) for t in batch)
+    model.to(device)    
+    count_prom_correct = 0
+    count_ss_correct = 0
+    count_polya_correct = 0
+    prom_accuracy = 0
+    ss_accuracy = 0
+    polya_accuracy = 0
+    len_dataloader = len(dataloader)
+    for step, batch in enumerate(dataloader, total=len_dataloader, desc="Inference"):
+        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
 
         # Compute logits.
         with torch.no_grad():
             # Forward.
-            pred_prom, pred_ss, pred_polya = forward(model, b_input_ids, b_attn_mask)
-
-            # Get loss function.
-            prom_loss_function = loss_fn['prom']
-            ss_loss_function = loss_fn['ss']
-            polya_loss_function = loss_fn['polya']
-
-            # Compute loss.
-            prom_loss = prom_loss_function(pred_prom, b_label_prom.float().reshape(-1,1)).cpu().numpy().mean() * 100
-            ss_loss = ss_loss_function(pred_ss, b_label_ss).cpu().numpy().mean() * 100
-            polya_loss = polya_loss_function(pred_polya, b_label_polya).cpu().numpy().mean() * 100
-            val_prom_loss.append(prom_loss)
-            val_ss_loss.append(ss_loss)
-            val_polya_loss.append(polya_loss)
+            output = model(input_ids, attn_mask)
+            pred_prom = output['prom']
+            pred_ss = output['ss']
+            pred_polya = output['polya']
 
             # Prediction.
-            preds_prom = torch.argmax(pred_prom, dim=1).flatten()
-            preds_ss = torch.argmax(pred_ss, dim=1).flatten()
-            preds_polya = torch.argmax(pred_polya, dim=1).flatten()
+            predicted_prom = torch.round(pred_prom).item()
+            actual_prom = label_prom.float().item()
+            if (predicted_prom == actual_prom):
+                count_prom_correct += 1
+            print(pred_prom, label_prom, predicted_prom)
 
-            # Accuracy
-            prom_acc = (preds_prom == b_label_prom).cpu().numpy().mean() * 100
-            ss_acc = (preds_ss == b_label_ss).cpu().numpy().mean() * 100
-            polya_acc = (preds_polya == b_label_polya).cpu().numpy().mean() * 100
-            val_prom_acc.append(prom_acc)
-            val_ss_acc.append(ss_acc)
-            val_polya_acc.append(polya_acc)
+            predicted_ss, predicted_ss_index = torch.max(pred_ss, 1)
+            predicted_ss = predicted_ss.item()
+            predicted_ss_index = predicted_ss_index.item()
+            if (predicted_ss_index == label_ss):
+                count_ss_correct += 1
 
-            log_file.write('{},{},{},{},{},{},{}\n'.format(
-                step,
-                prom_loss,
-                ss_loss,
-                polya_loss,
-                prom_acc,
-                ss_acc,
-                polya_acc
-            ))
+            predicted_polya, predicted_polya_index = torch.max(pred_polya, 1)
+            predicted_polya = predicted_polya.item()
+            predicted_polya_index = predicted_polya_index.item()
+            if (predicted_polya_index == label_polya):
+                count_polya_correct += 1
     #endfor
+    # Compute average accuracy.
+    prom_accuracy = count_prom_correct / len_dataloader * 100
+    ss_accuracy = count_ss_correct / len_dataloader * 100
+    polya = count_polya_correct / len_dataloader * 100
+    return prom_accuracy, ss_accuracy, polya_accuracy
 
-    log_file.close()
-    # Compute average acc and loss.
-    avg_prom_acc = np.mean(val_prom_acc)
-    avg_ss_acc = np.mean(val_ss_acc)
-    avg_polya_acc = np.mean(val_polya_acc)
-    avg_prom_loss = np.mean(val_prom_loss)
-    avg_ss_loss = np.mean(val_ss_loss)
-    avg_polya_loss = np.mean(val_polya_loss)
-
-    return avg_prom_acc, avg_ss_acc, avg_polya_acc, avg_prom_loss, avg_ss_loss, avg_polya_loss
-
-def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_size, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum"):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1):
     """
     @param      dataloader:
     @param      model:
@@ -214,82 +184,67 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
     @param      log_file_path:
     @param      device:
     @param      save_model_path (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
+    @param      grad_accumulation_steps (int | None = 0): After how many step backward is computed.
     """
     log_file = {}    
     model.to(device)
     model.train()
-    batch_counts = 0
-    batch_loss = 0
-    batch_loss_prom, batch_loss_ss, batch_loss_polya = 0, 0, 0
+    model.zero_grad()
 
     if save_model_path != None:
-        os.makedirs(save_model_path, exist_ok=True)
-
-    if not os.path.exists(log_file_path):
-        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        if not os.path.exists(save_model_path):
+            os.makedirs(save_model_path, exist_ok=True)
+    if not os.path.exists(os.path.dirname(log_file_path)):
+        os.mkdir(os.path.dirname(log_file_path))
     if os.path.exists(log_file_path):
         os.remove(log_file_path)
-    _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya']
+    _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya','lr']
     log_file = open(log_file_path, 'x')
     log_file.write("{}\n".format(','.join(_cols)))
     _start_time = datetime.now()
+    _len_dataloader = len(dataloader)
     try:
         for i in range(epoch_size):
-            for step, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
-                batch_counts += 1
-                # print("Epoch {}, Step {}".format(i, step), end='\r')
-
-                # Load batch to device.
-                b_input_ids, b_attn_masks, b_labels_prom, b_labels_ss, b_labels_polya = tuple(t.to(device) for t in batch)
-
-                # Zero out any previously calculated gradients.
-                model.zero_grad()
-                
-                # Perform forward pass.
-                outputs = model(b_input_ids, b_attn_masks)
-
-                # Define loss function
-                prom_loss_function = loss_fn['prom'] if loss_fn['prom'] != None else model.promoter_loss_function
-                ss_loss_function = loss_fn['ss'] if loss_fn['ss'] != None else model.splice_sites_loss_function
-                polya_loss_function = loss_fn['polya'] if loss_fn['polya'] != None else model.polya_loss_function
-                
-                # Compute error.
-                loss_prom = prom_loss_function(outputs['prom'], b_labels_prom.float().reshape(-1, 1))
-                loss_ss = ss_loss_function(outputs['ss'], b_labels_ss)
-                loss_polya = polya_loss_function(outputs['polya'], b_labels_polya)
+            for step, batch in tqdm(enumerate(dataloader), total=_len_dataloader, desc="Epoch [{}/{}]".format(i+1, epoch_size)):
+                in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
+                output = model(in_ids, attn_mask)
+                pred_prom = output['prom']
+                pred_ss = output['ss']
+                pred_polya = output['polya']    
+                loss_prom = model.promoter_loss_function(pred_prom, label_prom.float().reshape(-1, 1))
+                loss_ss = model.splice_site_loss_function(pred_ss, label_ss)
+                loss_polya = model.polya_loss_function(pred_polya, label_polya)
 
                 # Following MTDNN (Liu et. al., 2019), loss is summed.
-                if model.loss_strategy == 'average':
-                    loss = (loss_prom + loss_ss + loss_polya)/3
-                else:
-                    loss = loss_prom + loss_ss + loss_polya
+                loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
 
-                # Compute this batch error.
-                batch_loss_prom += loss_prom
-                batch_loss_ss += loss_ss
-                batch_loss_polya += loss_polya
-                batch_loss += loss
+                # Log loss values and learning rate.
+                lr = optimizer.param_groups[0]['lr']
+                log_file.write("{},{},{},{},{},{}\n".format(i, step, loss_prom, loss_ss, loss_polya, lr))
 
-                # Log loss values.
-                log_file.write("{},{},{},{},{}\n".format(i, batch_counts, loss_prom, loss_ss, loss_polya))
+                # Update parameters and learning rate for every batch.
+                # Since this training is based on batch, then for every batch optimizer.step() and scheduler.step() are called.
+                if grad_accumulation_steps > 1:
+                    loss = loss / grad_accumulation_steps
 
                 # Backpropagation.
                 loss.backward()
 
-                # Update parameters and learning rate.
-                optimizer.step()
-                scheduler.step()
 
-                # Reset accumulation loss.
-                if (step % batch_size == 0 and step != 0) or (step == len(dataloader) - 1):
-                    batch_loss = 0
-                    batch_loss_prom = 0
-                    batch_loss_ss = 0
-                    batch_loss_polya = 0
-                    batch_counts = 0
+                if (step + 1) % grad_accumulation_steps == 0:
+                    # Update learning rate and scheduler.
+                    optimizer.step()
+                    scheduler.step()
 
-                # Empty cuda cache to save memory.
-                torch.cuda.empty_cache()
+                    # Reset model gradients.
+                    model.zero_grad()
+
+                    # Empty cuda cache to save memory.
+                    torch.cuda.empty_cache()
+
+                # Just print something so terminal doesn't look so boring. (-_-)'
+                # print("Epoch {}, Step {}".format(i, step), end='\r')
+
             # endfor batch.
 
             # After and epoch, Save the model if `save_model_path` is not None.
@@ -312,7 +267,7 @@ def train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, epoch_si
     print("Start Time: {}, End Time: {}, Training Duration {}".format(_start_time, _end_time, _elapsed_time))
     return model
 
-def get_sequences(csv_path, n_sample=10, random_state=1337):
+def get_sequences(csv_path: str, n_sample=10, random_state=1337):
     r"""
     Get sequence from certain CSV. CSV has header such as 'sequence', 'label_prom', 'label_ss', 'label_polya'.
     @param      csv_path (string): path to csv file.
@@ -332,7 +287,7 @@ def get_sequences(csv_path, n_sample=10, random_state=1337):
 
     return sequence, label_prom, label_ss, label_polya
 
-def preprocessing(data, tokenizer):
+def preprocessing(data, tokenizer: BertTokenizer):
     """
     Preprocessing for pretrained BERT.
     @param      data (array of string): array of string, each string contains kmers separated by spaces.
@@ -370,13 +325,14 @@ def preprocessing(data, tokenizer):
     print("Preprocessing Duration {}".format(_elapsed_time))
     return input_ids, attention_masks
 
-def prepare_data(csv_file, pretrained_tokenizer_path, batch_size=2000, n_sample=0, random_state=1337):
+def prepare_data(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000, n_sample=0, random_state=1337):
     """
     @return dataloader (torch.utils.data.DataLoader)
     """
     if not os.path.exists(csv_file):
         raise FileNotFoundError("File {} not found.".format(csv_file))
         sys.exit(2)
+    _start_time = datetime.now()
     tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
     sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state)
     arr_input_ids, arr_attn_mask = preprocessing(sequences, tokenizer)
@@ -385,7 +341,10 @@ def prepare_data(csv_file, pretrained_tokenizer_path, batch_size=2000, n_sample=
     polya_labels_tensor = tensor(polya_labels)
 
     dataset = TensorDataset(arr_input_ids, arr_attn_mask, prom_labels_tensor, ss_labels_tensor, polya_labels_tensor)
-    dataloader = DataLoader(dataset, batch_size=batch_size)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    _end_time = datetime.now()
+    _elapsed_time = _end_time - _start_time
+    print("Preparing Dataloader duration {}".format(_elapsed_time))
     return dataloader
 
 

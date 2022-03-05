@@ -25,20 +25,20 @@ $ python run_train_mtl.py \
     --learning_rate=4e-4 \
     --epsilon=1e-6 \
     --warm_up=10000 \
-    --log=logs/mtl/train_2000/2022-03-03/2022-02-03.e10.b128.t1300.loss_sum.txt \
+    --log=logs/mtl/train_1300/2022-03-03/2022-02-03.e10.b128.t1300.loss_sum.txt \
     --limit_train=0 \
     --loss_strategy=sum \
-    --save_model_path=result/mtl/train1300/2022-02-03.e10.b128.t1300.loss_sum/ \
+    --save_model_path=result/mtl/train_1300/2022-02-03.e10.b128.t1300.loss_sum/ \
     --beta1=0.9 \
     --beta2=0.98
 
-HOW TO RUN MULTITASK TRAINING WITH TRAINING DATA train.2000.kmer.all.expanded.csv, on GPU:x
+HOW TO RUN MULTITASK TRAINING WITH TRAINING DATA train.2000.kmer.all.expanded.csv, on GPU:2
 $ python run_train_mtl.py \
     -p pretrained/3-new-12w-0 \
     -t workspace/train.2000.kmer.all.expanded.csv \
     -e 10 \
     -b 128 \
-    --device=cuda:1 \
+    --device=cuda:2 \
     --learning_rate=4e-4 \
     --epsilon=1e-6 \
     --warm_up=10000 \

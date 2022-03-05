@@ -1,6 +1,7 @@
 """
 Contains procedures and function related to data preparation.
 """
+from enum import unique
 import os
 import pandas as pd
 import traceback
@@ -219,6 +220,26 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
         file_to_write.close()
         f.close()
         return False
+
+def extract_genes_from_index(csv_file, target_dir):
+    """
+    Extract genes from chromosome index csv file. Extracted genes are then written into seperate files in certain folder.
+    Folder will be created if not exists.
+    @param      csv_file (string): Path to csv file as chromosome index.
+    @param      target_dir (string): Directory path to save extracted gene indices.
+    @return     True if success.
+    """
+    if not os.path.exists(csv_file):
+        raise FileNotFoundError("File {} not found.".format(csv_file))
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+
+    df = pd.read_csv(csv_file)
+    genes = list(df['gene'].unique())
+    for g in genes:
+        ndf = df[df['gene'] == g]
+        ndf.to_csv(os.path.join(target_dir, "{}.csv".format(g)))
+    return True
 
 def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
     """

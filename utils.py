@@ -43,8 +43,8 @@ def save_model_state_dict(model, save_path, save_filename):
     save_model_path = os.path.join(save_path, os.path.basename(save_filename))
     if os.path.exists(save_model_path):
         os.remove(save_model_path)
-    if not os.path.exists(save_model_path):
-        os.mkdir(os.path.dirname(save_model_path))
+    if not os.path.exists(os.path.dirname(save_model_path)):
+        os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
 def load_model_state_dict(model, load_path):

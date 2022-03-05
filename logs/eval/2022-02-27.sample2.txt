@@ -1,1 +1,0 @@
-step,loss_prom,loss_ss,loss_polya,acc_prom,acc_ss,acc_polya
