@@ -72,15 +72,15 @@ def _parse_arg(args):
             sys.exit(2)
     return output
 
-def _format_logname(train_file, num_epoch, batch_size, loss_strategy, date_str=None):
+def _format_logname(train_file, num_epoch, batch_size, loss_strategy, grad_accumulation_steps, date_str=None):
     if date_str == None:
         date_str = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    return "log_{}_{}_e{}_b{}_{}.csv".format(date_str, os.path.basename(train_file), num_epoch, batch_size, loss_strategy)
+    return "log_{}_{}_e{}_b{}_{}_g{}.csv".format(date_str, os.path.basename(train_file), num_epoch, batch_size, loss_strategy, grad_accumulation_steps)
 
-def _format_foldername(train_file, num_epoch, batch_size, loss_strategy, date_str=None):
+def _format_foldername(train_file, num_epoch, batch_size, loss_strategy, grad_accumulation_steps, date_str=None):
     if date_str == None:
         date_str = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-    return "model_{}_{}_e{}_b{}_{}".format(date_str, os.path.basename(train_file), num_epoch, batch_size, loss_strategy)
+    return "model_{}_{}_e{}_b{}_{}_g{}".format(date_str, os.path.basename(train_file), num_epoch, batch_size, loss_strategy, grad_accumulation_steps)
 
 if __name__ == "__main__":
     now = datetime.now().strftime('%Y-%m-%d')
@@ -103,8 +103,8 @@ if __name__ == "__main__":
     parameters['remove_old_model'] = remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     parameters['resume_from_checkpoint'] = resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     parameters['training_counter'] = training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
-    parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", now, _format_foldername(train_path, epoch_size, batch_size, loss_strategy))
-    parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join("logs", now, _format_logname(train_path, epoch_size, batch_size, loss_strategy))
+    parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", now, _format_foldername(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
+    parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join("logs", now, _format_logname(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
 
     for key in parameters.keys():
         print('{} - {}'.format(key, parameters[key]))

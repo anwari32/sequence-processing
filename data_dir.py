@@ -120,6 +120,33 @@ chr22_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000022.11.csv')
 chr23_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000023.11.csv')
 chr24_index_csv = os.path.join(data_genome_grch38_index_dir, 'NC_000024.10.csv')
 
+chr_fasta_mapname = {
+    'chr1': 'NC_000001.11.fasta',
+    'chr2': 'NC_000002.12.fasta',
+    'chr3': 'NC_000003.12.fasta',
+    'chr4': 'NC_000004.12.fasta',
+    'chr5': 'NC_000005.10.fasta',
+    'chr6': 'NC_000006.12.fasta',
+    'chr7': 'NC_000007.14.fasta',
+    'chr8': 'NC_000008.11.fasta',
+    'chr9': 'NC_000009.12.fasta',
+    'chr10': 'NC_000010.11.fasta',
+    'chr11': 'NC_000011.10.fasta',
+    'chr12': 'NC_000012.12.fasta',
+    'chr13': 'NC_000013.11.fasta',
+    'chr14': 'NC_000014.9.fasta',
+    'chr15': 'NC_000015.10.fasta',
+    'chr16': 'NC_000016.10.fasta',
+    'chr17': 'NC_000017.11.fasta',
+    'chr18': 'NC_000018.10.fasta',
+    'chr19': 'NC_000019.10.fasta',
+    'chr20': 'NC_000020.11.fasta',
+    'chr21': 'NC_000021.9.fasta',
+    'chr22': 'NC_000022.11.fasta',
+    'chr23': 'NC_000023.11.fasta',
+    'chr24': 'NC_000024.10.fasta',
+}
+
 chr_index_csvs = [
     chr1_index_csv,
     chr2_index_csv,

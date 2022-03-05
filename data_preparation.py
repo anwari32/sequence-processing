@@ -241,6 +241,8 @@ def extract_genes_from_index(csv_file, target_dir):
         ndf.to_csv(os.path.join(target_dir, "{}.csv".format(g)))
     return True
 
+
+
 def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
     """
     Read chromosome annotation index and chromosome fasta and generate label for each of base character in chromosome.
