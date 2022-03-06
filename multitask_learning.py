@@ -1,3 +1,4 @@
+from audioop import bias
 import traceback
 import torch
 from torch import cuda
@@ -93,7 +94,11 @@ class MTModel(nn.Module):
     """
     def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head):
         super().__init__()
-        self.shared_layer = shared_parameters
+        self.bert = shared_parameters
+        self.pooler = nn.Sequential(
+            nn.Linear(in_features=768, out_features=768, bias=True),
+            nn.Tanh()
+        )
         self.promoter_layer = promoter_head
         self.splice_site_layer = splice_site_head
         self.polya_layer = polya_head
@@ -102,8 +107,8 @@ class MTModel(nn.Module):
         self.polya_loss_function = nn.CrossEntropyLoss()
 
     def forward(self, input_ids, attention_masks):
-        x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
-        x = x[0][:,0,:]
+        x = self.bert(input_ids=input_ids, attention_mask=attention_masks)
+        x = self.pooler(x)
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)

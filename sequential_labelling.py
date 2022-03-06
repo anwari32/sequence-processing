@@ -171,6 +171,21 @@ def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, bet
     optimizer = AdamW(model_parameters, lr=learning_rate, eps=epsilon, betas=betas, weight_decay=weight_decay)
     return optimizer
 
+def train_iter(args):
+    for epoch in args.num_epoch:
+        model = train(args.model, args.optimizer, args.scheduler, args.batch_size, args.log)
+
+def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
+    model.to(device)
+    model.train()
+    for step, batch in enumerate(train_dataloader):
+        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
+        output = model(input_ids, attn_mask)
+        pred_prom = output['prom']
+        pred_ss = output['ss']
+        pred_polya = output['polya']
+    return model
+
 def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0):
     """
     @param  model: BERT derivatives.
