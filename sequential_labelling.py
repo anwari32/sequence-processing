@@ -2,8 +2,9 @@ from concurrent.futures import process
 from genericpath import exists
 from msilib import sequence
 import torch
-from torch import nn, tensor
+from torch import tensor
 from torch.nn import NLLLoss
+from torch.nn.functional import one_hot
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AdamW, BertForMaskedLM, get_linear_schedule_with_warmup
 import os
@@ -24,71 +25,25 @@ Labels = [
 ]
 
 
+def _create_one_hot_encoding(index, n_classes):
+    return [1 if i == index else 0 for i in range(n_classes)]
+
 Label_Begin = '[BEGIN]'
 Label_End = '[END]'
 Label_Dictionary = {
-    '[BEGIN]': 0,
-    '...': 1,
-    '..E': 2,
-    '.E.': 3,
-    'E..': 4,
-    '.EE': 5,
-    'EE.': 6,
-    'E.E': 7,
-    'EEE': 8,
-    '[END]': 9
+    '[BEGIN]': 0, #_create_one_hot_encoding(0, 10),
+    '...': 1, #_create_one_hot_encoding(1, 10),
+    '..E': 2, #_create_one_hot_encoding(2, 10),
+    '.E.': 3, #_create_one_hot_encoding(3, 10),
+    'E..': 4, #_create_one_hot_encoding(4, 10),
+    '.EE': 5, #_create_one_hot_encoding(5, 10),
+    'EE.': 6, #_create_one_hot_encoding(6, 10),
+    'E.E': 7, #_create_one_hot_encoding(7, 10),
+    'EEE': 8, #_create_one_hot_encoding(8, 10),
+    '[END]': 9, #_create_one_hot_encoding(9, 10)
 }
 
-class Seq2SeqHead(nn.Module):
-    def __init__(self, dims):
-        super().__init__()
-        dims_ins_outs = [dims[i:i+2] for i in range(len(dims)-2+1)]
-        self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
-        self.stack = nn.Sequential()
-        self.activation = nn.LogSoftmax(dim=1)
-        for i in range(0, len(self.hidden_layers)):
-            linear_layer = self.hidden_layers[i]
-            self.stack.add_module("hidden-{}".format(i+1), linear_layer)
-            self.stack.add_module("relu-{}".format(i+1), nn.ReLU())
-        self.stack.add_module("dropout-1", nn.Dropout(0.1))
-    
-    def forward(self, input):
-        x = self.stack(input)
-        x = self.activation(x)
-        return x
-
-class DNABERTSeq2Seq(nn.Module):
-    """
-    Core architecture of sequential labelling.
-    """
-    def __init__(self, bert_pretrained_path, seq2seq_dims=[768, 512, 512, 10], loss_strategy="sum", device='cpu'):
-        """
-        This model uses BERT as its feature extraction layer.
-        This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.
-        @param  bert_pretrained_path (string): Path to DNABERT pretrained.
-        @param  seq2seq_dims:
-        @param  loss_strategy (string) | None -> "sum"
-        @param  device (string): Default is 'cpu' but you can put 'cuda' if your machine supports cuda.
-        @return (DNASeqLabelling): Object of this class.
-        """
-        if not os.path.exists(bert_pretrained_path):
-            raise FileNotFoundError(bert_pretrained_path)
-        if not os.path.isdir(bert_pretrained_path):
-            raise IsADirectoryError(bert_pretrained_path)
-
-        super().__init__()
-        self.bert = BertForMaskedLM.from_pretrained(bert_pretrained_path).bert
-        self.seq2seq_head = Seq2SeqHead(seq2seq_dims)
-        self.loss_function = nn.NLLLoss()
-        self.loss_strategy = loss_strategy
-        self.activation = nn.Softmax(dim=2)
-
-    def forward(self, input_ids, attention_masks):
-        output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
-        output = output[0]
-        output = self.seq2seq_head(output)
-        output = self.activation(output)
-        return output
+from models.seq2seq import DNABERTSeq2Seq
 
 def restore_model_state_dict(pretrained_path, model_state_dict_save_path):
     """
@@ -125,18 +80,20 @@ def process_label(label_sequences, label_dict=Label_Dictionary):
     return label_kmers
 
 def process_sequence_and_label(sequence, label, tokenizer):
-    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, padding="max_length")
+    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length")
     input_ids = encoded.get('input_ids')
     attention_mask = encoded.get('attention_mask')
+    token_type_ids = encoded.get('token_type_ids')
     label_repr = process_label(label)
-    return input_ids, attention_mask, label_repr
+    return input_ids, attention_mask, token_type_ids, label_repr
 
-def create_dataloader(arr_input_ids, arr_attn_mask, arr_label_repr, batch_size):
+def create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_label_repr, batch_size):
     arr_input_ids_tensor = tensor(arr_input_ids)
     arr_attn_mask_tensor = tensor(arr_attn_mask)
+    arr_token_type_ids_tensor = tensor(arr_token_type_ids)
     arr_label_repr_tensor = tensor(arr_label_repr)
 
-    dataset = TensorDataset(arr_input_ids_tensor, arr_attn_mask_tensor, arr_label_repr_tensor)
+    dataset = TensorDataset(arr_input_ids_tensor, arr_attn_mask_tensor, arr_token_type_ids_tensor, arr_label_repr_tensor)
     dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
 
@@ -147,14 +104,16 @@ def preprocessing(csv_file, tokenizer, batch_size):
     sequences, labels = get_sequential_labelling(csv_file)
     arr_input_ids = []
     arr_attention_mask = []
+    arr_token_type_ids = []
     arr_labels = []
     for seq, label in zip(sequences, labels):
-        input_ids, attention_mask, label_repr = process_sequence_and_label(seq, label, tokenizer)
+        input_ids, attention_mask, token_type_ids, label_repr = process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)
+        arr_token_type_ids.append(token_type_ids)
         arr_labels.append(label_repr)
 
-    tensor_dataloader = create_dataloader(arr_input_ids, arr_attention_mask, arr_labels, batch_size)
+    tensor_dataloader = create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_labels, batch_size)
     return tensor_dataloader
 
 def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, betas=(0.9, 0.98), weight_decay=0.01):
@@ -181,9 +140,6 @@ def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
     for step, batch in enumerate(train_dataloader):
         input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
         output = model(input_ids, attn_mask)
-        pred_prom = output['prom']
-        pred_ss = output['ss']
-        pred_polya = output['polya']
     return model
 
 def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0):
@@ -216,9 +172,9 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     model.train()
     for i in range(epoch_size):
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
-            input_ids, attention_mask, label = tuple(t.to(device) for t in batch)
+            input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
             model.zero_grad()
-            pred = model(input_ids, attention_mask)
+            pred = model(input_ids, attention_mask, input_type_ids)
             loss_batch = None
             for p, t in zip(pred, label):
                 loss = model.loss_function(p, t)
