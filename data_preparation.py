@@ -7,6 +7,7 @@ from typing import Iterable
 import pandas as pd
 import traceback
 from tqdm import tqdm
+from utils.utils import shuffle_sequence
 
 chr_dict = {
     'chr1': 'NC_000001.11',
@@ -528,7 +529,7 @@ def generate_csv_from_fasta(src_fasta, target_csv, label, max_seq_length=512, sl
 
 from random import shuffle
 
-def shuffle_sequence(seq, chunk_size):
+def shuffle_kmer_sequence(seq, chunk_size):
     """
     Shuffle a sequence by dividing sequence into several parts with equal parts. 
     If there is an extra part, this part will be excluded from shuffling and will be concatenated after shuffled sequence.
@@ -631,60 +632,6 @@ def generate_datasets(src_csv, target_dir, train_frac=0.8, val_frac=0.1, test_fr
     test_df.to_csv(testfile, index=False)
 
     return [trainfile, validationfile, testfile]
-
-def split_csv(src_csv, fractions=[0.5, 0.5]):
-    """
-    Split data from src_csv using Pandas.
-    @param      src_csv (string): path to csv file.
-    @param      fractions (array of float): array containing fraction of each split.
-    @returns    frames (array of pd.DataFrame): each frame contains data split.
-    """
-    if fractions == []:
-        print('No splitting.')
-        return False
-    if sum(fractions) > 1:
-        raise Exception("Sum of fractions not equal to one.")
-    frames = []
-    df = pd.read_csv(src_csv)
-    for frac in fractions:
-        split = df.sample(frac=frac)
-        frames.append(split)
-        df = df.drop(split.index)
-    #endfor
-    return frames
-
-def split_and_store_csv(src_csv, fractions=[], store_paths=[]):
-    """
-    Split data from src_csv and store each split in store path.
-    Each fraction corresponds to each store path.
-    @param      src_csv (string): path to src csv.
-    @param      fractions (array of float): array containing fraction of each split.
-    @param      store_paths (array of string): array containing path of each split.
-    @return     (boolean): True if success
-    """
-    if len(fractions) != len(store_paths):
-        raise Exception("Not enough path to store splits.")
-    if sum(fractions) > 1:
-        raise Exception("Sum of fractions not equal to one.")
-    frames = []
-    df = pd.read_csv(src_csv)
-    _i = 0
-    _length = len(fractions)
-    for _i in range(_length):
-        _frac = fractions[_i]
-        _path = store_paths[_i]
-        if _i + 1 == _length:
-            print("Splitting and storing split to {}".format(_path))
-            df.to_csv(_path, index=False)
-        else:
-            split = df.sample(frac=_frac)
-            print("Splitting and storing split to {}".format(_path))
-            split.to_csv(_path, index=False)
-            frames.append(split)
-            df = df.drop(split.index)
-            
-    #endfor
-    return True
 
 def _parse_pas_line(line):
     """
@@ -1090,13 +1037,18 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
     try:
         if not os.path.exists(positive_csv_path):
             raise Exception("File {} not found.".format(positive_csv_path))
+        target_csv_dir = os.path.dirname(target_csv_path)
+        if not os.path.exists(target_csv_dir):
+            os.makedirs(target_csv_dir, exist_ok=True)
         
         src_df = pd.read_csv(positive_csv_path)
         target_csv_df = pd.DataFrame(columns=src_df.columns.tolist())
         for i, r in src_df.iterrows():
+            seq_id = r['seq_id']
             sequence = r['sequence']
             shuffled_sequence = shuffle_sequence(sequence, chunk_size=shuffle_chunk_size)
             target_csv_df = target_csv_df.append({
+                'seq_id': f"{seq_id}-negative",
                 'sequence': shuffled_sequence,
                 'label': negative_label
             }, ignore_index=True)
@@ -1107,6 +1059,19 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
         print("Error {}".format(e))
         print("Error {}".format(traceback.format_exc()))
         return False
+
+def generate_negative_datasets(positive_csv_paths, target_csv_paths, negative_labels, chunk_size=16):
+    for f in positive_csv_paths:
+        if not os.path.exists(f):
+            raise FileNotFoundError(f"File {f} not found.")
+
+    len_pos = len(positive_csv_paths)
+    if len_pos != len(target_csv_paths) != len(negative_labels):
+        raise ValueError(f"Every positive csv corresponds to one target csv and one negative labels")
+
+    for i in tqdm(range(len_pos), total=len_pos):
+        generate_negative_dataset(positive_csv_paths[i], target_csv_paths[i], negative_label=negative_labels[i], shuffle_chunk_size=chunk_size)
+    return True
 
 def expand_and_split(src_csv, target_dir, stride=1, length=512, prefix='part'):
     """

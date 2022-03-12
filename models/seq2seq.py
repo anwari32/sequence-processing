@@ -2,18 +2,41 @@ from torch import nn
 from transformers import BertForMaskedLM
 import os
 
+class Seq2SeqBlock(nn.Module):
+    def __init__(self, in_dims, out_dims, norm_layer=False, prob=0.1):
+        super().__init__()
+        self.linear = nn.Linear(in_features=in_dims, out_features=out_dims)
+        self.norm_layer = nn.LayerNorm(out_dims) if norm_layer else None
+        self.dropout = nn.Dropout(p=prob)
+        self.activation = nn.ReLU()
+    
+    def forward(self, input):
+        output = self.linear(input)
+        if self.norm_layer != None:
+            output = self.norm_layer(output)
+        output = self.dropout(output)
+        output = self.activation(output)
+        return output
+
 class Seq2SeqHead(nn.Module):
-    def __init__(self, dims):
+    def __init__(self, dims, norm_layer=None, dropout_prob=0.1):
         super().__init__()
         dims_ins_outs = [dims[i:i+2] for i in range(len(dims)-2+1)]
-        self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         self.stack = nn.Sequential()
-        self.activation = nn.LogSoftmax(dim=1)
-        for i in range(0, len(self.hidden_layers)):
-            linear_layer = self.hidden_layers[i]
-            self.stack.add_module("hidden-{}".format(i+1), linear_layer)
-            self.stack.add_module("relu-{}".format(i+1), nn.ReLU())
-        self.stack.add_module("dropout-1", nn.Dropout(0.1))
+        for d in dims_ins_outs:
+            self.stack.add_module(
+                Seq2SeqBlock(d[0], d[1], norm_layer=norm_layer, prob=dropout_prob)
+            )
+        #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
+        #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
+        #self.activation = nn.LogSoftmax(dim=1)
+        #for i in range(0, len(self.hidden_layers)):
+        #    linear_layer = self.hidden_layers[i]
+        #    self.stack.add_module("hidden-{}".format(i+1), linear_layer)
+        #    if norm_layer:
+        #        self.stack.add_module("norm_layer-{}".format(i+1), )
+        #    self.stack.add_module("relu-{}".format(i+1), nn.ReLU())
+        #self.stack.add_module("dropout-1", nn.Dropout(0.1))
     
     def forward(self, input):
         x = self.stack(input)
