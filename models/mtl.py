@@ -4,12 +4,12 @@ from torch import nn
 from torch.optim import AdamW
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
-from transformers import BertForMaskedLM, BertTokenizer
+from transformers import BertForMaskedLM, BertTokenizer, BertPreTrainedModel
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
 import pandas as pd
-from utils import save_model_state_dict
+from utils.utils import save_model_state_dict
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -39,6 +39,7 @@ class PromoterHead(nn.Module):
         self.activation = nn.Sigmoid()
 
     def forward(self, x):
+        x = x[0][:,0,:]
         x = self.stack(x)
         x = self.activation(x)
         return x
@@ -59,6 +60,7 @@ class SpliceSiteHead(nn.Module):
         self.activation = nn.Softmax(dim=1)
 
     def forward(self, x):
+        x = x[0][:,0,:]
         x = self.stack(x)
         x = self.activation(x)
         return x
@@ -79,27 +81,42 @@ class PolyAHead(nn.Module):
         self.activation = nn.Softmax(dim=1)
         
     def forward(self, x):
+        x = x[0][:,0,:]
         x = self.stack(x)
         x = self.activation(x)
         return x
+
+class BertSequenceClassificationHead(nn.Module):
+    """
+    Adapted from BertForSequenceClassification.
+    """
+    def __init__(self, config):
+        super().__init__()
+        self.dropout = nn.Dropout(p=config["head_dropout_prob"])
+        self.linear = nn.Linear(in_features=config["hidden_size"], out_features=config["num_labels"])
+
+    def forward(self, bert_output):
+        output = bert_output[0]
+        output = self.dropout(output)
+        output = self.linear(output)
+        return output
 
 class MTModel(nn.Module):
     """
     Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
     """
-    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head):
+    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head, head="default"):
         super().__init__()
         self.shared_layer = shared_parameters
         self.promoter_layer = promoter_head
         self.splice_site_layer = splice_site_head
         self.polya_layer = polya_head
-        self.promoter_loss_function = nn.BCELoss()
-        self.splice_site_loss_function = nn.CrossEntropyLoss()
-        self.polya_loss_function = nn.CrossEntropyLoss()
+        self.promoter_loss_function = nn.BCELoss() if head=="default" else nn.CrossEntropyLoss()
+        self.splice_site_loss_function = nn.CrossEntropyLoss() if head=="default" else nn.CrossEntropyLoss()
+        self.polya_loss_function = nn.CrossEntropyLoss() if head=="default" else nn.CrossEntropyLoss()
 
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
-        x = x[0][:,0,:]
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)

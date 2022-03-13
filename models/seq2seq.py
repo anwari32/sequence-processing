@@ -23,13 +23,14 @@ class Seq2SeqHead(nn.Module):
         super().__init__()
         dims_ins_outs = [dims[i:i+2] for i in range(len(dims)-2+1)]
         self.stack = nn.Sequential()
-        for d in dims_ins_outs:
+        for i in range(len(dims_ins_outs)):
+            d = dims_ins_outs[i]
             self.stack.add_module(
-                Seq2SeqBlock(d[0], d[1], norm_layer=norm_layer, prob=dropout_prob)
+                "seq2seq-{}".format(i), Seq2SeqBlock(d[0], d[1], norm_layer=norm_layer, prob=dropout_prob)
             )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
-        #self.activation = nn.LogSoftmax(dim=1)
+        self.activation = nn.LogSoftmax(dim=1)
         #for i in range(0, len(self.hidden_layers)):
         #    linear_layer = self.hidden_layers[i]
         #    self.stack.add_module("hidden-{}".format(i+1), linear_layer)

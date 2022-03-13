@@ -11,7 +11,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import sys
-from utils import save_model_state_dict
+from utils.utils import save_model_state_dict
 
 Labels = [
     '...',
@@ -142,7 +142,7 @@ def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
         output = model(input_ids, attn_mask)
     return model
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0):
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None):
     """
     @param  model: BERT derivatives.
     @param  optimizer: optimizer
@@ -167,7 +167,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
     log_file = open(log_path, 'x')
-    log_file.write('epoch,step,loss\n')
+    log_file.write('epoch,step,loss,learning_rate\n')
     model.to(device)
     model.train()
     for i in range(epoch_size):
@@ -184,7 +184,8 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
                     loss_batch += loss
             if model.loss_strategy == "average":
                 loss_batch = loss_batch / batch_size
-            log_file.write("{},{},{}\n".format(i, step, loss_batch))
+            lr = optimizer.param_groups[0]['lr']
+            log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
             loss_batch.backward()
             optimizer.step()
             scheduler.step()
@@ -193,6 +194,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
 
         # After an epoch, save model state.
         save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
+        save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
         if remove_old_model:
             old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
 

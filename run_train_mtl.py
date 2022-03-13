@@ -1,3 +1,4 @@
+from json import load
 import os
 from sched import scheduler
 import torch
@@ -8,6 +9,7 @@ import getopt, os, sys
 from transformers import BertTokenizer, BertModel, get_linear_schedule_with_warmup
 from multitask_learning import train, MTModel, PromoterHead, SpliceSiteHead, PolyAHead, prepare_data
 from datetime import datetime
+from utils.utils import load_model_state_dict
 
 def _parse_arg(args):
     opts, arguments = getopt.getopt(args, "p:t:e:b:d:l:", 
@@ -26,7 +28,10 @@ def _parse_arg(args):
         "loss_strategy=", 
         "save_model_path=",
         "remove_old_model=",
-        "grad_accumulation_steps=",]
+        "grad_accumulation_steps=",
+        "resume_from_checkpoint=",
+        "resume_from_optimizer=",
+        "training_counter="]
     )
     output = {}
     
@@ -67,6 +72,12 @@ def _parse_arg(args):
             output['log'] = argument
         elif option in ['--remove_old_model']:
             output['remove_old_model'] = bool(argument)
+        elif option in ['--resume_from_checkpoint']:
+            output['resume_from_checkpoint'] = argument
+        elif option in ['--resume_from_optimizer']:
+            output['resume_from_optimizer'] = argument
+        elif option in ['--training_counter']:
+            output['training_counter'] = int(argument)
         else:
             print("Argument {} not recognized.".format(option))
             sys.exit(2)
@@ -102,6 +113,7 @@ if __name__ == "__main__":
     parameters['grad_accumulation_steps'] = grad_accumulation_steps = arguments['grad_accumulation_steps'] if 'grad_accumulation_steps' in arguments.keys() else 1
     parameters['remove_old_model'] = remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     parameters['resume_from_checkpoint'] = resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
+    parameters['resume_from_optimizer'] = resume_from_optimizer = arguments['resume_from_optimizer'] if 'resume_from_optimizer' in arguments.keys() else None
     parameters['training_counter'] = training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
     parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", now, _format_foldername(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
     parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join("logs", now, _format_logname(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
@@ -127,8 +139,9 @@ if __name__ == "__main__":
     polya_head = PolyAHead(device)
     bert_layer = BertModel.from_pretrained(pretrained_path)
     model = MTModel(bert_layer, prom_head, ss_head, polya_head)
-    if resume_from_checkpoint:
-        model.load_state_dict(torch.load(resume_from_checkpoint))
+    if resume_from_checkpoint != None:
+        print(f"Loading existing model to continue training <{resume_from_checkpoint}>")
+        model = load_model_state_dict(model, resume_from_checkpoint)
     model.to(device)
     loss_fn = {
         'prom':BCELoss(), 
@@ -136,6 +149,9 @@ if __name__ == "__main__":
         'polya': CrossEntropyLoss()
     }
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
+    if resume_from_optimizer != None:
+        print(f"Loading existing optimizer to continue training <{resume_from_optimizer}>")
+        optimizer = load_model_state_dict(optimizer, resume_from_optimizer)
     training_steps = len(train_dataloader) * EPOCH_SIZE
     optim_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
 
@@ -153,4 +169,6 @@ if __name__ == "__main__":
         save_model_path=save_model_path, 
         remove_old_model=remove_old_model,
         training_counter=training_counter,
-        grad_accumulation_steps=grad_accumulation_steps)
+        grad_accumulation_steps=grad_accumulation_steps,
+        resume_from_checkpoint=resume_from_checkpoint,
+        resume_from_optimizer=resume_from_optimizer)

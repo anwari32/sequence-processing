@@ -13,18 +13,24 @@ from datetime import datetime
 import pandas as pd
 import os
 import sys
-from utils import save_model_state_dict
+from utils.utils import save_model_state_dict
 
-from models.mtl import MTModel, PolyAHead, PromoterHead, SpliceSiteHead
+from models.mtl import BertSequenceClassificationHead, MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
-def init_model_mtl(pretrained_path, device="cpu"):
+def init_model_mtl(pretrained_path, head="default", device="cpu", config=None, loss_function=None):
     polya_head = PolyAHead()
     promoter_head = PromoterHead()
     splice_head = SpliceSiteHead()
+    if head == "bert":
+        import json
+        _config = json.load(open(config))
+        polya_head = BertSequenceClassificationHead(_config)
+        promoter_head = BertSequenceClassificationHead(_config)
+        splice_head =  BertSequenceClassificationHead(_config)
 
     dnabert_3_pretrained = pretrained_path
     shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
-    model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head)
+    model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head, head='bert')
     return model
 
 def restore_model(model_path, device="cpu"):
@@ -80,7 +86,7 @@ def evaluate(dataloader, model, log_path, device='cpu'):
     polya = count_polya_correct / len_dataloader * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, resume_from_checkpoint=None, resume_from_optimizer=None):
     """
     @param      dataloader:
     @param      model:
@@ -128,7 +134,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Log loss values and learning rate.
                 lr = optimizer.param_groups[0]['lr']
-                log_file.write("{},{},{},{},{},{}\n".format(i, step, loss_prom, loss_ss, loss_polya, lr))
+                log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom, loss_ss, loss_polya, lr))
 
                 # Update parameters and learning rate for every batch.
                 # Since this training is based on batch, then for every batch optimizer.step() and scheduler.step() are called.
@@ -158,6 +164,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             # After and epoch, Save the model if `save_model_path` is not None.
             save_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
             save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
+            save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
             # torch.save(model.state_dict(), os.path.join(save_model_path, "epoch-{}.pth".format(i+training_counter)))
             if remove_old_model:
                 old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
