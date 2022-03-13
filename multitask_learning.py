@@ -117,6 +117,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     log_file.write("{}\n".format(','.join(_cols)))
     _start_time = datetime.now()
     _len_dataloader = len(dataloader)
+    batch_loss_prom = None
+    batch_loss_ss = None
+    batch_loss_polya = None
     try:
         for i in range(epoch_size):
             for step, batch in tqdm(enumerate(dataloader), total=_len_dataloader, desc="Epoch [{}/{}]".format(i+1, epoch_size)):
@@ -131,6 +134,22 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Following MTDNN (Liu et. al., 2019), loss is summed.
                 loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
+
+                # Following Romera-Peredes (2012).
+                # Eaux = 1/S (Sigma[s~S] (1/M Sigma[m~M] (Loss (Y'sm, Ysm))))
+                if loss_strategy == "romera":
+                    if batch_loss_prom == None:
+                        batch_loss_prom = loss_prom
+                    else:
+                        batch_loss_prom += loss_prom
+
+                    if batch_loss_ss == None:
+                        batch_loss_ss = loss_ss
+                    else:
+                        batch_loss_ss += loss_ss
+
+                    if batch_loss_polya == None:
+                        batch_loss_polya = loss_polya
 
                 # Log loss values and learning rate.
                 lr = optimizer.param_groups[0]['lr']
