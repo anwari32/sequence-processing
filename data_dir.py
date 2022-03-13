@@ -12,6 +12,18 @@ Generic file names for training data, validation data, and testing data.
 _generic_filenames = ['train.csv', 'validation.csv', 'test.csv']
 
 """
+`workspace` folder.
+`workspace` folder is used for training, validating, testing, and experiments.
+"""
+workspace_dir = os.path.join('workspace')
+if not os.path.exists(workspace_dir):
+    os.mkdir(workspace_dir)
+
+workspace_promoter_dir = os.path.join(workspace_dir, 'promoter')
+workspace_ss_dir = os.path.join(workspace_dir, 'ss')
+workspace_polya_dir = os.path.join(workspace_dir, 'polya')
+
+"""
 File paths for Promoter, SS, and Poly-A.
 Datasets: Promoter, SS, and Poly-A
 """
@@ -62,7 +74,76 @@ Sequence in these files is tokenized and each token is separated by single space
 """
 data_dir = os.path.join('data')
 data_epd_dir = os.path.join(data_dir, 'epd')
-epd_tata = os.path.join(data_epd_dir, 'human_tata.fasta')
+
+
+epd_tata_min128_plus383_fasta = os.path.join(data_epd_dir, 'human_tata_min128_plus383.fasta')
+epd_tata_min256_plus255_fasta = os.path.join(data_epd_dir, 'human_tata_min256_plus255.fasta')
+epd_tata_min384_plus127_fasta = os.path.join(data_epd_dir, 'human_tata_min384_plus127.fasta')
+epd_tata_min499_plus100_fasta = os.path.join(data_epd_dir, "human_tata_min499_plus100.fasta")
+
+epd_tata_fastas = [
+    epd_tata_min128_plus383_fasta,
+    epd_tata_min256_plus255_fasta,
+    epd_tata_min384_plus127_fasta,
+    epd_tata_min499_plus100_fasta
+]
+
+epd_non_tata_min128_plus383_fasta = os.path.join(data_epd_dir, 'human_non_tata_min128_plus383.fasta')
+epd_non_tata_min256_plus255_fasta = os.path.join(data_epd_dir, 'human_non_tata_min256_plus255.fasta')
+epd_non_tata_min384_plus127_fasta = os.path.join(data_epd_dir, 'human_non_tata_min384_plus127.fasta')
+epd_non_tata_min499_plus100_fasta = os.path.join(data_epd_dir, 'human_non_tata_min499_plus100.fasta')
+
+epd_non_tata_fastas = [
+    epd_non_tata_min128_plus383_fasta,
+    epd_non_tata_min256_plus255_fasta,
+    epd_non_tata_min384_plus127_fasta,
+    epd_non_tata_min499_plus100_fasta
+]
+
+epd_tata_fasta = epd_tata_min256_plus255_fasta
+epd_non_tata_fasta = epd_non_tata_min256_plus255_fasta
+
+epd_tata_csv = os.path.join(data_epd_dir, "human_tata.csv")
+epd_non_tata_csv = os.path.join(data_epd_dir, "human_non_tata.csv")
+epd_non_tata_generated_csv = os.path.join(data_epd_dir, "human_non_tata_generated.csv")
+
+epd_tata_min128_plus383_csv = os.path.join(workspace_promoter_dir, "human_tata_min120_plus383.csv")
+epd_tata_min256_plus255_csv = os.path.join(workspace_promoter_dir, "human_tata_min256_plus255.csv")
+epd_tata_min384_plus127_csv = os.path.join(workspace_promoter_dir, "human_tata_min384_plus127.csv")
+epd_tata_min499_plus100_csv = os.path.join(workspace_promoter_dir, "human_tata_min499_plus100.csv")
+
+epd_tata_csvs = [
+    epd_tata_min128_plus383_csv,
+    epd_tata_min256_plus255_csv,
+    epd_tata_min384_plus127_csv,
+    epd_tata_min499_plus100_csv
+]
+
+epd_non_tata_min128_plus383_csv = os.path.join(workspace_promoter_dir, "human_non_tata_min120_plus383.csv")
+epd_non_tata_min256_plus255_csv = os.path.join(workspace_promoter_dir, "human_non_tata_min256_plus255.csv")
+epd_non_tata_min384_plus127_csv = os.path.join(workspace_promoter_dir, "human_non_tata_min384_plus127.csv")
+epd_non_tata_min499_plus100_csv = os.path.join(workspace_promoter_dir, "human_non_tata_min499_plus100.csv")
+
+epd_non_tata_csvs = [
+    epd_non_tata_min128_plus383_csv,
+    epd_non_tata_min256_plus255_csv,
+    epd_non_tata_min384_plus127_csv,
+    epd_non_tata_min499_plus100_csv
+]
+
+epd_non_tata_generated_min128_plus383_csv = os.path.join(workspace_promoter_dir, "human_non_tata_generated_min120_plus383.csv")
+epd_non_tata_generated_min256_plus255_csv = os.path.join(workspace_promoter_dir, "human_non_tata_generated_min256_plus255.csv")
+epd_non_tata_generated_min384_plus127_csv = os.path.join(workspace_promoter_dir, "human_non_tata_generated_min384_plus127.csv")
+epd_non_tata_generated_min499_plus100_csv = os.path.join(workspace_promoter_dir, "human_non_tata_generated_min499_plus100.csv")
+
+epd_non_tata_generated_csvs = [
+    epd_non_tata_generated_min128_plus383_csv,
+    epd_non_tata_generated_min256_plus255_csv,
+    epd_non_tata_generated_min384_plus127_csv,
+    epd_non_tata_generated_min499_plus100_csv
+]
+
+epd_non_tata_csv = os.path.join(data_epd_dir, 'human_negative_tata.csv')
 epd_pos_tata_csv = os.path.join(data_epd_dir, 'human_tata.csv')
 epd_neg_tata_csv = os.path.join(data_epd_dir, 'human_non_tata.csv')
 epd_pos_tata_kmer_csv = os.path.join(data_epd_dir, 'human_tata_kmer.csv')
@@ -91,6 +172,7 @@ data_genome_grch38_labels_dir = os.path.join(data_genome_grch38_dir, 'labels')
 
 annotated_grch38_gff = os.path.join(data_genome_grch38_dir, 'GRCh38_latest_genomic.gff')
 annotated_grch38_gff_dir = os.path.join(data_genome_grch38_dir, 'csvs')
+annotated_grch38_gff_strand_dir = os.path.join(data_genome_grch38_dir, 'csvs_strand')
 annotated_grch38_gtf = os.path.join(data_genome_grch38_dir, 'GCF_000001405.39_GRCh38.p13_genomic.gtf')
 annotated_grch38_gff_csv = os.path.join(data_genome_grch38_dir, 'grch38_gff.csv')
 annotated_grch38_gtf_csv = os.path.join(data_genome_grch38_dir, 'grch38_gtf.csv')
@@ -207,25 +289,25 @@ ss_pos_don_dir = os.path.join(ss_dir, "pos_don")
 ss_neg_acc_dir = os.path.join(ss_dir, "neg_acc")
 ss_neg_don_dir = os.path.join(ss_dir, "neg_don")
 
-ss_pos_acc_hs_csv = os.path.join(ss_dir, "pos_ss_acc_hs.csv")
-ss_pos_don_hs_csv = os.path.join(ss_dir, "pos_ss_don_hs.csv")
-ss_neg_acc_hs_csv = os.path.join(ss_dir, "neg_ss_acc_hs.csv")
-ss_neg_don_hs_csv = os.path.join(ss_dir, "neg_ss_don_hs.csv")
-
-ss_pos_acc_hs_kmer_csv = os.path.join(ss_dir, "pos_ss_acc_hs_kmer.csv")
-ss_pos_don_hs_kmer_csv = os.path.join(ss_dir, "pos_ss_don_hs_kmer.csv")
-ss_neg_acc_hs_kmer_csv = os.path.join(ss_dir, "neg_ss_acc_hs_kmer.csv")
-ss_neg_don_hs_kmer_csv = os.path.join(ss_dir, "neg_ss_don_hs_kmer.csv")
-
-ss_pos_acc_hs_non_kmer_csv = os.path.join(ss_dir, "pos_ss_acc_hs_non_kmer.csv")
-ss_pos_don_hs_non_kmer_csv = os.path.join(ss_dir, "pos_ss_don_hs_non_kmer.csv")
-ss_neg_acc_hs_non_kmer_csv = os.path.join(ss_dir, "neg_ss_acc_hs_non_kmer.csv")
-ss_neg_don_hs_non_kmer_csv = os.path.join(ss_dir, "neg_ss_don_hs_non_kmer.csv")
-
 ss_pos_acc_hs_fasta = os.path.join(ss_dir, "positive_DNA_seqs_acceptor_hs.fa")
 ss_pos_don_hs_fasta = os.path.join(ss_dir, "positive_DNA_seqs_donor_hs.fa")
 ss_neg_acc_hs_fasta = os.path.join(ss_dir, "negative_DNA_seqs_acceptor_hs.fa")
 ss_neg_don_hs_fasta = os.path.join(ss_dir, "negative_DNA_seqs_donor_hs.fa")
+
+ss_pos_acc_hs_csv = os.path.join(workspace_ss_dir, "pos_ss_acc_hs.csv")
+ss_pos_don_hs_csv = os.path.join(workspace_ss_dir, "pos_ss_don_hs.csv")
+ss_neg_acc_hs_csv = os.path.join(workspace_ss_dir, "neg_ss_acc_hs.csv")
+ss_neg_don_hs_csv = os.path.join(workspace_ss_dir, "neg_ss_don_hs.csv")
+
+ss_pos_acc_hs_kmer_csv = os.path.join(workspace_ss_dir, "pos_ss_acc_hs.kmer.csv")
+ss_pos_don_hs_kmer_csv = os.path.join(workspace_ss_dir, "pos_ss_don_hs.kmer.csv")
+ss_neg_acc_hs_kmer_csv = os.path.join(workspace_ss_dir, "neg_ss_acc_hs.kmer.csv")
+ss_neg_don_hs_kmer_csv = os.path.join(workspace_ss_dir, "neg_ss_don_hs.kmer.csv")
+
+ss_pos_acc_hs_non_kmer_csv = os.path.join(workspace_ss_dir, "pos_ss_acc_hs.non_kmer.csv")
+ss_pos_don_hs_non_kmer_csv = os.path.join(workspace_ss_dir, "pos_ss_don_hs.non_kmer.csv")
+ss_neg_acc_hs_non_kmer_csv = os.path.join(workspace_ss_dir, "neg_ss_acc_hs.non_kmer.csv")
+ss_neg_don_hs_non_kmer_csv = os.path.join(workspace_ss_dir, "neg_ss_don_hs.non_kmer.csv")
 
 ss_train_csv = os.path.join(ss_dir, "train.csv")
 ss_validation_csv = os.path.join(ss_dir, "validation.csv")
@@ -262,17 +344,6 @@ def get_current_log_name():
     _str_now = _now.strftime('%Y-%m-%d-%H-%M-%S')
     return "{}.csv".format(_str_now)
 
-"""
-`workspace` folder.
-`workspace` folder is used for training, validating, testing, and experiments.
-"""
-workspace_dir = os.path.join('workspace')
-if not os.path.exists(workspace_dir):
-    os.mkdir(workspace_dir)
-
-workspace_promoter_dir = os.path.join(workspace_dir, 'promoter')
-workspace_ss_dir = os.path.join(workspace_dir, 'ss')
-workspace_polya_dir = os.path.join(workspace_dir, 'polya')
 """
 `chr` folder.
 This folder contains chromosome fasta files.

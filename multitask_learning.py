@@ -13,110 +13,24 @@ from datetime import datetime
 import pandas as pd
 import os
 import sys
-from utils import save_model_state_dict
+from utils.utils import save_model_state_dict
 
-_device = "cuda" if cuda.is_available() else "cpu"
-_device
-"""
-Create simple multitask learning architecture with three task.
-1. Promoter detection.
-2. Splice-site detection.
-3. poly-A detection.
-"""
+from models.mtl import BertSequenceClassificationHead, MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
-def _get_adam_optimizer(parameters, lr=0, eps=0, beta=0):
-    return AdamW(parameters, lr=lr, eps=eps, betas=beta)
-
-class PromoterHead(nn.Module):
-    """
-    Network configuration can be found in DeePromoter (Oubounyt et. al., 2019).
-    Classification is done by using Sigmoid. Loss is calculated by CrossEntropyLoss.
-    """
-    def __init__(self, device="cpu"):
-        super().__init__()
-        self.stack = nn.Sequential(
-            nn.Linear(768, out_features=128, device=device), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
-            nn.ReLU(), # Asssume using ReLU.
-            nn.Dropout(p=0.1),
-            nn.Linear(128, 1, device=device),
-        )
-        self.activation = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.stack(x)
-        x = self.activation(x)
-        return x
-
-class SpliceSiteHead(nn.Module):
-    """
-    Network configuration can be found in Splice2Deep (Albaradei et. al., 2020).
-    Classification layer is using Softmax function and loss is calculated by ???.
-    """
-    def __init__(self, device="cpu"):
-        super().__init__()
-        self.stack = nn.Sequential(
-            nn.Linear(768, out_features=512, device=device),
-            nn.ReLU(),
-            nn.Dropout(p=0.1),
-            nn.Linear(512, 2, device=device)
-        )
-        self.activation = nn.Softmax(dim=1)
-
-    def forward(self, x):
-        x = self.stack(x)
-        x = self.activation(x)
-        return x
-
-class PolyAHead(nn.Module):
-    """
-    Network configuration can be found in DeeReCT-PolyA (Xia et. al., 2018).
-    Loss function is cross entropy and classification is done by using Softmax.
-    """
-    def __init__(self, device='cpu'):
-        super().__init__()
-        self.stack = nn.Sequential(
-            nn.Linear(768, 64, device=device), # Adapt from BERT layer which provide 768 outputs.
-            nn.ReLU(), # Assume using ReLU.
-            nn.Dropout(p=0.1),
-            nn.Linear(64, 2, device=device),
-        )
-        self.activation = nn.Softmax(dim=1)
-        
-    def forward(self, x):
-        x = self.stack(x)
-        x = self.activation(x)
-        return x
-
-class MTModel(nn.Module):
-    """
-    Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
-    """
-    def __init__(self, shared_parameters, promoter_head, splice_site_head, polya_head):
-        super().__init__()
-        self.shared_layer = shared_parameters
-        self.promoter_layer = promoter_head
-        self.splice_site_layer = splice_site_head
-        self.polya_layer = polya_head
-        self.promoter_loss_function = nn.BCELoss()
-        self.splice_site_loss_function = nn.CrossEntropyLoss()
-        self.polya_loss_function = nn.CrossEntropyLoss()
-
-    def forward(self, input_ids, attention_masks):
-        x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
-        x = x[0][:,0,:]
-        x1 = self.promoter_layer(x)
-        x2 = self.splice_site_layer(x)
-        x3 = self.polya_layer(x)
-        return {'prom': x1, 'ss': x2, 'polya': x3}
-
-def init_model_mtl(pretrained_path, device="cpu"):
+def init_model_mtl(pretrained_path, head="default", device="cpu", config=None, loss_function=None):
     polya_head = PolyAHead()
     promoter_head = PromoterHead()
     splice_head = SpliceSiteHead()
+    if head == "bert":
+        import json
+        _config = json.load(open(config))
+        polya_head = BertSequenceClassificationHead(_config)
+        promoter_head = BertSequenceClassificationHead(_config)
+        splice_head =  BertSequenceClassificationHead(_config)
 
     dnabert_3_pretrained = pretrained_path
     shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
-    model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head)
+    model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head, head='bert')
     return model
 
 def restore_model(model_path, device="cpu"):
@@ -172,7 +86,7 @@ def evaluate(dataloader, model, log_path, device='cpu'):
     polya = count_polya_correct / len_dataloader * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, resume_from_checkpoint=None, resume_from_optimizer=None):
     """
     @param      dataloader:
     @param      model:
@@ -220,7 +134,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Log loss values and learning rate.
                 lr = optimizer.param_groups[0]['lr']
-                log_file.write("{},{},{},{},{},{}\n".format(i, step, loss_prom, loss_ss, loss_polya, lr))
+                log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom, loss_ss, loss_polya, lr))
 
                 # Update parameters and learning rate for every batch.
                 # Since this training is based on batch, then for every batch optimizer.step() and scheduler.step() are called.
@@ -250,6 +164,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             # After and epoch, Save the model if `save_model_path` is not None.
             save_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
             save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
+            save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
             # torch.save(model.state_dict(), os.path.join(save_model_path, "epoch-{}.pth".format(i+training_counter)))
             if remove_old_model:
                 old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
@@ -346,5 +261,4 @@ def prepare_data(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000,
     _elapsed_time = _end_time - _start_time
     print("Preparing Dataloader duration {}".format(_elapsed_time))
     return dataloader
-
 

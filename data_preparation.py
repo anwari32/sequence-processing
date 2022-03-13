@@ -3,9 +3,11 @@ Contains procedures and function related to data preparation.
 """
 from enum import unique
 import os
+from typing import Iterable
 import pandas as pd
 import traceback
 from tqdm import tqdm
+from utils.utils import shuffle_sequence
 
 chr_dict = {
     'chr1': 'NC_000001.11',
@@ -105,6 +107,9 @@ def _gff_parseline(line, regions=None, products=None):
         start_index = start-1 # Zero-based numbering.
         end = int(words[4])
         end_index = end-1
+        score = words[5] # Score 
+        strand = words[6] # Strand
+        phase = words[7] # Phase
         desc = words[8] # Description.
         desc_obj = _parse_desc(desc)
         gene = desc_obj['gene'] if 'gene' in desc_obj.keys() else '' # Gene name.
@@ -113,14 +118,14 @@ def _gff_parseline(line, regions=None, products=None):
         ensembl = desc_obj['ensembl'] if 'ensembl' in desc_obj.keys() else '' # Ensembl
         product = desc_obj['product'] if 'product' in desc_obj.keys() else '' # Product
         if regions is None and product is None:
-            return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product}
+            return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product, 'strand': strand, 'phase': phase}
         else:
             if (regions != None and region not in regions) or (products != None and not _check_segment_product(products, product)):
                 return False
             else:
-                return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product}
+                return {'sequence_id': sequence_id, 'refseq': refseq, 'region': region, 'start': start, 'start_index': start_index, 'end': end, 'end_index': end_index, 'score': score, 'strand': strand, 'desc': desc_obj, 'gene': gene, 'gene_id': gene_id, 'genbank': genbank, 'ensembl': ensembl, 'product': product, 'strand': strand, 'phase': phase}
 
-def gff_to_csv(file, csv_output, regions=None):
+def gff_to_csv(file: str, csv_output: str, regions=None):
     """
     Procedure to create csv file based on GFF file.
     @param  file (string): path to GFF.
@@ -134,7 +139,7 @@ def gff_to_csv(file, csv_output, regions=None):
             # Prepare file and dataframe.
             if os.path.exists(csv_output):
                 os.remove(csv_output)
-            colnames = ['sequence_id', 'refseq', 'region', 'start_index', 'end_index', 'start', 'end', 'gene', 'gene_id', 'genebank', 'ensembl']
+            colnames = ['sequence_id', 'refseq', 'region', 'start_index', 'end_index', 'start', 'end', 'gene', 'gene_id', 'genebank', 'ensembl', 'strand']
             header = ",".join(colnames)
             f = open(file, 'r')
             out = open(csv_output, 'x')
@@ -145,7 +150,7 @@ def gff_to_csv(file, csv_output, regions=None):
                 try:
                     if d != False:
                         if d:
-                            output = "{},{},{},{},{},{},{},{},{},{},{}\n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'])
+                            output = "{},{},{},{},{},{},{},{},{},{},{},{}\n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'], d['strand'])
                             out.write(output)
                         else:
                             break
@@ -163,7 +168,7 @@ def gff_to_csv(file, csv_output, regions=None):
         out.close()
         f.close()
 
-def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl', regions=None):
+def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl,strand', regions=None):
     """
     Convert gff file into multiple CSV files. Each file is for one sequence_id or chromosome.
     @param  gff_file (string): filepath to gff file.
@@ -176,7 +181,9 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
     file_to_write = {}
     try:
         f = open(gff_file)
-        target_file = target_folder + '/'
+        target_file = os.path.join(target_folder)
+        if not os.path.exists(target_file):
+            os.makedirs(target_file, exist_ok=True)
         cur_seq = ""
         temp_seq = ""
         output_file = ""
@@ -184,13 +191,14 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
         for line in f:
             d = _gff_parseline(line, regions)
             if d:
-                output = "{},{},{},{},{},{},{},{},{},{},{} \n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'])
+                output = "{},{},{},{},{},{},{},{},{},{},{},{}\n".format(d['sequence_id'], d['refseq'], d['region'], d['start_index'], d['end_index'], d['start'], d['end'], d['gene'], d['gene_id'], d['genbank'], d['ensembl'], d['strand'])
                 temp_seq = d['sequence_id']
                 if cur_seq == "":
                     cur_seq = temp_seq
 
                 # Prepare desired file to write.
-                output_file = target_file + temp_seq + '.csv'
+                # output_file = target_file + temp_seq + '.csv'
+                output_file = os.path.join(target_file, "{}.csv".format(temp_seq))
 
                 # Compare if this sequence_id is the as previous sequence_id.
                 if temp_seq == cur_seq:
@@ -217,8 +225,11 @@ def gff_to_csvs(gff_file, target_folder, header='sequence_id,refseq,region,start
         return True
     except Exception as e:
         print('Error {}'.format(e))
-        file_to_write.close()
-        f.close()
+        print(traceback.format_exc())
+        if file_to_write != {}:
+            file_to_write.close()
+        if f != {}:
+            f.close()
         return False
 
 def extract_genes_from_index(csv_file, target_dir):
@@ -240,8 +251,6 @@ def extract_genes_from_index(csv_file, target_dir):
         ndf = df[df['gene'] == g]
         ndf.to_csv(os.path.join(target_dir, "{}.csv".format(g)))
     return True
-
-
 
 def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
     """
@@ -265,7 +274,7 @@ def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
         """
         Since the file is basically CSV, parsing CSV is carried out manually line by line.
         The header is this.
-        `sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl`
+        `sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl,strand`
         Enjoy tah siah!
         """
         arr_line = line.strip().split(',')
@@ -276,6 +285,7 @@ def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
         end_index = int(arr_line[4])
         start = int(arr_line[5])
         end = int(arr_line[6])
+        strand = str(arr_line[7])
         
         if region == 'region':
             """
@@ -446,15 +456,31 @@ def generate_sample_from_dir(dir_path, n_sample=0, frac_sample=0, seed=1337, fil
 
 from Bio import SeqIO
 
+def generate_complement(fasta_file: str, target_dir: str):
+    if not os.path.exists(fasta_file):
+        raise FileNotFoundError(f"File {fasta_file} not found.")
+    raise NotImplemented()
+
 def kmer(seq, length, window_size=1):
     """
-    Convert string `seq` into array of fixed `length` token (kmer) .
+    Convert string `seq` into array of fixed `length` token (kmer).
     @param      seq (string):
     @param      length (int):
     @param      window_size (int): stride.
     @return     (array of string): array of kmer.
     """
     return [seq[i:i+length] for i in range(0, len(seq)+1-length, window_size)]
+
+def str_kmer(seq: str, length: int, window_size=1):
+    """
+    Convert string `seq` into array of fixed `length` token (kmer) and convert the array into string.
+    @param      seq : string
+    @param      length : int
+    @param      window_size : int | None -> 3
+    @return     str
+    """
+    kmer_sequences = kmer(seq, length, window_size=window_size)
+    return ' '.join(kmer_sequences)
 
 def chunk_string(seq, length):
     """
@@ -503,7 +529,7 @@ def generate_csv_from_fasta(src_fasta, target_csv, label, max_seq_length=512, sl
 
 from random import shuffle
 
-def shuffle_sequence(seq, chunk_size):
+def shuffle_kmer_sequence(seq, chunk_size):
     """
     Shuffle a sequence by dividing sequence into several parts with equal parts. 
     If there is an extra part, this part will be excluded from shuffling and will be concatenated after shuffled sequence.
@@ -606,60 +632,6 @@ def generate_datasets(src_csv, target_dir, train_frac=0.8, val_frac=0.1, test_fr
     test_df.to_csv(testfile, index=False)
 
     return [trainfile, validationfile, testfile]
-
-def split_csv(src_csv, fractions=[0.5, 0.5]):
-    """
-    Split data from src_csv using Pandas.
-    @param      src_csv (string): path to csv file.
-    @param      fractions (array of float): array containing fraction of each split.
-    @returns    frames (array of pd.DataFrame): each frame contains data split.
-    """
-    if fractions == []:
-        print('No splitting.')
-        return False
-    if sum(fractions) > 1:
-        raise Exception("Sum of fractions not equal to one.")
-    frames = []
-    df = pd.read_csv(src_csv)
-    for frac in fractions:
-        split = df.sample(frac=frac)
-        frames.append(split)
-        df = df.drop(split.index)
-    #endfor
-    return frames
-
-def split_and_store_csv(src_csv, fractions=[], store_paths=[]):
-    """
-    Split data from src_csv and store each split in store path.
-    Each fraction corresponds to each store path.
-    @param      src_csv (string): path to src csv.
-    @param      fractions (array of float): array containing fraction of each split.
-    @param      store_paths (array of string): array containing path of each split.
-    @return     (boolean): True if success
-    """
-    if len(fractions) != len(store_paths):
-        raise Exception("Not enough path to store splits.")
-    if sum(fractions) > 1:
-        raise Exception("Sum of fractions not equal to one.")
-    frames = []
-    df = pd.read_csv(src_csv)
-    _i = 0
-    _length = len(fractions)
-    for _i in range(_length):
-        _frac = fractions[_i]
-        _path = store_paths[_i]
-        if _i + 1 == _length:
-            print("Splitting and storing split to {}".format(_path))
-            df.to_csv(_path, index=False)
-        else:
-            split = df.sample(frac=_frac)
-            print("Splitting and storing split to {}".format(_path))
-            split.to_csv(_path, index=False)
-            frames.append(split)
-            df = df.drop(split.index)
-            
-    #endfor
-    return True
 
 def _parse_pas_line(line):
     """
@@ -1065,13 +1037,18 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
     try:
         if not os.path.exists(positive_csv_path):
             raise Exception("File {} not found.".format(positive_csv_path))
+        target_csv_dir = os.path.dirname(target_csv_path)
+        if not os.path.exists(target_csv_dir):
+            os.makedirs(target_csv_dir, exist_ok=True)
         
         src_df = pd.read_csv(positive_csv_path)
         target_csv_df = pd.DataFrame(columns=src_df.columns.tolist())
         for i, r in src_df.iterrows():
+            seq_id = r['seq_id']
             sequence = r['sequence']
             shuffled_sequence = shuffle_sequence(sequence, chunk_size=shuffle_chunk_size)
             target_csv_df = target_csv_df.append({
+                'seq_id': f"{seq_id}-negative",
                 'sequence': shuffled_sequence,
                 'label': negative_label
             }, ignore_index=True)
@@ -1082,6 +1059,19 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
         print("Error {}".format(e))
         print("Error {}".format(traceback.format_exc()))
         return False
+
+def generate_negative_datasets(positive_csv_paths, target_csv_paths, negative_labels, chunk_size=16):
+    for f in positive_csv_paths:
+        if not os.path.exists(f):
+            raise FileNotFoundError(f"File {f} not found.")
+
+    len_pos = len(positive_csv_paths)
+    if len_pos != len(target_csv_paths) != len(negative_labels):
+        raise ValueError(f"Every positive csv corresponds to one target csv and one negative labels")
+
+    for i in tqdm(range(len_pos), total=len_pos):
+        generate_negative_dataset(positive_csv_paths[i], target_csv_paths[i], negative_label=negative_labels[i], shuffle_chunk_size=chunk_size)
+    return True
 
 def expand_and_split(src_csv, target_dir, stride=1, length=512, prefix='part'):
     """
