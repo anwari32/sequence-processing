@@ -87,6 +87,35 @@ def save_model_state_dict(model, save_path, save_filename):
         os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
+def save_checkpoint(model, optimizer, config, path, replace=False):
+    """
+    Save model and optimizer internal state with other information (config).
+    """
+    save_object = {
+        'config': config,
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+    }
+    dest_dir = os.path.dirname(path)
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    
+    if os.path.exists(path):
+        if replace == True:
+            os.remove(path)
+        else:
+            raise FileExistsError(f"Cannot remove old saved file. File with same name found and replace == ``False``.")
+    
+    torch.save(save_object, path)
+
+
+def load_checkpoint(path, default_model, default_optimizer):
+    saved_object = torch.load(path)
+    model = default_model.load_state_dict(saved_object["model"])
+    optimizer = default_optimizer.load_state_dict(saved_object["optimizer"])
+    config = saved_object["config"]
+    return model, optimizer, config
+
 def load_model_state_dict(model, load_path):
     """
     Load model state dictionary.

@@ -11,11 +11,11 @@ import torch
 from utils.utils import load_model_state_dict
 
 def _parse_arg(argv):
-    outputs = {}
+    result = {}
     opts, args = getopt(argv, "t:p:", [
-        "train_path=",
+        "train_data=",
         "pretrained=",
-        "epoch=",
+        "num_epochs=",
         "batch_size=",
         "device=",
         "log=",
@@ -32,17 +32,36 @@ def _parse_arg(argv):
         "resume_from_optimizer=",
         "training_counter="
     ])
-    return outputs
+    for opt, arg in opts:
+        if opt in ["--train_data", "-t"]:
+            result["train_data"] = arg
+        elif opt in ["--pretrained", "-p"]:
+            result["pretrained"] = arg
+        elif opt in ["--device"]:
+            result["device"] = arg
+        elif opt in ["--num_epochs"]:
+            result["num_epochs"] = int(arg)
+        elif opt in ["--batch_size"]:
+            result["batch_size"] = int(arg)
+        else:
+            print(f"Argument {opt} not recognized.")
+            sys.exit(2)
+    return result
 
 if __name__ == "__main__":
+    print("Training Seq2Seq Model")
+    
     now = datetime.now().strftime('%Y-%m-%d')
     arguments = _parse_arg(sys.argv[1:])
+    for k in arguments.keys():
+        print(k, arguments[k])
+
     train_path = os.path.join(arguments['train_data'])
     pretrained_path = os.path.join(arguments['pretrained'])
-    epoch_size = int(arguments['epoch']) if 'epoch' in arguments.keys() else 1
-    batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 2000
+    epoch_size = int(arguments['num_epochs']) if 'num_epochs' in arguments.keys() else 1
+    batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 1
     device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
-    log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join('logs', "log_{}.txt".format(now))
+    log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join('logs', "log_{}.csv".format(now))
     learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
     epsilon = float(arguments['epsilon']) if 'epsilon' in arguments.keys() else 1e-6
     beta1 = float(arguments['beta1']) if 'beta1' in arguments.keys() else 0.9
@@ -50,14 +69,14 @@ if __name__ == "__main__":
     weight_decay = float(arguments['weight_decay']) if 'weight_decay' in arguments.keys() else 0.01
     warmup = int(arguments['warm_up']) if 'warm_up' in arguments.keys() else 0
     loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
-    save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else None
+    save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", "{}".format(now))
     remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     resume_from_optimizer = arguments['resume_from_optimizer'] if 'resume_from_optimizer' in arguments.keys() else None
     training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
 
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
-    train_dataloader = preprocessing(train_path, tokenizer, batch_size)
+    train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
     model = DNABERTSeq2Seq(pretrained_path)
     if resume_from_checkpoint != None:
         model = load_model_state_dict(model, resume_from_checkpoint)

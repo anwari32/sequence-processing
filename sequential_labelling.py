@@ -11,7 +11,8 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import sys
-from utils.utils import save_model_state_dict
+from utils.utils import save_model_state_dict, load_model_state_dict, load_checkpoint, save_checkpoint
+from data_preparation import str_kmer
 
 Labels = [
     '...',
@@ -61,10 +62,13 @@ def restore_model_state_dict(pretrained_path, model_state_dict_save_path):
     model.load_state_dict(torch.load(model_state_dict_save_path))
     return model
 
-def get_sequential_labelling(csv_file):
+def get_sequential_labelling(csv_file, do_kmer=False, kmer_size=3):
     df = pd.read_csv(csv_file)
     sequences = list(df['sequence'])
     labels = list(df['label'])
+    if do_kmer:
+        sequences = [str_kmer(s, kmer_size) for s in sequences]
+        labels = [str_kmer(s, kmer_size) for s in labels]
     return sequences, labels
 
 def process_label(label_sequences, label_dict=Label_Dictionary):
@@ -97,11 +101,11 @@ def create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_labe
     dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
 
-def preprocessing(csv_file, tokenizer, batch_size):
+def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
     """
     @return dataloader (torch.utils.data.DataLoader): dataloader
     """
-    sequences, labels = get_sequential_labelling(csv_file)
+    sequences, labels = get_sequential_labelling(csv_file, do_kmer=do_kmer, kmer_size=kmer_size)
     arr_input_ids = []
     arr_attention_mask = []
     arr_token_type_ids = []
@@ -217,3 +221,59 @@ def convert_pred_to_label(pred, label_dict=Label_Dictionary):
     @return     array: []
     """
     return []
+
+
+# def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
+def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_function, num_epoch=1, batch_size=1, grad_accumulation_step="1", device="cpu", resume_checkpoint=None, save_path=None):
+    """
+    @param  model
+    @param  tokenizer
+    @param  optimizer
+    @param  scheduler
+    @param  num_epoch (int | None -> 1)
+    @param  batch_size (int | None -> 1)
+    @param  train_genes (list<string>) : list of gene file path.
+    @param  loss_function
+    @param  grad_accumulation_step (int | None -> 1)
+    @param  device (str | None -> ``cpu``)
+    @return ``model``
+    """
+    resume_training_counter = 0
+    if resume_checkpoint != None:
+        model, optimizer, config = load_checkpoint(resume_checkpoint, model, optimizer)
+        resume_training_counter = config["epoch"]
+    
+    num_training_genes = len(train_genes)
+    for epoch in range(num_epoch):
+        epoch_loss = None
+        for i in range(num_training_genes):
+            
+            gene = train_genes[i]
+            gene_dataloader = create_dataloader(gene, batch_size, tokenizer) # Create dataloader for this gene.
+            gene_loss = None # This is loss computed from single gene.
+            len_dataloader = len(gene_dataloader)
+            total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
+            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader):
+                input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
+
+                pred = model(input_ids, attn_mask, token_type_ids)
+                batch_loss = loss_function(pred, label)
+                gene_loss = batch_loss if gene_loss == None else gene_loss + batch_loss
+            #endfor
+
+            avg_gene_loss = gene_loss / total_training_instance
+            epoch_loss = avg_gene_loss if epoch_loss == None else epoch_loss + avg_gene_loss
+            avg_gene_loss.backward()
+
+            if i % grad_accumulation_step == 0 or (i + 1) == num_training_genes:
+                optimizer.step()
+                scheduler.step()
+
+        #endfor
+        save_checkpoint(model, optimizer, {
+            'epoch': epoch + 1 + resume_training_counter,
+            'loss': epoch_loss
+        }, save_path)
+    #endfor
+
+    return model
