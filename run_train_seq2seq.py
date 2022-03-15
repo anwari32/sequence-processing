@@ -69,7 +69,7 @@ if __name__ == "__main__":
     weight_decay = float(arguments['weight_decay']) if 'weight_decay' in arguments.keys() else 0.01
     warmup = int(arguments['warm_up']) if 'warm_up' in arguments.keys() else 0
     loss_strategy = arguments['loss_strategy'] if 'loss_strategy' in arguments.keys() else 'sum' # Either `sum` or `average`
-    save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", "{}".format(now))
+    save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", "temp","{}".format(now))
     remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     resume_from_optimizer = arguments['resume_from_optimizer'] if 'resume_from_optimizer' in arguments.keys() else None

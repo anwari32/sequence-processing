@@ -48,7 +48,7 @@ class DNABERTSeq2Seq(nn.Module):
     """
     Core architecture of sequential labelling.
     """
-    def __init__(self, bert_pretrained_path, seq2seq_dims=[768, 512, 512, 10], loss_strategy="sum", device='cpu'):
+    def __init__(self, bert_pretrained_path, seq2seq_dims=[768, 512, 512, 11], loss_strategy="sum", device='cpu'):
         """
         This model uses BERT as its feature extraction layer.
         This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.
