@@ -94,7 +94,7 @@ if __name__ == "__main__":
         epoch_size, 
         batch_size, 
         log_path=log, 
-        save_path=save_model_path, 
+        save_model_path=save_model_path, 
         device=device,
         training_counter=training_counter,
         resume_from_checkpoint=resume_from_checkpoint,

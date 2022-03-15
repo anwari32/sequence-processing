@@ -29,19 +29,21 @@ Labels = [
 def _create_one_hot_encoding(index, n_classes):
     return [1 if i == index else 0 for i in range(n_classes)]
 
-Label_Begin = '[BEGIN]'
-Label_End = '[END]'
+Label_Begin = '[CLS]'
+Label_End = '[SEP]'
+Label_Pad = '[PAD]'
 Label_Dictionary = {
-    '[BEGIN]': 0, #_create_one_hot_encoding(0, 10),
-    '...': 1, #_create_one_hot_encoding(1, 10),
-    '..E': 2, #_create_one_hot_encoding(2, 10),
-    '.E.': 3, #_create_one_hot_encoding(3, 10),
-    'E..': 4, #_create_one_hot_encoding(4, 10),
-    '.EE': 5, #_create_one_hot_encoding(5, 10),
-    'EE.': 6, #_create_one_hot_encoding(6, 10),
-    'E.E': 7, #_create_one_hot_encoding(7, 10),
-    'EEE': 8, #_create_one_hot_encoding(8, 10),
-    '[END]': 9, #_create_one_hot_encoding(9, 10)
+    '[CLS]': 0, #_create_one_hot_encoding(0, 10),
+    '[SEP]': 1,
+    '[PAD]': 2, #_create_one_hot_encoding(9, 10)
+    '...': 3, #_create_one_hot_encoding(1, 10),
+    '..E': 4, #_create_one_hot_encoding(2, 10),
+    '.E.': 5, #_create_one_hot_encoding(3, 10),
+    'E..': 6, #_create_one_hot_encoding(4, 10),
+    '.EE': 7, #_create_one_hot_encoding(5, 10),
+    'EE.': 8, #_create_one_hot_encoding(6, 10),
+    'E.E': 9, #_create_one_hot_encoding(7, 10),
+    'EEE': 10, #_create_one_hot_encoding(8, 10),
 }
 
 from models.seq2seq import DNABERTSeq2Seq
@@ -77,9 +79,15 @@ def process_label(label_sequences, label_dict=Label_Dictionary):
     @param  label_dict (map): object to map each kmer into number. Default is `Label_Dictionary`.
     @return (array of integer)
     """
-    label = ['[BEGIN]']
-    label.extend(label_sequences.strip().split(' '))
-    label.extend(['[END]'])
+    arr_label_sequence = label_sequences.strip().split(' ')
+    label_length = len(arr_label_sequence)
+    if label_length < 510:
+        delta = 510 - label_length
+        for d in range(delta):
+            arr_label_sequence.append(Label_Pad)
+    label = ['[CLS]']
+    label.extend(arr_label_sequence)
+    label.extend(['[SEP]'])
     label_kmers = [label_dict[k] for k in label]
     return label_kmers
 

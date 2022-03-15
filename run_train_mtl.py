@@ -15,7 +15,7 @@ def _parse_arg(args):
     opts, arguments = getopt.getopt(args, "p:t:e:b:d:l:", 
         ["pretrained=", 
         "train_data=", 
-        "epoch=", 
+        "num_epochs=", 
         "batch_size=", 
         "device=", 
         "learning_rate=", 
@@ -42,8 +42,8 @@ def _parse_arg(args):
             output['train_data'] = os.path.join(argument)
         elif option in ['-d', '--device']:
             output['device'] = argument
-        elif option in ['-e', '--epoch']:
-            output['epoch'] = int(argument)
+        elif option in ['-e', '--num_epochs']:
+            output['num_epochs'] = int(argument)
         elif option in ['-b', '--batch_size']:
             output['batch_size'] = int(argument)
         elif option in ['--learning_rate']:
