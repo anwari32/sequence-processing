@@ -17,6 +17,5 @@ data
 dataset
 pretrained
 result
-sample
 workspace
 logs
