@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 import torch
 
-from utils.utils import load_model_state_dict
+from utils.utils import load_checkpoint
 
 def _parse_arg(argv):
     result = {}
@@ -74,20 +74,17 @@ if __name__ == "__main__":
     save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", "temp","{}".format(now))
     remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
-    resume_from_optimizer = arguments['resume_from_optimizer'] if 'resume_from_optimizer' in arguments.keys() else None
     training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
 
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
     model = DNABERTSeq2Seq(pretrained_path)
-    if resume_from_checkpoint != None:
-        model = load_model_state_dict(model, resume_from_checkpoint)
-    model.to(device)
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
-    if resume_from_optimizer != None:
-        optimizer = load_model_state_dict(optimizer, resume_from_optimizer)
+    if resume_from_checkpoint != None:
+        model, optimizer = load_checkpoint(resume_from_checkpoint, model, optimizer)
     training_steps = len(train_dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
+    model.to(device)
 
     trained_model = train(model, 
         optimizer, 
@@ -100,5 +97,4 @@ if __name__ == "__main__":
         device=device,
         training_counter=training_counter,
         resume_from_checkpoint=resume_from_checkpoint,
-        resume_from_optimizer=resume_from_optimizer
     )

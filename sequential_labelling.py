@@ -183,6 +183,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     model.to(device)
     model.train()
     for i in range(epoch_size):
+        epoch_loss = 0
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
             model.zero_grad()
@@ -198,6 +199,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
                 loss_batch = loss_batch / batch_size
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
+            epoch_loss += loss_batch
             loss_batch.backward()
             optimizer.step()
             scheduler.step()
@@ -207,19 +209,37 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         # After an epoch, save model state.
         save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
         save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
+        save_checkpoint(model, optimizer, {
+            "loss": epoch_loss,
+            "epoch": i + training_counter,
+        }, save_model_path)
         if remove_old_model:
             old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+            os.remove(old_model_path)
 
     #endfor epoch
     log_file.close()
     return model
 
-def evaluate(model, validation_dataloader, log, batch_size=1, device='cpu'):
+def evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
+    # TODO:
+    # Implements how model evaluate model.
     model.to(device)
     model.eval()
+    correct_pred = 0
+    incorrect_pred = 1
     for step, batch in tqdm(enumerate(validation_dataloader, total=len(validation_dataloader))):
-        input_ids, attention_mask, label = tuple(t.to(device) for t in batch)
-        pred = model(input_ids, attention_mask)
+        input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
+        pred = model(input_ids, attention_mask, input_type_ids)
+        for p, z in zip(pred, label):
+            p_score, p_index = torch.max(p, 1)
+            if p_index == z:
+                correct_pred += 1
+            else:
+                incorrect_pred += 1
+
+        
+        
         
 
 def convert_pred_to_label(pred, label_dict=Label_Dictionary):
