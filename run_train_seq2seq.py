@@ -43,6 +43,8 @@ def _parse_arg(argv):
             result["num_epochs"] = int(arg)
         elif opt in ["--batch_size"]:
             result["batch_size"] = int(arg)
+        elif opt in ["--log"]:
+            result["log"] = arg
         else:
             print(f"Argument {opt} not recognized.")
             sys.exit(2)

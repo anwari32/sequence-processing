@@ -270,3 +270,33 @@ def generate_samples(src_csvs, target_csvs, n_sample=10, seed=1337, replace=Fals
     for i in tqdm(range(len_src), total=len_src):
         generate_sample(src_csvs[i], target_csvs[i], n_sample=n_sample, seed=seed, replace=False)
     return True
+
+def create_fraction_sample(src_csv, fraction, dest_csv=None):
+    if not os.path.exists(src_csv):
+        raise FileNotFoundError(f"File {src_csv} not found.")
+    if fraction > 1:
+        raise ValueError(f"Fraction must be 0 <= `fraction` <= 1.")
+    print(f"Sample {src_csv}, fraction {fraction}")
+    df = pd.read_csv(src_csv)
+    sample = df.sample(frac=fraction)
+    if dest_csv == None:
+        dest_csv = os.path.join(os.path.dirname(src_csv), f"{os.path.basename(src_csv).split('.')[0]}.sample.csv")
+    if os.path.exists(dest_csv):
+        os.remove(dest_csv)
+    sample.to_csv(dest_csv, index=False)
+    return True
+
+def create_n_sample(src_csv, n_sample, dest_csv=None, random=None):
+    if not os.path.exists(src_csv):
+        raise FileNotFoundError(f"File {src_csv} not found.")
+    df = pd.read_csv(src_csv)
+    if n_sample > df.shape[0]:
+        raise ValueError(f"Cant sample more than existing data.")
+    print(f"Sample {src_csv}, fraction {n_sample}                                   ", end='\r')
+    sample = df.sample(n=n_sample, random_state=random)
+    if dest_csv == None:
+        dest_csv = os.path.join(os.path.dirname(src_csv), f"{os.path.basename(src_csv).split('.')[0]}.sample.csv")
+    if os.path.exists(dest_csv):
+        os.remove(dest_csv)
+    sample.to_csv(dest_csv, index=False)
+    return True
