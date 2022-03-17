@@ -142,6 +142,14 @@ def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, bet
     optimizer = AdamW(model_parameters, lr=learning_rate, eps=epsilon, betas=betas, weight_decay=weight_decay)
     return optimizer
 
+def init_seq2seq_model(dnabert_pretrained_path):
+    #if not os.path.exists(config_path):
+    #    raise FileNotFoundError(f"Config not found at {config_path}")
+    if not os.path.exists(dnabert_pretrained_path):
+        raise FileNotFoundError(f"DNABert Pretrained not found at {dnabert_pretrained_path}")
+    model = DNABERTSeq2Seq(dnabert_pretrained_path)
+    return model
+
 def train_iter(args):
     for epoch in args.num_epoch:
         model = train(args.model, args.optimizer, args.scheduler, args.batch_size, args.log)

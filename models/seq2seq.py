@@ -30,7 +30,7 @@ class Seq2SeqHead(nn.Module):
             )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
-        self.activation = nn.LogSoftmax(dim=1)
+        self.activation = nn.Softmax(dim=1)
         #for i in range(0, len(self.hidden_layers)):
         #    linear_layer = self.hidden_layers[i]
         #    self.stack.add_module("hidden-{}".format(i+1), linear_layer)

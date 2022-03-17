@@ -813,7 +813,7 @@ def merge_csv(csv_files, csv_target):
     t = open(csv_target, 'x')
     t.write('sequence,label\n')
     for a in tqdm(csv_files, total=len(csv_files)):
-        print(f"Processing {a}                                                              ", end='\r')
+        # print(f"Processing {a}                                                              ", end='\r')
         f = open(a, 'r')
         next(f) # Skip first line.
         for line in f:
