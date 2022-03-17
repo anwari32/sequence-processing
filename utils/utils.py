@@ -108,13 +108,15 @@ def save_checkpoint(model, optimizer, config, path, replace=False):
     
     torch.save(save_object, path)
 
-
-def load_checkpoint(path, default_model, default_optimizer):
-    saved_object = torch.load(path)
-    model = default_model.load_state_dict(saved_object["model"])
-    optimizer = default_optimizer.load_state_dict(saved_object["optimizer"])
-    config = saved_object["config"]
-    return model, optimizer, config
+def load_checkpoint(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Checkpoint {path} not found.")
+    checkpoint = torch.load(path)
+    #model = default_model.load_state_dict(saved_object["model"])
+    #optimizer = default_optimizer.load_state_dict(saved_object["optimizer"])
+    #config = saved_object["config"]
+    #return model, optimizer, config
+    return checkpoint
 
 def load_model_state_dict(model, load_path):
     """

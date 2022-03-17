@@ -29,8 +29,8 @@ def _parse_arg(argv):
         "save_model_path=",
         "remove_old_model=",
         "resume_from_checkpoint=",
-        "resume_from_optimizer=",
-        "training_counter="
+        "training_counter=",
+        "grad_accumulation_steps="
     ])
     for opt, arg in opts:
         if opt in ["--train_data", "-t"]:
@@ -45,6 +45,12 @@ def _parse_arg(argv):
             result["batch_size"] = int(arg)
         elif opt in ["--log"]:
             result["log"] = arg
+        elif opt in ["--resume_from_checkpoint"]:
+            result["resume_from_checkpoint"] = arg
+        elif opt in ["--save_model_path"]:
+            result["save_model_path"] = arg
+        elif opt in ["--grad_accumulation_steps"]:
+            result["grad_accumulation_steps"] = int(arg)
         else:
             print(f"Argument {opt} not recognized.")
             sys.exit(2)
@@ -75,13 +81,19 @@ if __name__ == "__main__":
     remove_old_model = arguments['remove_old_model'] if 'remove_old_model' in arguments.keys() else False
     resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
+    grad_accumulation_steps = arguments['grad_accumulation_steps'] if 'grad_accumulation_steps' in arguments.keys() else 1
 
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
     model = DNABERTSeq2Seq(pretrained_path)
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
     if resume_from_checkpoint != None:
-        model, optimizer = load_checkpoint(resume_from_checkpoint, model, optimizer)
+        checkpoint = load_checkpoint(resume_from_checkpoint)
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        config = checkpoint["config"]
+        training_counter = int(config['epoch']) + 1
+        print(f"Resuming training from epoch {training_counter}") 
     training_steps = len(train_dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
     model.to(device)
@@ -97,4 +109,5 @@ if __name__ == "__main__":
         device=device,
         training_counter=training_counter,
         resume_from_checkpoint=resume_from_checkpoint,
+        grad_accumulation_step=grad_accumulation_steps
     )

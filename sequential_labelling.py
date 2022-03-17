@@ -162,7 +162,7 @@ def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
         output = model(input_ids, attn_mask)
     return model
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None):
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_step=1):
     """
     @param  model: BERT derivatives.
     @param  optimizer: optimizer
@@ -194,7 +194,6 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         epoch_loss = 0
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-            model.zero_grad()
             pred = model(input_ids, attention_mask, input_type_ids)
             loss_batch = None
             for p, t in zip(pred, label):
@@ -209,8 +208,11 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
             epoch_loss += loss_batch
             loss_batch.backward()
-            optimizer.step()
-            scheduler.step()
+
+            if (step + 1) % grad_accumulation_step == 0 or  (step + 1) == len(train_dataloader):
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
             torch.cuda.empty_cache()
         #endfor batch
 
@@ -220,9 +222,9 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         save_checkpoint(model, optimizer, {
             "loss": epoch_loss,
             "epoch": i + training_counter,
-        }, save_model_path)
+        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
         if remove_old_model:
-            old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+            old_model_path = os.path.join(save_model_path, os.path.basename("checkpoint-{}.pth".format(i + training_counter-1)))
             os.remove(old_model_path)
 
     #endfor epoch
