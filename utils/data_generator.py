@@ -10,17 +10,11 @@ def _data_generator_mtl():
     os.makedirs(_log_file, exist_ok=True)
 
     #seqs = ["ATGC" * 128, "GATC" * 128, "CCAT" * 128]
-    seqs = ["ATGC" * 128]
+    seqs = ["ATGC" * 128, "GACC"  *128, "GTTA" * 128]
     seqs = [' '.join(kmer(s, 3)) for s in seqs]
-    prom_labels = [1] #, 0, 0]
-    ss_labels = [0] #, 1, 0]
-    polya_labels = [0] #, 0, 1]
-
-    def _format_prom_label(label):
-        return [label]
-
-    def _format_other_label(label):
-        return label
+    prom_labels = [1, 0, 0] #, 0]
+    ss_labels = [0, 1, 0]# 0]
+    polya_labels = [0, 0, 1] #, 1]
 
     """
     Initialize BERT tokenizer.
@@ -35,6 +29,7 @@ def _data_generator_mtl():
     arr_prom_label = []
     arr_ss_label = []
     arr_polya_label = []
+    print(f"Data sample {len(seqs)}")
     for i in range(len(seqs)):
         s = seqs[i]
         prom = prom_labels[i]
@@ -44,9 +39,9 @@ def _data_generator_mtl():
         encoded = tokenizer.encode_plus(text=s, padding="max_length", return_attention_mask=True)
         arr_input_ids.append(encoded.get('input_ids'))
         arr_attention_mask.append(encoded.get('attention_mask'))
-        arr_prom_label.append(_format_prom_label(prom))
-        arr_ss_label.append(_format_other_label(ss))
-        arr_polya_label.append(_format_other_label(polya))
+        arr_prom_label.append(prom)
+        arr_ss_label.append(ss)
+        arr_polya_label.append(polya)
     #endfor
     arr_input_ids = torch.tensor(arr_input_ids)
     arr_attention_mask = torch.tensor(arr_attention_mask)

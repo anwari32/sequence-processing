@@ -469,7 +469,7 @@ def kmer(seq, length, window_size=1):
     @param      window_size (int): stride.
     @return     (array of string): array of kmer.
     """
-    return [seq[i:i+length] for i in range(0, len(seq)+1-length, window_size)]
+    return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
 
 def str_kmer(seq: str, length: int, window_size=1):
     """
@@ -812,7 +812,8 @@ def merge_csv(csv_files, csv_target):
 
     t = open(csv_target, 'x')
     t.write('sequence,label\n')
-    for a in csv_files:
+    for a in tqdm(csv_files, total=len(csv_files)):
+        # print(f"Processing {a}                                                              ", end='\r')
         f = open(a, 'r')
         next(f) # Skip first line.
         for line in f:
@@ -842,7 +843,7 @@ def merge_dataset(prom_file, ss_file, polya_file, csv_target):
         ss_df['label_prom'] = 0
         ss_df['label_polya'] = 0
 
-        polya_df = pd.read_csv(ss_file)
+        polya_df = pd.read_csv(polya_file)
         polya_df = polya_df.rename(columns={'label': 'label_polya'})
         polya_df['label_prom'] = 0
         polya_df['label_ss'] = 0
@@ -1011,7 +1012,7 @@ def generate_kmer_csv(src_csv_path, target_csv_path, kmer_size=3):
         target_df = pd.DataFrame(columns=_columns)
 
         for i, r in src_df.iterrows():
-            print("Generating kmer for <{}>: {}/{}".format(src_csv_path, i+1, len_src_df), end='\r')
+            print("Generating kmer for <{}>: {}/{}                                                      ".format(src_csv_path, i+1, len_src_df), end='\r')
             sequence = r['sequence']
             kmer_sequence = kmer(sequence, kmer_size)
             kmer_sequence = ' '.join(kmer_sequence)

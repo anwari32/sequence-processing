@@ -87,6 +87,37 @@ def save_model_state_dict(model, save_path, save_filename):
         os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
+def save_checkpoint(model, optimizer, config, path, replace=False):
+    """
+    Save model and optimizer internal state with other information (config).
+    """
+    save_object = {
+        'config': config,
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+    }
+    dest_dir = os.path.dirname(path)
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    
+    if os.path.exists(path):
+        if replace == True:
+            os.remove(path)
+        else:
+            raise FileExistsError(f"Cannot remove old saved file. File with same name found and replace == ``False``.")
+    
+    torch.save(save_object, path)
+
+def load_checkpoint(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Checkpoint {path} not found.")
+    checkpoint = torch.load(path)
+    #model = default_model.load_state_dict(saved_object["model"])
+    #optimizer = default_optimizer.load_state_dict(saved_object["optimizer"])
+    #config = saved_object["config"]
+    #return model, optimizer, config
+    return checkpoint
+
 def load_model_state_dict(model, load_path):
     """
     Load model state dictionary.
@@ -240,4 +271,34 @@ def generate_samples(src_csvs, target_csvs, n_sample=10, seed=1337, replace=Fals
 
     for i in tqdm(range(len_src), total=len_src):
         generate_sample(src_csvs[i], target_csvs[i], n_sample=n_sample, seed=seed, replace=False)
+    return True
+
+def create_fraction_sample(src_csv, fraction, dest_csv=None):
+    if not os.path.exists(src_csv):
+        raise FileNotFoundError(f"File {src_csv} not found.")
+    if fraction > 1:
+        raise ValueError(f"Fraction must be 0 <= `fraction` <= 1.")
+    print(f"Sample {src_csv}, fraction {fraction}")
+    df = pd.read_csv(src_csv)
+    sample = df.sample(frac=fraction)
+    if dest_csv == None:
+        dest_csv = os.path.join(os.path.dirname(src_csv), f"{os.path.basename(src_csv).split('.')[0]}.sample.csv")
+    if os.path.exists(dest_csv):
+        os.remove(dest_csv)
+    sample.to_csv(dest_csv, index=False)
+    return True
+
+def create_n_sample(src_csv, n_sample, dest_csv=None, random=None):
+    if not os.path.exists(src_csv):
+        raise FileNotFoundError(f"File {src_csv} not found.")
+    df = pd.read_csv(src_csv)
+    if n_sample > df.shape[0]:
+        raise ValueError(f"Cant sample more than existing data.")
+    print(f"Sample {src_csv}, fraction {n_sample}                                   ", end='\r')
+    sample = df.sample(n=n_sample, random_state=random)
+    if dest_csv == None:
+        dest_csv = os.path.join(os.path.dirname(src_csv), f"{os.path.basename(src_csv).split('.')[0]}.sample.csv")
+    if os.path.exists(dest_csv):
+        os.remove(dest_csv)
+    sample.to_csv(dest_csv, index=False)
     return True

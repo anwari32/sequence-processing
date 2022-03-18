@@ -30,7 +30,7 @@ class Seq2SeqHead(nn.Module):
             )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
-        self.activation = nn.LogSoftmax(dim=1)
+        self.activation = nn.Softmax(dim=1)
         #for i in range(0, len(self.hidden_layers)):
         #    linear_layer = self.hidden_layers[i]
         #    self.stack.add_module("hidden-{}".format(i+1), linear_layer)
@@ -48,7 +48,7 @@ class DNABERTSeq2Seq(nn.Module):
     """
     Core architecture of sequential labelling.
     """
-    def __init__(self, bert_pretrained_path, seq2seq_dims=[768, 512, 512, 10], loss_strategy="sum", device='cpu'):
+    def __init__(self, bert_pretrained_path, seq2seq_dims=[768, 512, 512, 11], loss_strategy="sum", device='cpu'):
         """
         This model uses BERT as its feature extraction layer.
         This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.

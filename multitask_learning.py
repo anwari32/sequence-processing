@@ -40,7 +40,14 @@ def restore_model(model_path, device="cpu"):
     model = torch.load(model_path)
     return model.to(device)
 
-def evaluate(dataloader, model, log_path, device='cpu'):
+def evaluate(model, dataloader, log_path, device='cpu'):
+    if os.path.exists(log_path):
+        os.remove(log_path)
+    log_dir = os.path.dirname(log_path)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    log = open(log_path, 'x')
+    log.write("pred_prom,label_prom,pred_ss,label_ss,pred_polya,label_polya\n")
     model.eval()
     model.to(device)    
     count_prom_correct = 0
@@ -50,8 +57,8 @@ def evaluate(dataloader, model, log_path, device='cpu'):
     ss_accuracy = 0
     polya_accuracy = 0
     len_dataloader = len(dataloader)
-    for step, batch in enumerate(dataloader, total=len_dataloader, desc="Inference"):
-        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
+    for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Inference"):
+        input_ids, attn_mask, token_type_ids, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
 
         # Compute logits.
         with torch.no_grad():
@@ -66,7 +73,7 @@ def evaluate(dataloader, model, log_path, device='cpu'):
             actual_prom = label_prom.float().item()
             if (predicted_prom == actual_prom):
                 count_prom_correct += 1
-            print(pred_prom, label_prom, predicted_prom)
+            #print(pred_prom, label_prom, predicted_prom)
 
             predicted_ss, predicted_ss_index = torch.max(pred_ss, 1)
             predicted_ss = predicted_ss.item()
@@ -79,7 +86,11 @@ def evaluate(dataloader, model, log_path, device='cpu'):
             predicted_polya_index = predicted_polya_index.item()
             if (predicted_polya_index == label_polya):
                 count_polya_correct += 1
+
+
+            log.write(f"{predicted_prom},{label_prom},{predicted_ss_index},{label_ss},{predicted_polya_index},{label_polya}\n")
     #endfor
+    log.close()
     # Compute average accuracy.
     prom_accuracy = count_prom_correct / len_dataloader * 100
     ss_accuracy = count_ss_correct / len_dataloader * 100

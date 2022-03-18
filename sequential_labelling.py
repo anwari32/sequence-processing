@@ -11,7 +11,8 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import sys
-from utils.utils import save_model_state_dict
+from utils.utils import save_model_state_dict, load_model_state_dict, load_checkpoint, save_checkpoint
+from data_preparation import str_kmer
 
 Labels = [
     '...',
@@ -28,19 +29,21 @@ Labels = [
 def _create_one_hot_encoding(index, n_classes):
     return [1 if i == index else 0 for i in range(n_classes)]
 
-Label_Begin = '[BEGIN]'
-Label_End = '[END]'
+Label_Begin = '[CLS]'
+Label_End = '[SEP]'
+Label_Pad = '[PAD]'
 Label_Dictionary = {
-    '[BEGIN]': 0, #_create_one_hot_encoding(0, 10),
-    '...': 1, #_create_one_hot_encoding(1, 10),
-    '..E': 2, #_create_one_hot_encoding(2, 10),
-    '.E.': 3, #_create_one_hot_encoding(3, 10),
-    'E..': 4, #_create_one_hot_encoding(4, 10),
-    '.EE': 5, #_create_one_hot_encoding(5, 10),
-    'EE.': 6, #_create_one_hot_encoding(6, 10),
-    'E.E': 7, #_create_one_hot_encoding(7, 10),
-    'EEE': 8, #_create_one_hot_encoding(8, 10),
-    '[END]': 9, #_create_one_hot_encoding(9, 10)
+    '[CLS]': 0, #_create_one_hot_encoding(0, 10),
+    '[SEP]': 1,
+    '[PAD]': 2, #_create_one_hot_encoding(9, 10)
+    '...': 3, #_create_one_hot_encoding(1, 10),
+    '..E': 4, #_create_one_hot_encoding(2, 10),
+    '.E.': 5, #_create_one_hot_encoding(3, 10),
+    'E..': 6, #_create_one_hot_encoding(4, 10),
+    '.EE': 7, #_create_one_hot_encoding(5, 10),
+    'EE.': 8, #_create_one_hot_encoding(6, 10),
+    'E.E': 9, #_create_one_hot_encoding(7, 10),
+    'EEE': 10, #_create_one_hot_encoding(8, 10),
 }
 
 from models.seq2seq import DNABERTSeq2Seq
@@ -61,10 +64,13 @@ def restore_model_state_dict(pretrained_path, model_state_dict_save_path):
     model.load_state_dict(torch.load(model_state_dict_save_path))
     return model
 
-def get_sequential_labelling(csv_file):
+def get_sequential_labelling(csv_file, do_kmer=False, kmer_size=3):
     df = pd.read_csv(csv_file)
     sequences = list(df['sequence'])
     labels = list(df['label'])
+    if do_kmer:
+        sequences = [str_kmer(s, kmer_size) for s in sequences]
+        labels = [str_kmer(s, kmer_size) for s in labels]
     return sequences, labels
 
 def process_label(label_sequences, label_dict=Label_Dictionary):
@@ -73,9 +79,15 @@ def process_label(label_sequences, label_dict=Label_Dictionary):
     @param  label_dict (map): object to map each kmer into number. Default is `Label_Dictionary`.
     @return (array of integer)
     """
-    label = ['[BEGIN]']
-    label.extend(label_sequences.strip().split(' '))
-    label.extend(['[END]'])
+    arr_label_sequence = label_sequences.strip().split(' ')
+    label_length = len(arr_label_sequence)
+    if label_length < 510:
+        delta = 510 - label_length
+        for d in range(delta):
+            arr_label_sequence.append(Label_Pad)
+    label = ['[CLS]']
+    label.extend(arr_label_sequence)
+    label.extend(['[SEP]'])
     label_kmers = [label_dict[k] for k in label]
     return label_kmers
 
@@ -97,11 +109,11 @@ def create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_labe
     dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
 
-def preprocessing(csv_file, tokenizer, batch_size):
+def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
     """
     @return dataloader (torch.utils.data.DataLoader): dataloader
     """
-    sequences, labels = get_sequential_labelling(csv_file)
+    sequences, labels = get_sequential_labelling(csv_file, do_kmer=do_kmer, kmer_size=kmer_size)
     arr_input_ids = []
     arr_attention_mask = []
     arr_token_type_ids = []
@@ -130,6 +142,14 @@ def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, bet
     optimizer = AdamW(model_parameters, lr=learning_rate, eps=epsilon, betas=betas, weight_decay=weight_decay)
     return optimizer
 
+def init_seq2seq_model(dnabert_pretrained_path):
+    #if not os.path.exists(config_path):
+    #    raise FileNotFoundError(f"Config not found at {config_path}")
+    if not os.path.exists(dnabert_pretrained_path):
+        raise FileNotFoundError(f"DNABert Pretrained not found at {dnabert_pretrained_path}")
+    model = DNABERTSeq2Seq(dnabert_pretrained_path)
+    return model
+
 def train_iter(args):
     for epoch in args.num_epoch:
         model = train(args.model, args.optimizer, args.scheduler, args.batch_size, args.log)
@@ -142,7 +162,7 @@ def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
         output = model(input_ids, attn_mask)
     return model
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None):
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_step=1):
     """
     @param  model: BERT derivatives.
     @param  optimizer: optimizer
@@ -171,9 +191,9 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     model.to(device)
     model.train()
     for i in range(epoch_size):
+        epoch_loss = 0
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-            model.zero_grad()
             pred = model(input_ids, attention_mask, input_type_ids)
             loss_batch = None
             for p, t in zip(pred, label):
@@ -186,28 +206,50 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
                 loss_batch = loss_batch / batch_size
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
+            epoch_loss += loss_batch
             loss_batch.backward()
-            optimizer.step()
-            scheduler.step()
+
+            if (step + 1) % grad_accumulation_step == 0 or  (step + 1) == len(train_dataloader):
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
             torch.cuda.empty_cache()
         #endfor batch
 
         # After an epoch, save model state.
         save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
         save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
+        save_checkpoint(model, optimizer, {
+            "loss": epoch_loss,
+            "epoch": i + training_counter,
+        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
         if remove_old_model:
-            old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+            old_model_path = os.path.join(save_model_path, os.path.basename("checkpoint-{}.pth".format(i + training_counter-1)))
+            os.remove(old_model_path)
 
     #endfor epoch
     log_file.close()
     return model
 
-def evaluate(model, validation_dataloader, log, batch_size=1, device='cpu'):
+def evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
+    # TODO:
+    # Implements how model evaluate model.
     model.to(device)
     model.eval()
+    correct_pred = 0
+    incorrect_pred = 1
     for step, batch in tqdm(enumerate(validation_dataloader, total=len(validation_dataloader))):
-        input_ids, attention_mask, label = tuple(t.to(device) for t in batch)
-        pred = model(input_ids, attention_mask)
+        input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
+        pred = model(input_ids, attention_mask, input_type_ids)
+        for p, z in zip(pred, label):
+            p_score, p_index = torch.max(p, 1)
+            if p_index == z:
+                correct_pred += 1
+            else:
+                incorrect_pred += 1
+
+        
+        
         
 
 def convert_pred_to_label(pred, label_dict=Label_Dictionary):
@@ -217,3 +259,59 @@ def convert_pred_to_label(pred, label_dict=Label_Dictionary):
     @return     array: []
     """
     return []
+
+
+# def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
+def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_function, num_epoch=1, batch_size=1, grad_accumulation_step="1", device="cpu", resume_checkpoint=None, save_path=None):
+    """
+    @param  model
+    @param  tokenizer
+    @param  optimizer
+    @param  scheduler
+    @param  num_epoch (int | None -> 1)
+    @param  batch_size (int | None -> 1)
+    @param  train_genes (list<string>) : list of gene file path.
+    @param  loss_function
+    @param  grad_accumulation_step (int | None -> 1)
+    @param  device (str | None -> ``cpu``)
+    @return ``model``
+    """
+    resume_training_counter = 0
+    if resume_checkpoint != None:
+        model, optimizer, config = load_checkpoint(resume_checkpoint, model, optimizer)
+        resume_training_counter = config["epoch"]
+    
+    num_training_genes = len(train_genes)
+    for epoch in range(num_epoch):
+        epoch_loss = None
+        for i in range(num_training_genes):
+            
+            gene = train_genes[i]
+            gene_dataloader = create_dataloader(gene, batch_size, tokenizer) # Create dataloader for this gene.
+            gene_loss = None # This is loss computed from single gene.
+            len_dataloader = len(gene_dataloader)
+            total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
+            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader):
+                input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
+
+                pred = model(input_ids, attn_mask, token_type_ids)
+                batch_loss = loss_function(pred, label)
+                gene_loss = batch_loss if gene_loss == None else gene_loss + batch_loss
+            #endfor
+
+            avg_gene_loss = gene_loss / total_training_instance
+            epoch_loss = avg_gene_loss if epoch_loss == None else epoch_loss + avg_gene_loss
+            avg_gene_loss.backward()
+
+            if i % grad_accumulation_step == 0 or (i + 1) == num_training_genes:
+                optimizer.step()
+                scheduler.step()
+
+        #endfor
+        save_checkpoint(model, optimizer, {
+            'epoch': epoch + 1 + resume_training_counter,
+            'loss': epoch_loss
+        }, save_path)
+    #endfor
+
+    return model

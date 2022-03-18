@@ -120,6 +120,13 @@ if __name__ == "__main__":
 
     for key in parameters.keys():
         print('{} - {}'.format(key, parameters[key]))
+
+    """
+    Make sure log directory is there.
+    """
+    log_dir = os.path.dirname(log)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
         
     """
     Create dataloader.
