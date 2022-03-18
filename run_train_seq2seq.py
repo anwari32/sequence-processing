@@ -51,6 +51,8 @@ def _parse_arg(argv):
             result["save_model_path"] = arg
         elif opt in ["--grad_accumulation_steps"]:
             result["grad_accumulation_steps"] = int(arg)
+        elif opt in ["--training_counter"]:
+            result["training_counter"] = int(arg)
         else:
             print(f"Argument {opt} not recognized.")
             sys.exit(2)
@@ -86,6 +88,7 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
     model = DNABERTSeq2Seq(pretrained_path)
+    model.to(device)
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
     if resume_from_checkpoint != None:
         checkpoint = load_checkpoint(resume_from_checkpoint)
@@ -96,7 +99,6 @@ if __name__ == "__main__":
         print(f"Resuming training from epoch {training_counter}") 
     training_steps = len(train_dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup, num_training_steps=training_steps)
-    model.to(device)
 
     trained_model = train(model, 
         optimizer, 

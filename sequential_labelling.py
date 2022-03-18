@@ -220,8 +220,11 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
         save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
         save_checkpoint(model, optimizer, {
-            "loss": epoch_loss,
+            "loss": epoch_loss.item(),
             "epoch": i + training_counter,
+            "grad_accumulation_steps": grad_accumulation_step,
+            "device": device,
+            "batch_size": batch_size
         }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
         if remove_old_model:
             old_model_path = os.path.join(save_model_path, os.path.basename("checkpoint-{}.pth".format(i + training_counter-1)))

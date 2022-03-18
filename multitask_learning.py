@@ -13,7 +13,7 @@ from datetime import datetime
 import pandas as pd
 import os
 import sys
-from utils.utils import save_model_state_dict
+from utils.utils import save_checkpoint, save_model_state_dict
 
 from models.mtl import BertSequenceClassificationHead, MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
@@ -130,6 +130,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     _len_dataloader = len(dataloader)
     try:
         for i in range(epoch_size):
+            epoch_loss = 0
             for step, batch in tqdm(enumerate(dataloader), total=_len_dataloader, desc="Epoch [{}/{}]".format(i+1, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
                 output = model(in_ids, attn_mask)
@@ -152,6 +153,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 if grad_accumulation_steps > 1:
                     loss = loss / grad_accumulation_steps
 
+                # Accumulate loss in this batch.
+                epoch_loss += loss
+
                 # Backpropagation.
                 loss.backward()
 
@@ -169,13 +173,22 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Just print something so terminal doesn't look so boring. (-_-)'
                 # print("Epoch {}, Step {}".format(i, step), end='\r')
-
             # endfor batch.
+
+            # Calculate epoch loss over len(dataloader)
+            epoch_loss = epoch_loss / len(dataloader)
 
             # After and epoch, Save the model if `save_model_path` is not None.
             save_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
             save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
             save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
+            save_checkpoint(model, optimizer, {
+                "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                "epoch": (i + training_counter),
+                "batch_size": batch_size,
+                "device": device,
+                "grad_accumulation_steps": grad_accumulation_steps,
+            }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}"))
             # torch.save(model.state_dict(), os.path.join(save_model_path, "epoch-{}.pth".format(i+training_counter)))
             if remove_old_model:
                 old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
