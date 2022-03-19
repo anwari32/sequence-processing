@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 from torch import nn
 from transformers import BertForMaskedLM
 import os
@@ -18,12 +19,34 @@ class Seq2SeqBlock(nn.Module):
         output = self.activation(output)
         return output
 
+class LSTM_Block(nn.Module):
+    def __init__(self, config):
+        super.__init__()
+
+        self.lstm = nn.LSTM(
+            input_size = config["input_dim"],
+            hidden_size = config["hidden_dim"],
+            num_layers = config["num_layers"],
+            batch_first = True,
+            dropout = config["dropout"]
+        )
+
+    def forward(self, input):
+        return self.lstm(input)
+
+
 class Seq2SeqHead(nn.Module):
-    def __init__(self, num_blocks, num_labels, dim=768, norm_layer=False, dropout_prob=0.1):
+    def __init__(self, config):
         super().__init__()
-        self.stack = nn.Sequential()
+        self.lstm = LSTM_Block(config["lstm"]) if config["use_lstm"] > 0 else None
+        num_blocks = config["linear"]["num_layers"] 
+        num_labels = config["linear"]["num_labels"]
+        dim = config["linear"]["hidden_dim"] 
+        norm_layer =  (config["linear"]["norm_layer"] > 0) 
+        dropout_prob= config["linear"]["dropout"] if "linear" in config["linear"] else 0.1
+        self.linear = nn.Sequential()
         for i in range(num_blocks):
-            self.stack.add_module(
+            self.linear.add_module(
                 "seq2seq_block-{}".format(i), Seq2SeqBlock(dim, dim, norm_layer=norm_layer, prob=dropout_prob)
             )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
@@ -38,15 +61,18 @@ class Seq2SeqHead(nn.Module):
         #self.stack.add_module("dropout-1", nn.Dropout(0.1))
     
     def forward(self, input):
-        x = self.stack(input)
+        x = self.lstm(input) if self.lstm else input
+        x = self.linear(input)
         x = self.classifier(x)
         return x
+
+
 
 class DNABERTSeq2Seq(nn.Module):
     """
     Core architecture of sequential labelling.
     """
-    def __init__(self, bert_pretrained_path, num_blocks=1, num_labels=11, hidden_dim=768, norm_layer=False, dropout_prob=0.1):
+    def __init__(self, config):
         """
         This model uses BERT as its feature extraction layer.
         This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.
@@ -56,14 +82,17 @@ class DNABERTSeq2Seq(nn.Module):
         @param  device (string): Default is 'cpu' but you can put 'cuda' if your machine supports cuda.
         @return (DNASeqLabelling): Object of this class.
         """
+        super().__init__()
+        if "pretrained" not in config.keys():
+            raise KeyError("Pretrained path not found in config. Check if there is `pretrained` key in config.")
+        bert_pretrained_path = config["pretrained"]
         if not os.path.exists(bert_pretrained_path):
             raise FileNotFoundError(bert_pretrained_path)
         if not os.path.isdir(bert_pretrained_path):
             raise IsADirectoryError(bert_pretrained_path)
 
-        super().__init__()
         self.bert = BertForMaskedLM.from_pretrained(bert_pretrained_path).bert
-        self.seq2seq_head = Seq2SeqHead(num_blocks, num_labels, hidden_dim, norm_layer=norm_layer, dropout_prob=dropout_prob)
+        self.seq2seq_head = Seq2SeqHead(config)
         self.activation = nn.Softmax(dim=2)
 
     def forward(self, input_ids, attention_masks, token_type_ids):

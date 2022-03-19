@@ -6,149 +6,14 @@ from torch import tensor
 from torch.nn import NLLLoss
 from torch.nn.functional import one_hot
 from torch.utils.data import DataLoader, TensorDataset
-from transformers import AdamW, BertForMaskedLM, get_linear_schedule_with_warmup
+from torch.optim import AdamW
+from transformers import BertForMaskedLM, get_linear_schedule_with_warmup
 import os
 import pandas as pd
 from tqdm import tqdm
-import sys
+import json
 from utils.utils import save_model_state_dict, load_model_state_dict, load_checkpoint, save_checkpoint
 from data_preparation import str_kmer
-
-Labels = [
-    '...',
-    '..E',
-    '.E.',
-    'E..',
-    '.EE',
-    'EE.',
-    'E.E',
-    'EEE',
-]
-
-
-def _create_one_hot_encoding(index, n_classes):
-    return [1 if i == index else 0 for i in range(n_classes)]
-
-Label_Begin = '[CLS]'
-Label_End = '[SEP]'
-Label_Pad = '[PAD]'
-Label_Dictionary = {
-    '[CLS]': 0, #_create_one_hot_encoding(0, 10),
-    '[SEP]': 1,
-    '[PAD]': 2, #_create_one_hot_encoding(9, 10)
-    '...': 3, #_create_one_hot_encoding(1, 10),
-    '..E': 4, #_create_one_hot_encoding(2, 10),
-    '.E.': 5, #_create_one_hot_encoding(3, 10),
-    'E..': 6, #_create_one_hot_encoding(4, 10),
-    '.EE': 7, #_create_one_hot_encoding(5, 10),
-    'EE.': 8, #_create_one_hot_encoding(6, 10),
-    'E.E': 9, #_create_one_hot_encoding(7, 10),
-    'EEE': 10, #_create_one_hot_encoding(8, 10),
-}
-
-from models.seq2seq import DNABERTSeq2Seq
-
-def restore_model_state_dict(pretrained_path, model_state_dict_save_path):
-    """
-    Reinitialize saved model by initializing model and then load the saved state dictionary.
-    @param  pretrained_path (string): path to pretrained model as model's initial state.
-    @param  model_state_dict_save_path (string): path to saved model states.
-    @return (model): model with restored parameters.
-    """
-    if not os.path.exists(model_state_dict_save_path):
-        raise FileNotFoundError(model_state_dict_save_path)
-    if not os.path.exists(pretrained_path):
-        raise FileNotFoundError(pretrained_path)
-    
-    model = DNABERTSeq2Seq(pretrained_path)
-    model.load_state_dict(torch.load(model_state_dict_save_path))
-    return model
-
-def get_sequential_labelling(csv_file, do_kmer=False, kmer_size=3):
-    df = pd.read_csv(csv_file)
-    sequences = list(df['sequence'])
-    labels = list(df['label'])
-    if do_kmer:
-        sequences = [str_kmer(s, kmer_size) for s in sequences]
-        labels = [str_kmer(s, kmer_size) for s in labels]
-    return sequences, labels
-
-def process_label(label_sequences, label_dict=Label_Dictionary):
-    """
-    @param  label_sequences (string): string containing label in kmers separated by spaces. i.e. 'EEE E.. ...'.
-    @param  label_dict (map): object to map each kmer into number. Default is `Label_Dictionary`.
-    @return (array of integer)
-    """
-    arr_label_sequence = label_sequences.strip().split(' ')
-    label_length = len(arr_label_sequence)
-    if label_length < 510:
-        delta = 510 - label_length
-        for d in range(delta):
-            arr_label_sequence.append(Label_Pad)
-    label = ['[CLS]']
-    label.extend(arr_label_sequence)
-    label.extend(['[SEP]'])
-    label_kmers = [label_dict[k] for k in label]
-    return label_kmers
-
-def process_sequence_and_label(sequence, label, tokenizer):
-    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length")
-    input_ids = encoded.get('input_ids')
-    attention_mask = encoded.get('attention_mask')
-    token_type_ids = encoded.get('token_type_ids')
-    label_repr = process_label(label)
-    return input_ids, attention_mask, token_type_ids, label_repr
-
-def create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_label_repr, batch_size):
-    arr_input_ids_tensor = tensor(arr_input_ids)
-    arr_attn_mask_tensor = tensor(arr_attn_mask)
-    arr_token_type_ids_tensor = tensor(arr_token_type_ids)
-    arr_label_repr_tensor = tensor(arr_label_repr)
-
-    dataset = TensorDataset(arr_input_ids_tensor, arr_attn_mask_tensor, arr_token_type_ids_tensor, arr_label_repr_tensor)
-    dataloader = DataLoader(dataset, batch_size=batch_size)
-    return dataloader
-
-def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
-    """
-    @return dataloader (torch.utils.data.DataLoader): dataloader
-    """
-    sequences, labels = get_sequential_labelling(csv_file, do_kmer=do_kmer, kmer_size=kmer_size)
-    arr_input_ids = []
-    arr_attention_mask = []
-    arr_token_type_ids = []
-    arr_labels = []
-    for seq, label in zip(sequences, labels):
-        input_ids, attention_mask, token_type_ids, label_repr = process_sequence_and_label(seq, label, tokenizer)
-        arr_input_ids.append(input_ids)
-        arr_attention_mask.append(attention_mask)
-        arr_token_type_ids.append(token_type_ids)
-        arr_labels.append(label_repr)
-
-    tensor_dataloader = create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_labels, batch_size)
-    return tensor_dataloader
-
-def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, betas=(0.9, 0.98), weight_decay=0.01):
-    """
-    Initialize AdamW optimizer.
-    @param  model_parameters:
-    @param  learning_rate: Default is 1e-5 so it's small. 
-            Change to 2e-4 for fine-tuning purpose (Ji et. al., 2021) or 4e-4 for pretraining (Ji et. al., 2021).
-    @param  epsilon: adam epsilon, default is 1e-6 as in DNABERT pretraining (Ji et. al., 2021).
-    @param  betas: a tuple consists of beta 1 and beta 2.
-    @param  weight_decay: weight_decay
-    @return (AdamW object)
-    """
-    optimizer = AdamW(model_parameters, lr=learning_rate, eps=epsilon, betas=betas, weight_decay=weight_decay)
-    return optimizer
-
-def init_seq2seq_model(dnabert_pretrained_path):
-    #if not os.path.exists(config_path):
-    #    raise FileNotFoundError(f"Config not found at {config_path}")
-    if not os.path.exists(dnabert_pretrained_path):
-        raise FileNotFoundError(f"DNABert Pretrained not found at {dnabert_pretrained_path}")
-    model = DNABERTSeq2Seq(dnabert_pretrained_path)
-    return model
 
 def train_iter(args):
     for epoch in args.num_epoch:
@@ -187,8 +52,30 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     else:
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
+    # Save training configuration.
+    training_config = {
+        "num_epochs": epoch_size,
+        "batch_size": batch_size,
+        "grad_accumulation_steps": grad_accumulation_step,
+        "log": log_path,
+        "save_model_path": save_model_path,
+        "device": device,
+        "training_counter": training_counter,
+    }
+    config_save_path = os.path.join(save_model_path, "config.json")
+    if os.path.exists(config_save_path):
+        os.remove(config_save_path)
+    if not os.path.exists(os.path.dirname(config_save_path)):
+        os.makedirs(os.path.dirname(config_save_path))
+    config_file = open(config_save_path, 'x')
+    json.dump(training_config, config_file, indent=4)
+    config_file.close()
+
+    # Writing training log.
     log_file = open(log_path, 'x')
     log_file.write('epoch,step,loss,learning_rate\n')
+
+    # Do training.
     model.to(device)
     model.train()
     for i in range(epoch_size):
@@ -226,10 +113,11 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
             "grad_accumulation_steps": grad_accumulation_step,
             "device": device,
             "batch_size": batch_size
-        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
-        if remove_old_model:
-            old_model_path = os.path.join(save_model_path, os.path.basename("checkpoint-{}.pth".format(i + training_counter-1)))
-            os.remove(old_model_path)
+        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"), replace=remove_old_model)
+        #if remove_old_model:
+        #    if i + training_counter > 0:
+        #        old_model_path = os.path.join(save_model_path, os.path.basename("checkpoint-{}.pth".format(i + training_counter-1)))
+        #        os.remove(old_model_path)
 
     #endfor epoch
     log_file.close()

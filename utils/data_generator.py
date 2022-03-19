@@ -57,7 +57,7 @@ def _data_generator_mtl():
 def _data_generator_seq2seq():
     from transformers import BertTokenizer
     from data_dir import pretrained_3kmer_dir
-    from sequential_labelling import preprocessing
+    from utils.seq2seq import _create_dataloader, _process_sequence_and_label, _create_dataloader
 
     """
     Initialize tokenizer.
@@ -69,7 +69,6 @@ def _data_generator_seq2seq():
     """
     from random import randint
     from data_preparation import kmer
-    from sequential_labelling import process_sequence_and_label, create_dataloader
     sequences = ['ATGC' * 128, 'TGAC' * 128, 'GATC' * 128, "AGCC" * 128]
     labels = [['E' if randint(0, 255) % 2 == 0 else '.' for i in range(len(s))] for s in sequences]
 
@@ -81,11 +80,11 @@ def _data_generator_seq2seq():
     arr_label_repr = []
     arr_token_type_ids = []
     for seq, label in zip(kmer_seq, kmer_label):
-        input_ids, attn_mask, token_type_ids, label_repr = process_sequence_and_label(seq, label, tokenizer)
+        input_ids, attn_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attn_mask.append(attn_mask)
         arr_token_type_ids.append(token_type_ids)
         arr_label_repr.append(label_repr)
 
-    dataloader = create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_label_repr, batch_size=1)
+    dataloader = _create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_label_repr, batch_size=1)
     return dataloader
