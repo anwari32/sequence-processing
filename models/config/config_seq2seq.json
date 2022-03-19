@@ -1,0 +1,7 @@
+{
+    "num_labels": 11,
+    "num_blocks": 1,
+    "hidden_dim": 768,
+    "norm_layer": 0,
+    "dropout_prob": 0.1
+}

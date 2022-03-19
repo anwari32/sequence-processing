@@ -162,9 +162,10 @@ def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
         output = model(input_ids, attn_mask)
     return model
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_step=1):
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_step=1, loss_function=NLLLoss(), loss_strategy="sum"):
     """
     @param  model: BERT derivatives.
+
     @param  optimizer: optimizer
     @param  scheduler:
     @param  train_dataloader:
@@ -197,12 +198,12 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
             pred = model(input_ids, attention_mask, input_type_ids)
             loss_batch = None
             for p, t in zip(pred, label):
-                loss = model.loss_function(p, t)
+                loss = loss_function(p, t)
                 if loss_batch == None:
                     loss_batch = loss
                 else:
                     loss_batch += loss
-            if model.loss_strategy == "average":
+            if loss_strategy == "average":
                 loss_batch = loss_batch / batch_size
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
