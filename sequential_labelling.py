@@ -14,20 +14,66 @@ from tqdm import tqdm
 import json
 from utils.utils import save_model_state_dict, load_model_state_dict, load_checkpoint, save_checkpoint
 from data_preparation import str_kmer
+from models.seq2seq import DNABERTSeq2Seq
 
 def train_iter(args):
-    for epoch in args.num_epoch:
-        model = train(args.model, args.optimizer, args.scheduler, args.batch_size, args.log)
+    model = args["model"]
+    optimizer = args["optimizer"]
+    scheduler = args["scheduler"]
+    dataloader = args["dataloader"]
+    loss_function = args["loss_function"]
+    loss_strategy = args["loss_strategy"]
+    log_path = args["log_path"]
+    checkpoint_path = args["checkpoint_path"]
+    grad_accumulation_steps = args["grad_accumulation_steps"]
+    training_counter = args["training_counter"]
+    batch_size = args["batch_size"]
+    device = args["device"]
 
-def train_and_eval(model, train_dataloader, valid_dataloader, device="cpu"):
-    model.to(device)
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    if os.path.exists(log_path):
+        os.remove(log_path)
+    log = open(log_path, 'x')
+    log.write("epoch,step,loss,lr\n")
+
     model.train()
-    for step, batch in enumerate(train_dataloader):
-        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
-        output = model(input_ids, attn_mask)
-    return model
+    for epoch in args["num_epochs"]:
+        epoch_loss = 0
+        for step, batch in enumerate(dataloader):
+            b_input_ids, b_attn_mask, b_token_type_ids, b_labels = tuple(t.to(device) for t in batch)
+            loss = train_model(b_input_ids, b_attn_mask, b_token_type_ids, b_labels, loss_function, loss_strategy)
+            loss.backward()
+            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
+                loss = loss / grad_accumulation_steps
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
+            epoch_loss += loss
+            log.write(f"{epoch},{step},{loss.item()},{optimizer.param_groups[0]['lr']}")
+        epoch_loss = epoch_loss / len(dataloader)
+        save_checkpoint(model, optimizer, {
+            "training_config": args,
+            "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+            "epoch": (epoch + training_counter),
+            "batch_size": batch_size,
+            "device": device,
+            "grad_accumulation_steps": grad_accumulation_steps,
+        }, os.path.join(checkpoint_path, f"checkpoint-{epoch + training_counter}"))
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_step=1, loss_function=NLLLoss(), loss_strategy="sum"):
+
+def train_model(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum"):
+    prediction = model(batch_input_ids, batch_attn_mask, batch_token_type_ids)
+
+    # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
+    batch_loss = 0
+    for p, l in zip(prediction, batch_labels):
+        loss = loss_function(p, l)
+        batch_loss += loss
+    if loss_strategy == "average":
+        batch_loss = batch_loss/batch_input_ids.shape[0]
+    return batch_loss
+
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum"):
     """
     @param  model: BERT derivatives.
 
@@ -56,7 +102,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     training_config = {
         "num_epochs": epoch_size,
         "batch_size": batch_size,
-        "grad_accumulation_steps": grad_accumulation_step,
+        "grad_accumulation_steps": grad_accumulation_steps,
         "log": log_path,
         "save_model_path": save_model_path,
         "device": device,
@@ -82,22 +128,24 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         epoch_loss = 0
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-            pred = model(input_ids, attention_mask, input_type_ids)
-            loss_batch = None
-            for p, t in zip(pred, label):
-                loss = loss_function(p, t)
-                if loss_batch == None:
-                    loss_batch = loss
-                else:
-                    loss_batch += loss
-            if loss_strategy == "average":
-                loss_batch = loss_batch / batch_size
+            #pred = model(input_ids, attention_mask, input_type_ids)
+            #loss_batch = None
+            #for p, t in zip(pred, label):
+            #    loss = loss_function(p, t)
+            #    if loss_batch == None:
+            #        loss_batch = loss
+            #    else:
+            #        loss_batch += loss
+            #if loss_strategy == "average":
+            #    loss_batch = loss_batch / batch_size
+            
+            loss_batch = train_model(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
             epoch_loss += loss_batch
             loss_batch.backward()
 
-            if (step + 1) % grad_accumulation_step == 0 or  (step + 1) == len(train_dataloader):
+            if (step + 1) % grad_accumulation_steps == 0 or  (step + 1) == len(train_dataloader):
                 optimizer.step()
                 scheduler.step()
                 model.zero_grad()
@@ -110,9 +158,10 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         save_checkpoint(model, optimizer, {
             "loss": epoch_loss.item(),
             "epoch": i + training_counter,
-            "grad_accumulation_steps": grad_accumulation_step,
+            "grad_accumulation_steps": grad_accumulation_steps,
             "device": device,
-            "batch_size": batch_size
+            "batch_size": batch_size,
+            "training_config": training_config,
         }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"), replace=remove_old_model)
         #if remove_old_model:
         #    if i + training_counter > 0:
@@ -123,7 +172,13 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     log_file.close()
     return model
 
-def evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
+def evaluate(model, validation_csv, device="cpu", batch_size=1):
+    from utils.seq2seq import preprocessing
+    from utils.utils import get_default_tokenizer
+    dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
+    correct_pred, incorrect_pred = do_evaluate(model, dataloader, device=device)
+
+def do_evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
     # TODO:
     # Implements how model evaluate model.
     model.to(device)
@@ -133,28 +188,19 @@ def evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None,
     for step, batch in tqdm(enumerate(validation_dataloader, total=len(validation_dataloader))):
         input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
         pred = model(input_ids, attention_mask, input_type_ids)
-        for p, z in zip(pred, label):
-            p_score, p_index = torch.max(p, 1)
-            if p_index == z:
-                correct_pred += 1
-            else:
-                incorrect_pred += 1
 
-        
-        
-        
-
-def convert_pred_to_label(pred, label_dict=Label_Dictionary):
-    """
-    @param      pred: tensor (<seq_length>, <dim>)
-    @param      label_dict: 
-    @return     array: []
-    """
-    return []
+        for p, z in zip(pred, label): # Batch dimension
+            for t, l in zip(p[1:512], z[1:512]):
+                p_score, p_index = torch.max(t, 1)
+                if p_index == l:
+                    correct_pred += 1
+                else:
+                    incorrect_pred += 1
+    return correct_pred, incorrect_pred
 
 
 # def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
-def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_function, num_epoch=1, batch_size=1, grad_accumulation_step="1", device="cpu", resume_checkpoint=None, save_path=None):
+def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps="1", device="cpu", resume_checkpoint=None, save_path=None):
     """
     @param  model
     @param  tokenizer

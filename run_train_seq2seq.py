@@ -2,11 +2,12 @@ from getopt import getopt
 from mimetypes import init
 from torch.optim.adamw import AdamW
 from transformers import get_linear_schedule_with_warmup, BertTokenizer
-from sequential_labelling import DNABERTSeq2Seq, preprocessing, train
+from sequential_labelling import DNABERTSeq2Seq, train
 import sys
 import os
 from datetime import datetime
-import torch
+from utils.seq2seq import preprocessing, init_seq2seq_model
+import json
 
 from utils.utils import load_checkpoint
 
@@ -30,7 +31,8 @@ def _parse_arg(argv):
         "remove_old_model=",
         "resume_from_checkpoint=",
         "training_counter=",
-        "grad_accumulation_steps="
+        "grad_accumulation_steps=",
+        "config_path="
     ])
     for opt, arg in opts:
         if opt in ["--train_data", "-t"]:
@@ -53,6 +55,8 @@ def _parse_arg(argv):
             result["grad_accumulation_steps"] = int(arg)
         elif opt in ["--training_counter"]:
             result["training_counter"] = int(arg)
+        elif opt in ["--config_path"]:
+            result["config_path"] = arg
         else:
             print(f"Argument {opt} not recognized.")
             sys.exit(2)
@@ -84,10 +88,11 @@ if __name__ == "__main__":
     resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
     grad_accumulation_steps = arguments['grad_accumulation_steps'] if 'grad_accumulation_steps' in arguments.keys() else 1
+    config_path = arguments["config_path"] if "config_path" in arguments.keys() else 1
 
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
-    model = DNABERTSeq2Seq(pretrained_path)
+    model = init_seq2seq_model(json.load(open(config_path, 'r')))
     model.to(device)
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
     if resume_from_checkpoint != None:
@@ -111,5 +116,5 @@ if __name__ == "__main__":
         device=device,
         training_counter=training_counter,
         resume_from_checkpoint=resume_from_checkpoint,
-        grad_accumulation_step=grad_accumulation_steps
+        grad_accumulation_steps=grad_accumulation_steps
     )

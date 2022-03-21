@@ -302,3 +302,9 @@ def create_n_sample(src_csv, n_sample, dest_csv=None, random=None):
         os.remove(dest_csv)
     sample.to_csv(dest_csv, index=False)
     return True
+
+def get_default_tokenizer():
+    from transformers import BertTokenizer
+    from data_dir import pretrained_3kmer_dir
+    tokenizer = BertTokenizer.from_pretrained(pretrained_3kmer_dir)
+    return tokenizer

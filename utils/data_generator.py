@@ -1,4 +1,4 @@
-def _data_generator_mtl():
+def _data_generator_mtl(batch_size=1):
     import torch
     import datetime
     import os
@@ -51,7 +51,7 @@ def _data_generator_mtl():
 
     from torch.utils.data import DataLoader, TensorDataset
     dataset = TensorDataset(arr_input_ids, arr_attention_mask, prom_labels, ss_labels, polya_labels)
-    dataloader = DataLoader(dataset, batch_size=1)
+    dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
 
 def _data_generator_seq2seq():
