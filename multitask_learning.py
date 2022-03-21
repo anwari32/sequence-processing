@@ -1,3 +1,4 @@
+import json
 import traceback
 import torch
 from torch import cuda
@@ -15,30 +16,12 @@ import os
 import sys
 from utils.utils import save_checkpoint, save_model_state_dict
 
-from models.mtl import BertSequenceClassificationHead, MTModel, PolyAHead, PromoterHead, SpliceSiteHead
+from models.mtl import MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
-def init_model_mtl(pretrained_path, head="default", device="cpu", config=None, loss_function=None):
-    polya_head = PolyAHead()
-    promoter_head = PromoterHead()
-    splice_head = SpliceSiteHead()
-    if head == "bert":
-        import json
-        _config = json.load(open(config))
-        polya_head = BertSequenceClassificationHead(_config)
-        promoter_head = BertSequenceClassificationHead(_config)
-        splice_head =  BertSequenceClassificationHead(_config)
-
-    dnabert_3_pretrained = pretrained_path
-    shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
-    model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head, head='bert')
+def init_model_mtl(pretrained_path, config: json):
+    bert = BertForMaskedLM.from_pretrained(pretrained_path).bert
+    model = MTModel(bert, config)
     return model
-
-def restore_model(model_path, device="cpu"):
-    """
-    @return     model
-    """
-    model = torch.load(model_path)
-    return model.to(device)
 
 def evaluate(model, dataloader, log_path, device='cpu'):
     if os.path.exists(log_path):
@@ -58,7 +41,7 @@ def evaluate(model, dataloader, log_path, device='cpu'):
     polya_accuracy = 0
     len_dataloader = len(dataloader)
     for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Inference"):
-        input_ids, attn_mask, token_type_ids, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
+        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
 
         # Compute logits.
         with torch.no_grad():
@@ -97,6 +80,18 @@ def evaluate(model, dataloader, log_path, device='cpu'):
     polya = count_polya_correct / len_dataloader * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
+def __train__(model, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
+    output = model(input_ids, attention_mask)
+    pred_prom = output["prom"]
+    pred_ss = output["ss"]
+    pred_polya = output["polya"]
+
+    loss_prom = loss_fn_prom(pred_prom, label_prom.float().reshape(-1, 1))
+    loss_ss = loss_fn_ss(pred_ss, label_ss)
+    loss_polya = loss_fn_polya(pred_polya, label_polya)
+    
+    return loss_prom, loss_ss, loss_polya
+
 def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, resume_from_checkpoint=None, resume_from_optimizer=None):
     """
     @param      dataloader:
@@ -133,13 +128,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             epoch_loss = 0
             for step, batch in tqdm(enumerate(dataloader), total=_len_dataloader, desc="Epoch [{}/{}]".format(i+1, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
-                output = model(in_ids, attn_mask)
-                pred_prom = output['prom']
-                pred_ss = output['ss']
-                pred_polya = output['polya']    
-                loss_prom = model.promoter_loss_function(pred_prom, label_prom.float().reshape(-1, 1))
-                loss_ss = model.splice_site_loss_function(pred_ss, label_ss)
-                loss_polya = model.polya_loss_function(pred_polya, label_polya)
+                loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
 
                 # Following MTDNN (Liu et. al., 2019), loss is summed.
                 loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
@@ -150,15 +139,13 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Update parameters and learning rate for every batch.
                 # Since this training is based on batch, then for every batch optimizer.step() and scheduler.step() are called.
-                if grad_accumulation_steps > 1:
-                    loss = loss / grad_accumulation_steps
+                loss = loss / grad_accumulation_steps
 
                 # Accumulate loss in this batch.
                 epoch_loss += loss
 
                 # Backpropagation.
                 loss.backward()
-
 
                 if (step + 1) % grad_accumulation_steps == 0:
                     # Update learning rate and scheduler.
@@ -167,18 +154,14 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                     # Reset model gradients.
                     model.zero_grad()
-
-                    # Empty cuda cache to save memory.
-                    torch.cuda.empty_cache()
-
                 # Just print something so terminal doesn't look so boring. (-_-)'
                 # print("Epoch {}, Step {}".format(i, step), end='\r')
             # endfor batch.
 
+            # After and epoch, Save the model if `save_model_path` is not None.
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
-
-            # After and epoch, Save the model if `save_model_path` is not None.
+            torch.cuda.empty_cache()
             save_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
             save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
             save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
@@ -189,7 +172,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 "device": device,
                 "grad_accumulation_steps": grad_accumulation_steps,
             }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}"))
-            # torch.save(model.state_dict(), os.path.join(save_model_path, "epoch-{}.pth".format(i+training_counter)))
             if remove_old_model:
                 old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
                 if os.path.exists(old_model_path):

@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from models.seq2seq import DNABERTSeq2Seq
 from torch.optim import AdamW
@@ -7,6 +8,8 @@ import pandas as pd
 from data_preparation import str_kmer
 
 def init_seq2seq_model(config: json):
+    if not config:
+        raise ValueError("Not valid json object.")
     model = DNABERTSeq2Seq(config)
     return model
 
@@ -112,6 +115,7 @@ def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
     @param  kmer_size (int | None -> 3):
     @return dataloader (torch.utils.data.DataLoader): dataloader
     """
+    start = datetime.now()
     sequences, labels = _get_sequential_labelling(csv_file, do_kmer=do_kmer, kmer_size=kmer_size)
     arr_input_ids = []
     arr_attention_mask = []
@@ -125,4 +129,6 @@ def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
         arr_labels.append(label_repr)
 
     tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_labels, batch_size)
+    end = datetime.now()
+    print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
     return tensor_dataloader

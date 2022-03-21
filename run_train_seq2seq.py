@@ -9,7 +9,7 @@ from datetime import datetime
 from utils.seq2seq import preprocessing, init_seq2seq_model
 import json
 
-from utils.utils import load_checkpoint
+from utils.utils import load_checkpoint, save_config
 
 def _parse_arg(argv):
     result = {}
@@ -88,7 +88,27 @@ if __name__ == "__main__":
     resume_from_checkpoint = arguments['resume_from_checkpoint'] if 'resume_from_checkpoint' in arguments.keys() else None
     training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
     grad_accumulation_steps = arguments['grad_accumulation_steps'] if 'grad_accumulation_steps' in arguments.keys() else 1
-    config_path = arguments["config_path"] if "config_path" in arguments.keys() else 1
+    config_path = arguments["config_path"] if "config_path" in arguments.keys() else None
+    
+    training_config = {
+        "train_path": train_path,
+        "pretrained_path": pretrained_path,
+        "num_epochs": epoch_size,
+        "batch_size": batch_size,
+        "device": device,
+        "log": log,
+        "learning_rate": learning_rate,
+        "epsilon": epsilon,
+        "beta1": beta1,
+        "beta2": beta2,
+        "weight_decay": weight_decay,
+        "warmup": warmup,
+        "loss_strategy": loss_strategy,
+        "save_model_path": save_model_path,
+        "grad_accumulation_steps": grad_accumulation_steps,
+        "config_path": config_path,
+        "save_model_path": save_model_path,
+    }
 
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
@@ -118,3 +138,5 @@ if __name__ == "__main__":
         resume_from_checkpoint=resume_from_checkpoint,
         grad_accumulation_steps=grad_accumulation_steps
     )
+
+    save_config(training_config, os.path.join(save_model_path, "training_config.json"))

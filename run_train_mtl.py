@@ -7,15 +7,16 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler
 from torch.optim.adamw import AdamW
 import getopt, os, sys
 from transformers import BertTokenizer, BertModel, get_linear_schedule_with_warmup
-from multitask_learning import train, MTModel, PromoterHead, SpliceSiteHead, PolyAHead, prepare_data
+from multitask_learning import init_model_mtl, train, MTModel, PromoterHead, SpliceSiteHead, PolyAHead, prepare_data
 from datetime import datetime
-from utils.utils import load_model_state_dict
+from utils.utils import load_model_state_dict, save_config
+import json
 
 def _parse_arg(args):
     opts, arguments = getopt.getopt(args, "p:t:e:b:d:l:", 
         ["pretrained=", 
         "train_data=", 
-        "epoch=", 
+        "num_epochs=", 
         "batch_size=", 
         "device=", 
         "learning_rate=", 
@@ -31,7 +32,8 @@ def _parse_arg(args):
         "grad_accumulation_steps=",
         "resume_from_checkpoint=",
         "resume_from_optimizer=",
-        "training_counter="]
+        "training_counter=",
+        "config_path="]
     )
     output = {}
     
@@ -42,8 +44,8 @@ def _parse_arg(args):
             output['train_data'] = os.path.join(argument)
         elif option in ['-d', '--device']:
             output['device'] = argument
-        elif option in ['-e', '--epoch']:
-            output['epoch'] = int(argument)
+        elif option in ['-e', '--num_epochs']:
+            output['num_epochs'] = int(argument)
         elif option in ['-b', '--batch_size']:
             output['batch_size'] = int(argument)
         elif option in ['--learning_rate']:
@@ -78,6 +80,8 @@ def _parse_arg(args):
             output['resume_from_optimizer'] = argument
         elif option in ['--training_counter']:
             output['training_counter'] = int(argument)
+        elif option in ["--config_path"]:
+            output["config_path"] = argument
         else:
             print("Argument {} not recognized.".format(option))
             sys.exit(2)
@@ -99,7 +103,7 @@ if __name__ == "__main__":
     parameters = {}
     parameters['train_data'] = train_path = os.path.join(arguments['train_data']) if 'train_data' in arguments.keys() else None
     parameters['pretrained'] = pretrained_path = os.path.join(arguments['pretrained']) if 'pretrained' in arguments.keys() else None
-    parameters['epoch'] = epoch_size = int(arguments['epoch']) if 'epoch' in arguments.keys() else 1
+    parameters['num_epochs'] = epoch_size = int(arguments['num_epochs']) if 'num_epochs' in arguments.keys() else 1
     parameters['batch_size'] = batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 2000
     parameters['device'] = device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
     parameters['learning_rate'] = learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
@@ -117,9 +121,22 @@ if __name__ == "__main__":
     parameters['training_counter'] = training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
     parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", now, _format_foldername(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
     parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join("logs", now, _format_logname(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
+    parameters['config_path'] = config_path = os.path.join(arguments['config_path']) if 'config_path' in arguments.keys() else None
 
     for key in parameters.keys():
         print('{} - {}'.format(key, parameters[key]))
+
+    """
+    Make sure config exists.
+    """
+    if not config_path:
+        print(f"Please provide config path.")
+        sys.exit(2)
+    if not os.path.exists(config_path):
+        print(f"Model config not found.")
+        sys.exit(2)
+    config = json.load(open(config_path, 'r'))
+
 
     """
     Make sure log directory is there.
@@ -133,7 +150,6 @@ if __name__ == "__main__":
     """
     BATCH_SIZE = batch_size
     EPOCH_SIZE = epoch_size
-
     train_dataloader = prepare_data(train_path, pretrained_path, batch_size=BATCH_SIZE, n_sample=limit_train)
 
     print('# of training data: {}'.format(len(train_dataloader)))
@@ -141,11 +157,7 @@ if __name__ == "__main__":
     """
     Initialize model, optimizer, and scheduler.
     """
-    prom_head = PromoterHead(device)
-    ss_head = SpliceSiteHead(device)
-    polya_head = PolyAHead(device)
-    bert_layer = BertModel.from_pretrained(pretrained_path)
-    model = MTModel(bert_layer, prom_head, ss_head, polya_head)
+    model = init_model_mtl(pretrained_path, config)
     if resume_from_checkpoint != None:
         print(f"Loading existing model to continue training <{resume_from_checkpoint}>")
         model = load_model_state_dict(model, resume_from_checkpoint)
@@ -179,3 +191,6 @@ if __name__ == "__main__":
         grad_accumulation_steps=grad_accumulation_steps,
         resume_from_checkpoint=resume_from_checkpoint,
         resume_from_optimizer=resume_from_optimizer)
+
+    # Save config after training finished.
+    save_config(parameters, os.path.join(save_model_path, "training_config.json"))

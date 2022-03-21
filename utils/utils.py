@@ -1,3 +1,4 @@
+import json
 from Bio import SeqIO
 from tqdm import tqdm
 import os
@@ -303,8 +304,8 @@ def create_n_sample(src_csv, n_sample, dest_csv=None, random=None):
     sample.to_csv(dest_csv, index=False)
     return True
 
-def get_default_tokenizer():
-    from transformers import BertTokenizer
-    from data_dir import pretrained_3kmer_dir
-    tokenizer = BertTokenizer.from_pretrained(pretrained_3kmer_dir)
-    return tokenizer
+def save_config(obj, save_path):
+    if os.path.exists(save_path):
+        os.remove(save_path)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    json.dump(obj, open(save_path, 'x'))

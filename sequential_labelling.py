@@ -1,3 +1,4 @@
+from ast import Not
 from concurrent.futures import process
 from genericpath import exists
 from msilib import sequence
@@ -12,56 +13,13 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import json
-from utils.utils import save_model_state_dict, load_model_state_dict, load_checkpoint, save_checkpoint
+from utils.utils import save_model_state_dict, load_checkpoint, save_checkpoint
 from data_preparation import str_kmer
 from models.seq2seq import DNABERTSeq2Seq
+from utils.seq2seq import _create_dataloader
+from datetime import datetime
 
-def train_iter(args):
-    model = args["model"]
-    optimizer = args["optimizer"]
-    scheduler = args["scheduler"]
-    dataloader = args["dataloader"]
-    loss_function = args["loss_function"]
-    loss_strategy = args["loss_strategy"]
-    log_path = args["log_path"]
-    checkpoint_path = args["checkpoint_path"]
-    grad_accumulation_steps = args["grad_accumulation_steps"]
-    training_counter = args["training_counter"]
-    batch_size = args["batch_size"]
-    device = args["device"]
-
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    if os.path.exists(log_path):
-        os.remove(log_path)
-    log = open(log_path, 'x')
-    log.write("epoch,step,loss,lr\n")
-
-    model.train()
-    for epoch in args["num_epochs"]:
-        epoch_loss = 0
-        for step, batch in enumerate(dataloader):
-            b_input_ids, b_attn_mask, b_token_type_ids, b_labels = tuple(t.to(device) for t in batch)
-            loss = train_model(b_input_ids, b_attn_mask, b_token_type_ids, b_labels, loss_function, loss_strategy)
-            loss.backward()
-            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
-                loss = loss / grad_accumulation_steps
-                optimizer.step()
-                scheduler.step()
-                model.zero_grad()
-            epoch_loss += loss
-            log.write(f"{epoch},{step},{loss.item()},{optimizer.param_groups[0]['lr']}")
-        epoch_loss = epoch_loss / len(dataloader)
-        save_checkpoint(model, optimizer, {
-            "training_config": args,
-            "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-            "epoch": (epoch + training_counter),
-            "batch_size": batch_size,
-            "device": device,
-            "grad_accumulation_steps": grad_accumulation_steps,
-        }, os.path.join(checkpoint_path, f"checkpoint-{epoch + training_counter}"))
-
-
-def train_model(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum"):
+def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum"):
     prediction = model(batch_input_ids, batch_attn_mask, batch_token_type_ids)
 
     # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
@@ -127,31 +85,20 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     for i in range(epoch_size):
         epoch_loss = 0
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
-            input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-            #pred = model(input_ids, attention_mask, input_type_ids)
-            #loss_batch = None
-            #for p, t in zip(pred, label):
-            #    loss = loss_function(p, t)
-            #    if loss_batch == None:
-            #        loss_batch = loss
-            #    else:
-            #        loss_batch += loss
-            #if loss_strategy == "average":
-            #    loss_batch = loss_batch / batch_size
-            
-            loss_batch = train_model(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
+            input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
+            loss_batch = __train__(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
-            epoch_loss += loss_batch
+            epoch_loss += (loss_batch / grad_accumulation_steps)
             loss_batch.backward()
 
             if (step + 1) % grad_accumulation_steps == 0 or  (step + 1) == len(train_dataloader):
                 optimizer.step()
                 scheduler.step()
                 model.zero_grad()
-            torch.cuda.empty_cache()
-        #endfor batch
-
+        
+        torch.cuda.empty_cache()
+        
         # After an epoch, save model state.
         save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
         save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
@@ -172,31 +119,55 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     log_file.close()
     return model
 
-def evaluate(model, validation_csv, device="cpu", batch_size=1):
-    from utils.seq2seq import preprocessing
-    from utils.utils import get_default_tokenizer
-    dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
-    correct_pred, incorrect_pred = do_evaluate(model, dataloader, device=device)
+def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cpu"):
+    correct_token_pred, incorrect_token_pred = 0, 0
+    model.to(device)
+    model.eval()
+    with torch.not_grad():
+        pred = model(input_ids, attention_mask, input_type_ids)
+        for p, z in zip(pred, label):
+            p_score, p_index = torch.max(p, 1)
+            if p_index == z:
+                correct_token_pred += 1
+            else:
+                incorrect_token_pred += 1
+
+    return correct_token_pred, incorrect_token_pred
 
 def do_evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
     # TODO:
     # Implements how model evaluate model.
     model.to(device)
     model.eval()
-    correct_pred = 0
-    incorrect_pred = 1
+
+    # Enable logging if log exists.
+    log_file = {}
+    if log:
+        if os.path.exists(log):
+            os.remove(log)
+        os.makedirs(os.path.dirname(log))
+        log_file = open(log, 'x')
+        log_file.write(f"step,scores,correct,incorrect\n")
+
+    correct_scores = []
     for step, batch in tqdm(enumerate(validation_dataloader, total=len(validation_dataloader))):
         input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-        pred = model(input_ids, attention_mask, input_type_ids)
+        correct_token_pred, incorrect_token_pred = __eval__(model, input_ids, attention_mask, input_type_ids, label)
+        average_score = correct_token_pred / input_type_ids.shape[1]
+        correct_scores.append(average_score)
+        if log_file != {}:
+            log_file.write(f"{step},{average_score},{correct_token_pred},{incorrect_token_pred}\n")
 
-        for p, z in zip(pred, label): # Batch dimension
-            for t, l in zip(p[1:512], z[1:512]):
-                p_score, p_index = torch.max(t, 1)
-                if p_index == l:
-                    correct_pred += 1
-                else:
-                    incorrect_pred += 1
-    return correct_pred, incorrect_pred
+    if log_file != {}:
+        log_file.close()
+    return True
+
+def evaluate(model, validation_csv, device="cpu", batch_size=1, log=None):
+    from utils.seq2seq import preprocessing
+    from utils.utils import get_default_tokenizer
+    dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
+    if not do_evaluate(model, dataloader, device=device, log=log):
+        print("Evaluation failed.")
 
 
 # def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
@@ -225,7 +196,7 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
         for i in range(num_training_genes):
             
             gene = train_genes[i]
-            gene_dataloader = create_dataloader(gene, batch_size, tokenizer) # Create dataloader for this gene.
+            gene_dataloader = _create_dataloader(gene, batch_size, tokenizer) # Create dataloader for this gene.
             gene_loss = None # This is loss computed from single gene.
             len_dataloader = len(gene_dataloader)
             total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
@@ -241,7 +212,7 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
             epoch_loss = avg_gene_loss if epoch_loss == None else epoch_loss + avg_gene_loss
             avg_gene_loss.backward()
 
-            if i % grad_accumulation_step == 0 or (i + 1) == num_training_genes:
+            if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
                 optimizer.step()
                 scheduler.step()
 

@@ -1,5 +1,22 @@
 {
-    "num_labels": 2,
-    "head_dropout_prob": 0.1,
-    "hidden_size": 768,
+    "prom_head": {
+        "num_labels": 1,
+        "dropout_prob": 0.5,
+        "hidden_size": 128,
+        "loss_function": "bceloss"
+    },
+    "ss_head": {
+        "num_labels": 2,
+        "dropout_prob": 0.1,
+        "hidden_size": 512,
+        "loss_function": "crossentropyloss"
+    },
+    "polya_head": {
+        "num_labels": 2,
+        "dropout_prob": 0.1,
+        "hidden_size": 64,
+        "loss_function": "crossentropyloss"
+    },
+    "optimizer": "adamw",
+    "loss_strategy": "sum"        
 }
