@@ -2,11 +2,11 @@ from getopt import getopt
 from mimetypes import init
 from torch.optim.adamw import AdamW
 from transformers import get_linear_schedule_with_warmup, BertTokenizer
-from sequential_labelling import DNABERTSeq2Seq, train
+from sequential_labelling import DNABERTSeqLab, train
 import sys
 import os
 from datetime import datetime
-from utils.seq2seq import preprocessing, init_seq2seq_model
+from utils.seqlab import preprocessing, init_seqlab_model
 import json
 
 from utils.utils import load_checkpoint, save_config
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
-    model = init_seq2seq_model(json.load(open(config_path, 'r')))
+    model = init_seqlab_model(json.load(open(config_path, 'r')))
     model.to(device)
     optimizer = AdamW(model.parameters(), lr=learning_rate, eps=epsilon, betas=(beta1, beta2), weight_decay=weight_decay)
     if resume_from_checkpoint != None:

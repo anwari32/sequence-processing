@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-from models.seq2seq import DNABERTSeq2Seq
+from models.seqlab import DNABERTSeqLab
 from torch.optim import AdamW
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
@@ -8,10 +8,10 @@ import pandas as pd
 from data_preparation import str_kmer
 from tqdm import tqdm
 
-def init_seq2seq_model(config: json):
+def init_seqlab_model(config: json):
     if not config:
         raise ValueError("Not valid json object.")
-    model = DNABERTSeq2Seq(config)
+    model = DNABERTSeqLab(config)
     return model
 
 def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, betas=(0.9, 0.98), weight_decay=0.01):
@@ -60,7 +60,7 @@ Label_Dictionary = {
     'EEE': 10, #_create_one_hot_encoding(8, 10),
 }
 
-from models.seq2seq import DNABERTSeq2Seq
+from models.seqlab import DNABERTSeqLab
 
 def _get_sequential_labelling(csv_file, do_kmer=False, kmer_size=3):
     df = pd.read_csv(csv_file)

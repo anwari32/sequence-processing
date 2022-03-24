@@ -2,8 +2,9 @@ from multiprocessing.sharedctypes import Value
 from torch import nn
 from transformers import BertForMaskedLM
 import os
+from lstm import LSTM_Block
 
-class Seq2SeqBlock(nn.Module):
+class SeqLabBlock(nn.Module):
     def __init__(self, in_dims, out_dims, norm_layer=False, prob=0.1):
         super().__init__()
         self.linear = nn.Linear(in_features=in_dims, out_features=out_dims)
@@ -19,23 +20,7 @@ class Seq2SeqBlock(nn.Module):
         output = self.activation(output)
         return output
 
-class LSTM_Block(nn.Module):
-    def __init__(self, config):
-        super.__init__()
-
-        self.lstm = nn.LSTM(
-            input_size = config["input_dim"],
-            hidden_size = config["hidden_dim"],
-            num_layers = config["num_layers"],
-            batch_first = True,
-            dropout = config["dropout"]
-        )
-
-    def forward(self, input):
-        return self.lstm(input)
-
-
-class Seq2SeqHead(nn.Module):
+class SeqLabHead(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.lstm = LSTM_Block(config["lstm"]) if config["use_lstm"] > 0 else None
@@ -47,7 +32,7 @@ class Seq2SeqHead(nn.Module):
         self.linear = nn.Sequential()
         for i in range(num_blocks):
             self.linear.add_module(
-                "seq2seq_block-{}".format(i), Seq2SeqBlock(dim, dim, norm_layer=norm_layer, prob=dropout_prob)
+                "seq2seq_block-{}".format(i), SeqLabBlock(dim, dim, norm_layer=norm_layer, prob=dropout_prob)
             )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
@@ -68,7 +53,7 @@ class Seq2SeqHead(nn.Module):
 
 
 
-class DNABERTSeq2Seq(nn.Module):
+class DNABERTSeqLab(nn.Module):
     """
     Core architecture of sequential labelling.
     """
@@ -92,12 +77,12 @@ class DNABERTSeq2Seq(nn.Module):
             raise IsADirectoryError(bert_pretrained_path)
 
         self.bert = BertForMaskedLM.from_pretrained(bert_pretrained_path).bert
-        self.seq2seq_head = Seq2SeqHead(config)
+        self.seqlab_head = SeqLabHead(config)
         self.activation = nn.Softmax(dim=2)
 
     def forward(self, input_ids, attention_masks, token_type_ids):
         output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
         output = output[0] # Last hidden state
-        output = self.seq2seq_head(output)
+        output = self.seqlab_head(output)
         output = self.activation(output)
         return output

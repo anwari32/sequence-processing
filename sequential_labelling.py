@@ -11,8 +11,8 @@ from tqdm import tqdm
 import json
 from utils.utils import save_model_state_dict, load_checkpoint, save_checkpoint
 from data_preparation import str_kmer
-from models.seq2seq import DNABERTSeq2Seq
-from utils.seq2seq import _create_dataloader
+from models.seqlab import DNABERTSeqLab
+from utils.seqlab import _create_dataloader
 from datetime import datetime
 
 def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum"):
@@ -42,7 +42,9 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     @param  device (string) | None -> 'cpu': Default value is 'cpu', can be changed into 'cuda', 'cuda:0' for first cuda-compatible device, 'cuda:1' for second device, etc.
     @return model after training.
     """
-    print("=====Begin Training=====")
+    print("=====BEGIN TRAINING=====")
+    start_time = datetime.now()
+    print(f"Start Time {start_time}")
     # Make directories if directories does not exist.
     if not os.path.dirname(log_path):
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
@@ -81,7 +83,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     model.train()
     for i in range(epoch_size):
         epoch_loss = 0
-        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
+        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch {i}"):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
             loss_batch = __train__(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
@@ -114,6 +116,10 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
 
     #endfor epoch
     log_file.close()
+    end_time = datetime.now()
+    print(f"Finished Time {end_time}")
+    print(f"Training Time {end_time - start_time}")
+    print("=====END TRAINING=====")
     return model
 
 def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cpu"):
@@ -131,7 +137,7 @@ def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cp
 
     return correct_token_pred, incorrect_token_pred
 
-def do_evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
+def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
     # TODO:
     # Implements how model evaluate model.
     model.to(device)
@@ -160,7 +166,7 @@ def do_evaluate(model: DNABERTSeq2Seq, validation_dataloader: DataLoader, log=No
     return True
 
 def evaluate(model, validation_csv, device="cpu", batch_size=1, log=None):
-    from utils.seq2seq import preprocessing
+    from utils.seqlab import preprocessing
     from utils.utils import get_default_tokenizer
     dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
     if not do_evaluate(model, dataloader, device=device, log=log):

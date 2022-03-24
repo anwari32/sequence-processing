@@ -9,6 +9,7 @@ from tqdm import tqdm
 import numpy as np
 from datetime import datetime
 import pandas as pd
+from models.lstm import LSTM_Block
 from utils.utils import save_model_state_dict
 
 _device = "cuda" if cuda.is_available() else "cpu"
@@ -39,7 +40,8 @@ class PromoterHead(nn.Module):
         self.activation = nn.Softmax(dim=1) if config["num_labels"] > 1 else nn.Sigmoid()
 
     def forward(self, x):
-        x = x[0][:,0,:]
+        # x = x[0][:,0,:]
+        x = x[:,0,:]
         x = self.stack(x)
         x = self.activation(x)
         return x
@@ -60,7 +62,8 @@ class SpliceSiteHead(nn.Module):
         self.activation = nn.Softmax(dim=1) if config["num_labels"] > 1 else nn.Sigmoid()
 
     def forward(self, x):
-        x = x[0][:,0,:]
+        # x = x[0][:,0,:]
+        x = x[:,0,:]
         x = self.stack(x)
         x = self.activation(x)
         return x
@@ -81,7 +84,8 @@ class PolyAHead(nn.Module):
         self.activation = nn.Softmax(dim=1) if config["num_labels"] > 1 else nn.Sigmoid()
         
     def forward(self, x):
-        x = x[0][:,0,:]
+        # x = x[0][:,0,:]
+        x = x[:,0,:]
         x = self.stack(x)
         x = self.activation(x)
         return x
@@ -93,12 +97,16 @@ class MTModel(nn.Module):
     def __init__(self, bert, config):
         super().__init__()
         self.shared_layer = bert
+        self.lstm_layer = None if config["use_lstm"] == 0 or "use_lstm" not in config.keys() else LSTM_Block(config["lstm"])
         self.promoter_layer = PromoterHead(config["prom_head"])
         self.splice_site_layer = SpliceSiteHead(config["ss_head"])
         self.polya_layer = PolyAHead(config["polya_head"])
 
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
+        x = x[0] # Last hidden state.
+        if self.lstm_layer:
+            x, (h_n, c_n) = self.lstm_layer(x)
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)

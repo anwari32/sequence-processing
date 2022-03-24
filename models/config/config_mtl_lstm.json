@@ -19,11 +19,12 @@
     },
     "optimizer": "adamw",
     "loss_strategy": "sum",
-    "use_lstm": 0,
+    "use_lstm": 1,
     "lstm": {
         "input_dim": 768,
         "hidden_dim": 768,
         "num_layers": 2,
-        "dropout": 0.1 
+        "dropout": 0.1,
+        "bidirectional": 0
     }
 }
