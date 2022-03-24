@@ -6,6 +6,7 @@ from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
 from data_preparation import str_kmer
+from tqdm import tqdm
 
 def init_seq2seq_model(config: json):
     if not config:
@@ -121,7 +122,7 @@ def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
     arr_attention_mask = []
     arr_token_type_ids = []
     arr_labels = []
-    for seq, label in zip(sequences, labels):
+    for seq, label in tqdm(zip(sequences, labels), total=len(sequences), desc="Preprocessing"):
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)

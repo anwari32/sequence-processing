@@ -208,7 +208,7 @@ def get_sequences(csv_path: str, n_sample=10, random_state=1337):
 
     return sequence, label_prom, label_ss, label_polya
 
-def preprocessing(data, tokenizer: BertTokenizer):
+def prepare_data(data, tokenizer: BertTokenizer):
     """
     Preprocessing for pretrained BERT.
     @param      data (array of string): array of string, each string contains kmers separated by spaces.
@@ -246,7 +246,7 @@ def preprocessing(data, tokenizer: BertTokenizer):
     print("Preprocessing Duration {}".format(_elapsed_time))
     return input_ids, attention_masks
 
-def prepare_data(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000, n_sample=0, random_state=1337):
+def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000, n_sample=0, random_state=1337):
     """
     @return dataloader (torch.utils.data.DataLoader)
     """
@@ -256,7 +256,7 @@ def prepare_data(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000,
     _start_time = datetime.now()
     tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
     sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state)
-    arr_input_ids, arr_attn_mask = preprocessing(sequences, tokenizer)
+    arr_input_ids, arr_attn_mask = prepare_data(sequences, tokenizer)
     prom_labels_tensor = tensor(prom_labels)
     ss_labels_tensor = tensor(ss_labels)
     polya_labels_tensor = tensor(polya_labels)

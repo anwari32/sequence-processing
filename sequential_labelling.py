@@ -42,6 +42,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     @param  device (string) | None -> 'cpu': Default value is 'cpu', can be changed into 'cuda', 'cuda:0' for first cuda-compatible device, 'cuda:1' for second device, etc.
     @return model after training.
     """
+    print("=====Begin Training=====")
     # Make directories if directories does not exist.
     if not os.path.dirname(log_path):
         os.makedirs(os.path.dirname(log_path), exist_ok=True)

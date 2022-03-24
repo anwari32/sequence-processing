@@ -7,7 +7,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler
 from torch.optim.adamw import AdamW
 import getopt, os, sys
 from transformers import BertTokenizer, BertModel, get_linear_schedule_with_warmup
-from multitask_learning import init_model_mtl, train, MTModel, PromoterHead, SpliceSiteHead, PolyAHead, prepare_data
+from multitask_learning import init_model_mtl, train, MTModel, PromoterHead, SpliceSiteHead, PolyAHead, preprocessing
 from datetime import datetime
 from utils.utils import load_model_state_dict, save_config
 import json
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     """
     BATCH_SIZE = batch_size
     EPOCH_SIZE = epoch_size
-    train_dataloader = prepare_data(train_path, pretrained_path, batch_size=BATCH_SIZE, n_sample=limit_train)
+    train_dataloader = preprocessing(train_path, pretrained_path, batch_size=BATCH_SIZE, n_sample=limit_train)
 
     print('# of training data: {}'.format(len(train_dataloader)))
 
