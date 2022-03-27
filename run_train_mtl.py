@@ -105,7 +105,7 @@ if __name__ == "__main__":
     parameters['pretrained'] = pretrained_path = os.path.join(arguments['pretrained']) if 'pretrained' in arguments.keys() else None
     parameters['num_epochs'] = epoch_size = int(arguments['num_epochs']) if 'num_epochs' in arguments.keys() else 1
     parameters['batch_size'] = batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 2000
-    parameters['device'] = device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
+    parameters['device'] = device = arguments['device'] if 'device' in arguments.keys() else None # Set to None to ignite Error to avoid server crashed. Either train on GPU or None whatsoever.
     parameters['learning_rate'] = learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
     parameters['epsilon'] = epsilon = float(arguments['epsilon']) if 'epsilon' in arguments.keys() else 1e-6
     parameters['beta1'] = beta1 = float(arguments['beta1']) if 'beta1' in arguments.keys() else 0.9
@@ -157,6 +157,9 @@ if __name__ == "__main__":
     """
     Initialize model, optimizer, and scheduler.
     """
+    if device == None:
+        raise ValueError("Device must be set to GPU. Avoid run training on CPU since it will make server crashed.")
+        # sys.exit(2)
     model = init_model_mtl(pretrained_path, config)
     if resume_from_checkpoint != None:
         print(f"Loading existing model to continue training <{resume_from_checkpoint}>")

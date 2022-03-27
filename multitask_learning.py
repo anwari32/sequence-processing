@@ -77,7 +77,7 @@ def evaluate(model, dataloader, log_path, device='cpu'):
     # Compute average accuracy.
     prom_accuracy = count_prom_correct / len_dataloader * 100
     ss_accuracy = count_ss_correct / len_dataloader * 100
-    polya = count_polya_correct / len_dataloader * 100
+    polya_accuracy = count_polya_correct / len_dataloader * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
 def __train__(model, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):

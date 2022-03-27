@@ -63,7 +63,7 @@ def _parse_arg(argv):
     return result
 
 if __name__ == "__main__":
-    print("Training Seq2Seq Model")
+    print("Training Sequential Labelling Model")
     
     now = datetime.now().strftime('%Y-%m-%d')
     arguments = _parse_arg(sys.argv[1:])
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     pretrained_path = os.path.join(arguments['pretrained'])
     epoch_size = int(arguments['num_epochs']) if 'num_epochs' in arguments.keys() else 1
     batch_size = int(arguments['batch_size']) if 'batch_size' in arguments.keys() else 1
-    device = arguments['device'] if 'device' in arguments.keys() else 'cpu'
+    device = arguments['device'] if 'device' in arguments.keys() else None
     log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join('logs', "log_{}.csv".format(now))
     learning_rate = float(arguments['learning_rate']) if 'learning_rate' in arguments.keys() else 4e-4
     epsilon = float(arguments['epsilon']) if 'epsilon' in arguments.keys() else 1e-6
@@ -110,6 +110,9 @@ if __name__ == "__main__":
         "save_model_path": save_model_path,
     }
 
+    if device == None:
+        raise ValueError("Device must be set to GPU. Avoid run training on CPU since it will make server crashed.")
+        # sys.exit(2)
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
     model = init_seqlab_model(json.load(open(config_path, 'r')))

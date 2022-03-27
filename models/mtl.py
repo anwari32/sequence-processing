@@ -104,9 +104,11 @@ class MTModel(nn.Module):
 
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
+        print("bert output", x)
         x = x[0] # Last hidden state.
         if self.lstm_layer:
             x, (h_n, c_n) = self.lstm_layer(x)
+            print("lstm output", x.shape)
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)
