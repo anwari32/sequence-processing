@@ -83,15 +83,16 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     model.train()
     for i in range(epoch_size):
         epoch_loss = 0
-        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch {i}"):
+        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{i + 1 + training_counter}/{epoch_size}]"):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
             loss_batch = __train__(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
-            epoch_loss += (loss_batch / grad_accumulation_steps)
+            loss_batch = (loss_batch / grad_accumulation_steps)
+            epoch_loss += loss_batch
             loss_batch.backward()
 
-            if (step + 1) % grad_accumulation_steps == 0 or  (step + 1) == len(train_dataloader):
+            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
                 optimizer.step()
                 scheduler.step()
                 model.zero_grad()

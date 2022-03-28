@@ -32,7 +32,7 @@ class PromoterHead(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.stack = nn.Sequential(
-            nn.Linear(768, out_features=config["hidden_size"]), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
+            nn.Linear(config["input_dim"], out_features=config["hidden_size"]), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
             nn.ReLU(), 
             nn.Dropout(p=config["dropout_prob"]),
             nn.Linear(config["hidden_size"], config["num_labels"]),
@@ -54,7 +54,7 @@ class SpliceSiteHead(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.stack = nn.Sequential(
-            nn.Linear(768, out_features=config["hidden_size"]),
+            nn.Linear(config["input_dim"], out_features=config["hidden_size"]),
             nn.ReLU(),
             nn.Dropout(p=config["dropout_prob"]),
             nn.Linear(config["hidden_size"], config["num_labels"])
@@ -76,7 +76,7 @@ class PolyAHead(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.stack = nn.Sequential(
-            nn.Linear(768, config["hidden_size"]), # Adapt from BERT layer which provide 768 outputs.
+            nn.Linear(config["input_dim"], config["hidden_size"]), # Adapt from BERT layer which provide 768 outputs.
             nn.ReLU(), # Assume using ReLU.
             nn.Dropout(p=config["dropout_prob"]),
             nn.Linear(config["hidden_size"], config["num_labels"]),
@@ -97,18 +97,17 @@ class MTModel(nn.Module):
     def __init__(self, bert, config):
         super().__init__()
         self.shared_layer = bert
-        self.lstm_layer = None if config["use_lstm"] == 0 or "use_lstm" not in config.keys() else LSTM_Block(config["lstm"])
+        self.lstm_layer = None if config["use_lstm"] <= 0 or "use_lstm" not in config.keys() else LSTM_Block(config["lstm"])
         self.promoter_layer = PromoterHead(config["prom_head"])
         self.splice_site_layer = SpliceSiteHead(config["ss_head"])
         self.polya_layer = PolyAHead(config["polya_head"])
 
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
-        print("bert output", x)
         x = x[0] # Last hidden state.
         if self.lstm_layer:
             x, (h_n, c_n) = self.lstm_layer(x)
-            print("lstm output", x.shape)
+        # print(x.shape)
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)

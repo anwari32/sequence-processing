@@ -1,0 +1,9 @@
+{
+    "device": "cuda",
+    "num_epochs": 10,
+    "batch_size": 1,
+    "loss_strategy": "sum",
+    "prom_loss_fn": "bceloss",
+    "ss_loss_fn": "crossentropyloss",
+    "polya_loss_fn": "crossentropyloss"
+}

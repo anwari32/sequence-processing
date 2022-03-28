@@ -126,7 +126,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     try:
         for i in range(epoch_size):
             epoch_loss = 0
-            for step, batch in tqdm(enumerate(dataloader), total=_len_dataloader, desc="Epoch [{}/{}]".format(i+1, epoch_size)):
+            for step, batch in tqdm(enumerate(dataloader), total=_len_dataloader, desc="Epoch [{}/{}]".format(i + 1 + training_counter, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
                 loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
 
@@ -147,7 +147,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 # Backpropagation.
                 loss.backward()
 
-                if (step + 1) % grad_accumulation_steps == 0:
+                if (step + 1) % grad_accumulation_steps == 0 or step + 1 == len(dataloader):
                     # Update learning rate and scheduler.
                     optimizer.step()
                     scheduler.step()

@@ -33,7 +33,8 @@ def _parse_arg(args):
         "resume_from_checkpoint=",
         "resume_from_optimizer=",
         "training_counter=",
-        "config_path="]
+        "config_path=",
+        "force_cpu"]
     )
     output = {}
     
@@ -82,6 +83,8 @@ def _parse_arg(args):
             output['training_counter'] = int(argument)
         elif option in ["--config_path"]:
             output["config_path"] = argument
+        elif option in ["--force_cpu"]:
+            output["force_cpu"] = True
         else:
             print("Argument {} not recognized.".format(option))
             sys.exit(2)
@@ -122,7 +125,7 @@ if __name__ == "__main__":
     parameters['save_model_path'] = save_model_path = arguments['save_model_path'] if 'save_model_path' in arguments.keys() else os.path.join("result", now, _format_foldername(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
     parameters['log'] = log = os.path.join(arguments['log']) if 'log' in arguments.keys() else os.path.join("logs", now, _format_logname(train_path, epoch_size, batch_size, loss_strategy, grad_accumulation_steps))
     parameters['config_path'] = config_path = os.path.join(arguments['config_path']) if 'config_path' in arguments.keys() else None
-
+    parameters['force_cpu'] = force_cpu = arguments['force_cpu'] if 'force_cpu' in arguments.keys() else False
     for key in parameters.keys():
         print('{} - {}'.format(key, parameters[key]))
 
@@ -144,7 +147,19 @@ if __name__ == "__main__":
     log_dir = os.path.dirname(log)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-        
+
+    """
+    Make sure device is set to GPU instead of GPU.
+    """        
+    if not force_cpu:
+        if device == None or  device.lower() == "cpu":
+            raise ValueError("Device must be set to GPU. Avoid run training on CPU since it will make server crashed.")
+            # sys.exit(2)
+        device_count = torch.cuda.device_count()
+        if device_count > 1 and device == "cuda":
+            raise ValueError("Multiple CUDA device found. Please choose one of them.")
+
+
     """
     Create dataloader.
     """
@@ -157,9 +172,6 @@ if __name__ == "__main__":
     """
     Initialize model, optimizer, and scheduler.
     """
-    if device == None:
-        raise ValueError("Device must be set to GPU. Avoid run training on CPU since it will make server crashed.")
-        # sys.exit(2)
     model = init_model_mtl(pretrained_path, config)
     if resume_from_checkpoint != None:
         print(f"Loading existing model to continue training <{resume_from_checkpoint}>")

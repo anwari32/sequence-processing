@@ -1,7 +1,0 @@
-{
-    "num_labels": 2,
-    "head_dropout_prob": 0.1,
-    "hidden_size": 768,
-    "optimizer": "adamw",
-    "loss_strategy": "sum"
-}

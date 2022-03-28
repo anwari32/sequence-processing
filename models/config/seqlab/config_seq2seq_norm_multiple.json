@@ -5,14 +5,15 @@
         "input_dim": 768,
         "hidden_dim": 768,
         "num_layers": 1,
-        "dropout": 0.1        
+        "dropout": 0.1,
+        "bidirectional": 0      
     },
     "linear" : {
         "num_labels": 11,
-        "num_layers": 1,
+        "num_layers": 4,
+        "input_dim": 768,
         "hidden_dim": 768,
-        "norm_layer": 0,
+        "norm_layer": 1,
         "dropout_prob": 0.1
     }
-    
 }

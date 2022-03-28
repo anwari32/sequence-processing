@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 from utils.seqlab import preprocessing, init_seqlab_model
 import json
-
+import torch
 from utils.utils import load_checkpoint, save_config
 
 def _parse_arg(argv):
@@ -32,7 +32,8 @@ def _parse_arg(argv):
         "resume_from_checkpoint=",
         "training_counter=",
         "grad_accumulation_steps=",
-        "config_path="
+        "config_path=",
+        "force_cpu"
     ])
     for opt, arg in opts:
         if opt in ["--train_data", "-t"]:
@@ -57,6 +58,8 @@ def _parse_arg(argv):
             result["training_counter"] = int(arg)
         elif opt in ["--config_path"]:
             result["config_path"] = arg
+        elif opt in ["--force_cpu"]:
+            result["force_cpu"] = True
         else:
             print(f"Argument {opt} not recognized.")
             sys.exit(2)
@@ -89,6 +92,7 @@ if __name__ == "__main__":
     training_counter = arguments['training_counter'] if 'training_counter' in arguments.keys() else 0
     grad_accumulation_steps = arguments['grad_accumulation_steps'] if 'grad_accumulation_steps' in arguments.keys() else 1
     config_path = arguments["config_path"] if "config_path" in arguments.keys() else None
+    force_cpu = arguments["force_cpu"] if "force_cpu" in arguments.keys() else False
     
     training_config = {
         "train_path": train_path,
@@ -108,11 +112,17 @@ if __name__ == "__main__":
         "grad_accumulation_steps": grad_accumulation_steps,
         "config_path": config_path,
         "save_model_path": save_model_path,
+        "force_cpu": force_cpu
     }
 
-    if device == None:
-        raise ValueError("Device must be set to GPU. Avoid run training on CPU since it will make server crashed.")
-        # sys.exit(2)
+    if not force_cpu:
+        if device == None or device.lower() == "cpu":
+            raise ValueError("Device must be set to GPU. Avoid run training on CPU since it will make server crashed.")
+            # sys.exit(2)
+        device_count = torch.cuda.device_count()
+        if device_count > 1 and device == "cuda":
+            raise ValueError("Multiple CUDA device found. Please choose one of them.")
+
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
     train_dataloader = preprocessing(train_path, tokenizer, batch_size, do_kmer=True)
     model = init_seqlab_model(json.load(open(config_path, 'r')))
