@@ -3,8 +3,9 @@ import sys
 import os
 
 from transformers import get_linear_schedule_with_warmup
-from sequential_labelling import create_dataloader, train_using_genes, init_adamw_optimizer, init_seq2seq_model
+from sequential_labelling import preprocessing, train_using_genes, init_adamw_optimizer, init_seqlab_model
 import torch
+
 
 
 
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     print("Training Seq2Seq model with Genes.")
     args = _parse_argv(sys.argv[1:])
 
-    model = init_seq2seq_model(args['pretrained'])
+    model = init_seqlab_model(args['pretrained'])
     optimizer = init_adamw_optimizer(model.parameters())
 
     train_genes = [os.path.join(args['train_dir'], gene) for gene in os.listdir(args['train_dir'])]
