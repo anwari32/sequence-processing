@@ -23,63 +23,6 @@ def init_model_mtl(pretrained_path, config: json):
     model = MTModel(bert, config)
     return model
 
-def evaluate(model, dataloader, log_path, device='cpu'):
-    if os.path.exists(log_path):
-        os.remove(log_path)
-    log_dir = os.path.dirname(log_path)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-    log = open(log_path, 'x')
-    log.write("pred_prom,label_prom,pred_ss,label_ss,pred_polya,label_polya\n")
-    model.eval()
-    model.to(device)    
-    count_prom_correct = 0
-    count_ss_correct = 0
-    count_polya_correct = 0
-    prom_accuracy = 0
-    ss_accuracy = 0
-    polya_accuracy = 0
-    len_dataloader = len(dataloader)
-    for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Inference"):
-        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
-
-        # Compute logits.
-        with torch.no_grad():
-            # Forward.
-            output = model(input_ids, attn_mask)
-            pred_prom = output['prom']
-            pred_ss = output['ss']
-            pred_polya = output['polya']
-
-            # Prediction.
-            predicted_prom = torch.round(pred_prom).item()
-            actual_prom = label_prom.float().item()
-            if (predicted_prom == actual_prom):
-                count_prom_correct += 1
-            #print(pred_prom, label_prom, predicted_prom)
-
-            predicted_ss, predicted_ss_index = torch.max(pred_ss, 1)
-            predicted_ss = predicted_ss.item()
-            predicted_ss_index = predicted_ss_index.item()
-            if (predicted_ss_index == label_ss):
-                count_ss_correct += 1
-
-            predicted_polya, predicted_polya_index = torch.max(pred_polya, 1)
-            predicted_polya = predicted_polya.item()
-            predicted_polya_index = predicted_polya_index.item()
-            if (predicted_polya_index == label_polya):
-                count_polya_correct += 1
-
-
-            log.write(f"{predicted_prom},{label_prom},{predicted_ss_index},{label_ss},{predicted_polya_index},{label_polya}\n")
-    #endfor
-    log.close()
-    # Compute average accuracy.
-    prom_accuracy = count_prom_correct / len_dataloader * 100
-    ss_accuracy = count_ss_correct / len_dataloader * 100
-    polya_accuracy = count_polya_correct / len_dataloader * 100
-    return prom_accuracy, ss_accuracy, polya_accuracy
-
 def __train__(model, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
     output = model(input_ids, attention_mask)
     pred_prom = output["prom"]
@@ -91,6 +34,108 @@ def __train__(model, input_ids, attention_mask, label_prom, label_ss, label_poly
     loss_polya = loss_fn_polya(pred_polya, label_polya)
     
     return loss_prom, loss_ss, loss_polya
+
+def __eval__(model, input_ids, attention_mask, label_prom, label_ss, label_polya, device="cpu"):
+    model.to(device)
+    input_ids.to(device)
+    attention_mask.to(device)
+    label_prom.to(device)
+    label_ss.to(device)
+    label_polya.to(device)
+
+    #preds = model(input_ids, attention_mask)
+    #pred_prom = preds["prom"]
+    #pred_ss = preds["ss"]
+    #pred_polya = preds["polya"]
+
+    with torch.no_grad():
+        # Forward.
+        output = model(input_ids, attention_mask)
+        pred_prom = output['prom']
+        pred_ss = output['ss']
+        pred_polya = output['polya']
+
+        # Prediction.
+        predicted_prom = torch.round(pred_prom).item()
+        actual_prom = label_prom.float().item()
+        prom_eval = (predicted_prom == actual_prom)
+        #print(pred_prom, label_prom, predicted_prom)
+
+        predicted_ss, predicted_ss_index = torch.max(pred_ss, 1)
+        predicted_ss = predicted_ss.item()
+        predicted_ss_index = predicted_ss_index.item()
+        ss_eval = (predicted_ss_index == label_ss)
+
+        predicted_polya, predicted_polya_index = torch.max(pred_polya, 1)
+        predicted_polya = predicted_polya.item()
+        predicted_polya_index = predicted_polya_index.item()
+        polya_eval = (predicted_polya_index == label_polya)
+
+    return prom_eval, ss_eval, polya_eval
+
+def evaluate(model, dataloader, log_path, device='cpu'):
+    if os.path.exists(log_path):
+        os.remove(log_path)
+    log_dir = os.path.dirname(log_path)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    log = open(log_path, 'x')
+    log.write("pred_prom,label_prom,pred_ss,label_ss,pred_polya,label_polya\n")
+    model.eval()
+    model.to(device)
+    count_prom_correct = 0
+    count_ss_correct = 0
+    count_polya_correct = 0
+    prom_accuracy = 0
+    ss_accuracy = 0
+    polya_accuracy = 0
+    prom_evals = []
+    ss_evals = []
+    polya_evals = []
+    len_dataloader = len(dataloader)
+    for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Inference"):
+        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
+
+        predicted_prom, predicted_ss, predicted_polya = __eval__(model, input_ids, attn_mask, label_prom, label_ss, label_polya, device=device)
+        prom_evals.append(1 if predicted_prom else 0)
+        ss_evals.append(1 if predicted_ss else 0)
+        polya_evals.append(1 if predicted_polya else 0)
+
+        # Compute logits.
+        #with torch.no_grad():
+            # Forward.
+        #    output = model(input_ids, attn_mask)
+        #    pred_prom = output['prom']
+        #    pred_ss = output['ss']
+        #    pred_polya = output['polya']
+
+            # Prediction.
+        #    predicted_prom = torch.round(pred_prom).item()
+        #    actual_prom = label_prom.float().item()
+        #    if (predicted_prom == actual_prom):
+        #        count_prom_correct += 1
+            #print(pred_prom, label_prom, predicted_prom)
+
+        #    predicted_ss, predicted_ss_index = torch.max(pred_ss, 1)
+        #    predicted_ss = predicted_ss.item()
+        #    predicted_ss_index = predicted_ss_index.item()
+        #    if (predicted_ss_index == label_ss):
+        #        count_ss_correct += 1
+
+        #    predicted_polya, predicted_polya_index = torch.max(pred_polya, 1)
+        #    predicted_polya = predicted_polya.item()
+        #    predicted_polya_index = predicted_polya_index.item()
+        #    if (predicted_polya_index == label_polya):
+        #        count_polya_correct += 1
+        log.write(f"{1 if predicted_prom else 0},{label_prom},{1 if predicted_ss else 0},{label_ss},{1 if predicted_polya else 0},{label_polya}\n")
+    #endfor
+    log.close()
+    # Compute average accuracy.
+    prom_accuracy = count_prom_correct / len_dataloader * 100
+    ss_accuracy = count_ss_correct / len_dataloader * 100
+    polya_accuracy = count_polya_correct / len_dataloader * 100
+    return prom_accuracy, ss_accuracy, polya_accuracy
+
 
 def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, resume_from_checkpoint=None, resume_from_optimizer=None):
     """
@@ -145,7 +190,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 epoch_loss += loss
 
                 # Backpropagation.
-                loss.backward()
+                loss.backward(retain_graph=True)
 
                 if (step + 1) % grad_accumulation_steps == 0 or step + 1 == len(dataloader):
                     # Update learning rate and scheduler.

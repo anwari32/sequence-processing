@@ -17,6 +17,6 @@ class LSTM_Block(nn.Module):
         self.last_hn_cn = None
 
     def forward(self, input):
-        output, (hn, cn) = self.lstm(input, self.last_hn_cn)
+        output, (hn, cn) = self.lstm(input, self.last_hn_cn.detach())
         self.last_hn_cn = (hn, cn)
         return output, (hn, cn)

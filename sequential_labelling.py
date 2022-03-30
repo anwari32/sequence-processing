@@ -15,17 +15,48 @@ from models.seqlab import DNABERTSeqLab
 from utils.seqlab import _create_dataloader
 from datetime import datetime
 
-def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum"):
+def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum", device="cpu"):
+    # Make sure model and data are in the same device.
+    model.to(device)
+    batch_input_ids.to(device)
+    batch_attn_mask.to(device)
+    batch_token_type_ids.to(device)
+    batch_labels.to(device)
+
     prediction = model(batch_input_ids, batch_attn_mask, batch_token_type_ids)
 
     # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
-    batch_loss = 0
+    batch_loss = None
     for p, l in zip(prediction, batch_labels):
         loss = loss_function(p, l)
-        batch_loss += loss
+        if batch_loss == None:
+            batch_loss = loss
+        else:
+            batch_loss += loss
     if loss_strategy == "average":
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
+
+def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cpu"):
+    # Make sure model and data are in the same device.
+    model.to(device)
+    input_ids.to(device)
+    attention_mask.to(device)
+    input_type_ids.to(device)
+    label.to(device)
+
+    correct_token_pred, incorrect_token_pred = 0, 0
+    model.eval()
+    with torch.not_grad():
+        pred = model(input_ids, attention_mask, input_type_ids)
+        for p, z in zip(pred, label):
+            p_score, p_index = torch.max(p, 1)
+            if p_index == z:
+                correct_token_pred += 1
+            else:
+                incorrect_token_pred += 1
+
+    return correct_token_pred, incorrect_token_pred
 
 def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum"):
     """
@@ -90,12 +121,13 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
             loss_batch = (loss_batch / grad_accumulation_steps)
             epoch_loss += loss_batch
-            loss_batch.backward()
+            with torch.autograd.set_detect_anomaly(True):
+                loss_batch.backward(retain_graph=True)
 
             if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
+                model.zero_grad()
                 optimizer.step()
                 scheduler.step()
-                model.zero_grad()
         
         torch.cuda.empty_cache()
         
@@ -123,20 +155,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     print("=====END TRAINING=====")
     return model
 
-def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cpu"):
-    correct_token_pred, incorrect_token_pred = 0, 0
-    model.to(device)
-    model.eval()
-    with torch.not_grad():
-        pred = model(input_ids, attention_mask, input_type_ids)
-        for p, z in zip(pred, label):
-            p_score, p_index = torch.max(p, 1)
-            if p_index == z:
-                correct_token_pred += 1
-            else:
-                incorrect_token_pred += 1
 
-    return correct_token_pred, incorrect_token_pred
 
 def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
     # TODO:
