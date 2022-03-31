@@ -9,6 +9,8 @@ from utils.optimizer import init_optimizer
 from transformers import get_linear_schedule_with_warmup
 import os
 
+import wandb
+
 def parse_args(argv):
     opts, args = getopt(argv, "c:d:f", ["config=", "device=", "force-cpu", "training-counter=", "resume-from-checkpoint=", "resume-from-optimizer="])
     output = {}
@@ -79,6 +81,13 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
+    wandb.init(project="thesis-mtl", entity="anwari32")    
+    wandb.config = {
+        "learning_rate": config["optimizer"]["learning_rate"],
+        "epochs": config["num_epochs"],
+        "batch_size": config["batch_size"]
+    }
+
     trained_model = train(
         dataloader, 
         model, 
@@ -95,5 +104,6 @@ if __name__ == "__main__":
         loss_strategy=config["loss_strategy"], 
         grad_accumulation_steps=config["grad_accumulation_steps"], 
         resume_from_checkpoint=args["resume_from_checkpoint"] if "resume_from_checkpoint" in args.keys() else None, 
-        resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None
+        resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None,
+        wandb=wandb
     )
