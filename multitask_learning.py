@@ -190,6 +190,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 # Accumulate loss in this batch.
                 epoch_loss += loss
 
+                # Wandb.
                 if wandb:
                     wandb.log({"loss": loss})
                     wandb.log({"epoch_loss": epoch_loss})
@@ -208,13 +209,13 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     # Reset model gradients.
                     model.zero_grad()
                 # Just print something so terminal doesn't look so boring. (-_-)'
+                torch.cuda.empty_cache()
                 # print("Epoch {}, Step {}".format(i, step), end='\r')
             # endfor batch.
 
             # After and epoch, Save the model if `save_model_path` is not None.
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
-            torch.cuda.empty_cache()
             save_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
             save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
             save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))

@@ -223,7 +223,7 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
             gene_loss = None # This is loss computed from single gene.
             len_dataloader = len(gene_dataloader)
             total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
-            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader):
+            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader, desc=f"Epoch {i+1}/{num_training_genes}"):
                 input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
 
                 pred = model(input_ids, attn_mask, token_type_ids)
@@ -238,12 +238,14 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
             if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
                 optimizer.step()
                 scheduler.step()
+                model.zero_grad()
 
         #endfor
         save_checkpoint(model, optimizer, {
             'epoch': epoch + 1 + resume_training_counter,
             'loss': epoch_loss
         }, save_path)
+        torch.cuda.empty_cache()
     #endfor
 
     return model
