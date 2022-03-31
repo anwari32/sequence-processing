@@ -148,7 +148,6 @@ if __name__ == "__main__":
         save_model_path=save_model_path, 
         device=device,
         training_counter=training_counter,
-        resume_from_checkpoint=resume_from_checkpoint,
         grad_accumulation_steps=grad_accumulation_steps
     )
 

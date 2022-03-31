@@ -58,7 +58,7 @@ def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cp
 
     return correct_token_pred, incorrect_token_pred
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, resume_from_checkpoint=None, resume_from_optimizer=None, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum"):
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum"):
     """
     @param  model: BERT derivatives.
 
