@@ -1,5 +1,3 @@
-from data_dir import pretrained_3kmer_dir
-
 def get_default_tokenizer():
     from transformers import BertTokenizer
     from data_dir import pretrained_3kmer_dir

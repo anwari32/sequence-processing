@@ -18,9 +18,10 @@ from utils.utils import save_checkpoint, save_model_state_dict
 
 from models.mtl import MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
-def init_model_mtl(pretrained_path, config: json):
+def init_model_mtl(pretrained_path, config: json, device="cpu"):
     bert = BertForMaskedLM.from_pretrained(pretrained_path).bert
     model = MTModel(bert, config)
+    model.to(device)
     return model
 
 def __train__(model, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
@@ -149,7 +150,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     @param      log_file_path:
     @param      device:
     @param      save_model_path (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
-    @param      grad_accumulation_steps (int | None = 0): After how many step backward is computed.
+    @param      grad_accumulation_steps (int | None = 1): After how many step backward is computed.
     """
     log_file = {}    
     model.to(device)
