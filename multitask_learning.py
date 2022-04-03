@@ -137,8 +137,7 @@ def evaluate(model, dataloader, log_path, device='cpu'):
     polya_accuracy = count_polya_correct / len_dataloader * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, resume_from_checkpoint=None, resume_from_optimizer=None, wandb=None):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, cuda_garbage_collection_mode=None):
     """
     @param      dataloader:
     @param      model:
@@ -209,7 +208,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     # Reset model gradients.
                     model.zero_grad()
                 # Just print something so terminal doesn't look so boring. (-_-)'
-                torch.cuda.empty_cache()
+                if cuda_garbage_collection_mode == "aggresive":
+                    torch.cuda.empty_cache()
                 # print("Epoch {}, Step {}".format(i, step), end='\r')
             # endfor batch.
 

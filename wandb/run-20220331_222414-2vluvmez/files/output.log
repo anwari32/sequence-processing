@@ -1,0 +1,112 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Epoch [1/1]:  51%|██████████████████████████████████████████████████████████████████████████████████████████████▍                                                                                         | 77/150 [05:05<04:49,  3.97s/it]
+Traceback (most recent call last):
+  File "W:\Research\sequence-processing\multitask_learning.py", line 177, in train
+    loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+  File "W:\Research\sequence-processing\multitask_learning.py", line 28, in __train__
+    output = model(input_ids, attention_mask)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "W:\Research\sequence-processing\models\mtl.py", line 106, in forward
+    x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 996, in forward
+    encoder_outputs = self.encoder(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 585, in forward
+    layer_outputs = layer_module(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 472, in forward
+    self_attention_outputs = self.attention(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 402, in forward
+    self_outputs = self.self(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 324, in forward
+    attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+RuntimeError: [enforce fail at ..\c10\core\CPUAllocator.cpp:76] data. DefaultCPUAllocator: not enough memory: you tried to allocate 12582912 bytes.
+[enforce fail at ..\c10\core\CPUAllocator.cpp:76] data. DefaultCPUAllocator: not enough memory: you tried to allocate 12582912 bytes.
+Start Time: 2022-03-31 22:24:16.843529, End Time: 2022-03-31 22:29:22.744042, Training Duration 0:05:05.900513

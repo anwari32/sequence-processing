@@ -1,0 +1,19 @@
+
+Epoch [1/1]:   0%|                                                                                                                                                                                                 | 0/150 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "W:\Research\sequence-processing\multitask_learning.py", line 177, in train
+    loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+  File "W:\Research\sequence-processing\multitask_learning.py", line 28, in __train__
+    output = model(input_ids, attention_mask)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "W:\Research\sequence-processing\models\mtl.py", line 109, in forward
+    x, (h_n, c_n) = self.lstm_layer(x)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "W:\Research\sequence-processing\models\lstm.py", line 21, in forward
+    self.last_hn_cn = self.last_hn_cn.detach()
+AttributeError: 'tuple' object has no attribute 'detach'
+'tuple' object has no attribute 'detach'
+
+Epoch [1/1]:   1%|█▏                                                                                                                                                                                       | 1/150 [00:02<04:58,  2.01s/it]

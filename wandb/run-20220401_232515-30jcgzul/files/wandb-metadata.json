@@ -1,0 +1,28 @@
+{
+    "os": "Windows-10-10.0.19041-SP0",
+    "python": "3.9.1",
+    "heartbeatAt": "2022-04-01T16:25:22.157588",
+    "startedAt": "2022-04-01T16:25:15.178334",
+    "docker": null,
+    "gpu": "GeForce GTX 1060 6GB",
+    "gpu_count": 1,
+    "cpu_count": 8,
+    "cuda": null,
+    "args": [
+        "--config=training\\config\\mtl\\mtl_sample.json",
+        "--device=cuda",
+        "--cuda-garbage-collection-mode=aggressive"
+    ],
+    "state": "running",
+    "program": "W:\\Research\\sequence-processing\\run_train_mtl.py",
+    "codePath": "run_train_mtl.py",
+    "git": {
+        "remote": "https://github.com/anwari32/sequence-processing.git",
+        "commit": "7b53ff2feddf85942fc770572ec8d442f874ee72"
+    },
+    "email": "lm.anwari@gmail.com",
+    "root": "W:/Research/sequence-processing",
+    "host": "DESKTOP-REIH3S4",
+    "username": "lmanw",
+    "executable": "C:\\.virtualenv\\sequence-processing-py39\\Scripts\\python.exe"
+}

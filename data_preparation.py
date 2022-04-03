@@ -1112,7 +1112,7 @@ def expand_and_split(src_csv, target_dir, stride=1, length=512, prefix='part'):
         print("Error {}".format(traceback.format_exc()))
         return False
 
-def expand(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence', length=512):
+def expand_mtl_dataset(src_csv, target_csv, sliding_window_size=1, col_to_expand='sequence', length=512):
     """
     Expand sequence in csv file. CSV must have 'sequence', 'label_prom', 'label_ss', 'label_polya' column in this precise order.
     Sequence is array of token (kmer) seperated by space.

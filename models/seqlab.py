@@ -68,7 +68,7 @@ class DNABERTSeqLab(nn.Module):
     """
     Core architecture of sequential labelling.
     """
-    def __init__(self, config):
+    def __init__(self, bert, config):
         """
         This model uses BERT as its feature extraction layer.
         This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.
@@ -79,15 +79,8 @@ class DNABERTSeqLab(nn.Module):
         @return (DNASeqLabelling): Object of this class.
         """
         super().__init__()
-        if "pretrained" not in config.keys():
-            raise KeyError("Pretrained path not found in config. Check if there is `pretrained` key in config.")
-        bert_pretrained_path = config["pretrained"]
-        if not os.path.exists(bert_pretrained_path):
-            raise FileNotFoundError(bert_pretrained_path)
-        if not os.path.isdir(bert_pretrained_path):
-            raise IsADirectoryError(bert_pretrained_path)
-
-        self.bert = BertForMaskedLM.from_pretrained(bert_pretrained_path).bert
+        
+        self.bert = bert
         self.seqlab_head = SeqLabHead(config)
         self.activation = nn.Softmax(dim=2)
 

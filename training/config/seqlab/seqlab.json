@@ -1,6 +1,7 @@
 {
     "pretrained": "pretrained/3-new-12w-0",
     "train_data": "workspace/seqlab/seqlab-stride.384/bundle.sample.csv",
+    "freeze_bert": 0,
     "num_epochs": 1,
     "batch_size": 1,
     "log": "log/seqlab/sample/log.csv",

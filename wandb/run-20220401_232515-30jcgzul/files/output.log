@@ -1,0 +1,43 @@
+
+
+
+Epoch [1/1]:   2%|███▋                                                                                                                                                                                     | 3/150 [00:08<05:44,  2.34s/it]
+Traceback (most recent call last):
+  File "W:\Research\sequence-processing\multitask_learning.py", line 176, in train
+    loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+  File "W:\Research\sequence-processing\multitask_learning.py", line 28, in __train__
+    output = model(input_ids, attention_mask)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "W:\Research\sequence-processing\models\mtl.py", line 106, in forward
+    x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 996, in forward
+    encoder_outputs = self.encoder(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 585, in forward
+    layer_outputs = layer_module(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 472, in forward
+    self_attention_outputs = self.attention(
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 411, in forward
+    attention_output = self.output(self_outputs[0], hidden_states)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\transformers\models\bert\modeling_bert.py", line 362, in forward
+    hidden_states = self.dropout(hidden_states)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\modules\dropout.py", line 58, in forward
+    return F.dropout(input, self.p, self.training, self.inplace)
+  File "C:\.virtualenv\sequence-processing-py39\lib\site-packages\torch\nn\functional.py", line 1169, in dropout
+    return _VF.dropout_(input, p, training) if inplace else _VF.dropout(input, p, training)
+RuntimeError: CUDA out of memory. Tried to allocate 2.00 MiB (GPU 0; 6.00 GiB total capacity; 4.04 GiB already allocated; 18.58 MiB free; 4.06 GiB reserved in total by PyTorch) If reserved memory is >> allocated memory try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF
+CUDA out of memory. Tried to allocate 2.00 MiB (GPU 0; 6.00 GiB total capacity; 4.04 GiB already allocated; 18.58 MiB free; 4.06 GiB reserved in total by PyTorch) If reserved memory is >> allocated memory try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF
+
+Epoch [1/1]:   2%|███▋                                                                                                                                                                                     | 3/150 [00:10<08:16,  3.38s/it]

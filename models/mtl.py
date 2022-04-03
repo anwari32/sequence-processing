@@ -97,7 +97,9 @@ class MTModel(nn.Module):
     def __init__(self, bert, config):
         super().__init__()
         self.shared_layer = bert
-        self.lstm_layer = None if config["use_lstm"] <= 0 or "use_lstm" not in config.keys() else LSTM_Block(config["lstm"])
+        self.lstm_layer = None
+        if config["use_lstm"] > 0:
+            self.lstm_layer = LSTM_Block(config["lstm"])
         self.promoter_layer = PromoterHead(config["prom_head"])
         self.splice_site_layer = SpliceSiteHead(config["ss_head"])
         self.polya_layer = PolyAHead(config["polya_head"])
