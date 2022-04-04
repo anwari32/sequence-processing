@@ -3,11 +3,13 @@ import sys
 import json
 from torch.cuda import device_count as cuda_device_count
 from sequential_labelling import train
-from utils.seqlab import init_seqlab_model, preprocessing
+from utils.seqlab import preprocessing
+from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
 from utils.utils import load_checkpoint
 from transformers import get_linear_schedule_with_warmup, BertTokenizer
 import os
+import wandb
 
 def parse_args(argv):
     opts, args = getopt(argv, "t:m:d:f", ["config=", "device=", "force-cpu", "training-counter=", "resume-from-checkpoint=", "resume-from-optimizer="])
@@ -34,6 +36,15 @@ def parse_args(argv):
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
+    for key in args.keys():
+        print(key, args[key])
+
+    # Make sure input parameters are valid.
+    if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
+        print(f"Training config not found at {args['training_config']}")
+    
+    if not os.path.exists(args["model_config"]) or not os.path.isfile(args["model_config"]):
+        print(f"Model config not found at {args['model_config']}")
 
     # Make sure input parameters are valid.
     if not "force-cpu" in args.keys():
@@ -53,7 +64,7 @@ if __name__ == "__main__":
         do_kmer=True
         )
 
-    model = init_seqlab_model(json.load(open(config["arch"], "r")))
+    model = init_seqlab_model(args["model_config"])
 
     optimizer = init_optimizer(
         config["optimizer"]["name"], 
@@ -74,6 +85,10 @@ if __name__ == "__main__":
         training_counter = int(config['epoch']) + 1
         print(f"Resuming training from epoch {training_counter}") 
 
+    if int(config["freeze_bert"]) > 0:
+        for param in model.bert.parameters():
+            param.requires_grad(False)
+
     epoch_size = config["num_epochs"]
     batch_size = config["batch_size"]
     
@@ -85,6 +100,12 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
+    wandb.init(project="seqlab-training-by-sequence", entity="anwari32")
+    wandb.config = {
+        "learning_rate": config["optimizer"]["learning_rate"],
+        "epochs": config["num_epochs"],
+        "batch_size": config["batch_size"]
+    }
 
     trained_model = train(model, 
         optimizer, 
@@ -98,4 +119,5 @@ if __name__ == "__main__":
         remove_old_model=False, 
         training_counter=training_counter, 
         grad_accumulation_steps=config["grad_accumulation_steps"], 
-        loss_strategy=config["loss_strategy"])
+        loss_strategy=config["loss_strategy"],
+        wandb=wandb)

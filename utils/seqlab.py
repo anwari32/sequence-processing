@@ -50,14 +50,27 @@ Label_Dictionary = {
     '[CLS]': 0, #_create_one_hot_encoding(0, 10),
     '[SEP]': 1,
     '[PAD]': 2, #_create_one_hot_encoding(9, 10)
-    '...': 3, #_create_one_hot_encoding(1, 10),
-    '..E': 4, #_create_one_hot_encoding(2, 10),
-    '.E.': 5, #_create_one_hot_encoding(3, 10),
-    'E..': 6, #_create_one_hot_encoding(4, 10),
-    '.EE': 7, #_create_one_hot_encoding(5, 10),
-    'EE.': 8, #_create_one_hot_encoding(6, 10),
-    'E.E': 9, #_create_one_hot_encoding(7, 10),
+    'iii': 3, #_create_one_hot_encoding(1, 10),
+    'iiE': 4, #_create_one_hot_encoding(2, 10),
+    'iEi': 5, #_create_one_hot_encoding(3, 10),
+    'Eii': 6, #_create_one_hot_encoding(4, 10),
+    'iEE': 7, #_create_one_hot_encoding(5, 10),
+    'EEi': 8, #_create_one_hot_encoding(6, 10),
+    'EiE': 9, #_create_one_hot_encoding(7, 10),
     'EEE': 10, #_create_one_hot_encoding(8, 10),
+}
+Index_Dictionary = {
+    0: "[CLS]",
+    1: "[SEP]",
+    2: "[PAD]",
+    3: "iii",
+    4: "iiE",
+    5: "iEi",
+    6: "Eii",
+    7: "iEE",
+    8: "EEi",
+    9: "EiE",
+    10: "EEE"
 }
 
 from models.seqlab import DNABERTSeqLab
@@ -107,10 +120,11 @@ def _create_dataloader(arr_input_ids, arr_attn_mask, arr_token_type_ids, arr_lab
     dataloader = DataLoader(dataset, batch_size=batch_size)
     return dataloader
 
-def preprocessing(csv_file, tokenizer, batch_size, do_kmer=False, kmer_size=3):
+def preprocessing(csv_file: str, tokenizer, batch_size, do_kmer=True, kmer_size=3):
     """
-    Create dataloader from csv file.
-    @param  csv_file (str):
+    Create dataloader from csv file. CSV file must contain column ``sequence`` and ``label``.
+    Sequence in ``sequence`` must be in regular format, not kmer format.
+    @param  csv_file (str): path to CSV file.
     @param  tokenizer (BertTokenizer):
     @param  batch_size (int | None -> 1):
     @param  kmer_size (int | None -> 3):

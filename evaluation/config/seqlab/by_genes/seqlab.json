@@ -1,0 +1,6 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "eval_data": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.positive.strand\\gene_index.sample.small.csv",
+    "batch_size": 1,
+    "log": "logs\\seqlab\\by_genes\\sample\\log.csv"
+}

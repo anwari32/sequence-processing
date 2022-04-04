@@ -1,0 +1,6 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "eval_data": "workspace\\seqlab\\by_sequence\\seq2seq-stride.384\\bundle.sample.small.csv",
+    "batch_size": 1,
+    "log": "logs\\seqlab\\by_sequence\\sample\\log.csv"
+}

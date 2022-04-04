@@ -4,7 +4,7 @@ from torch.nn import NLLLoss
 from torch.nn.functional import one_hot
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import AdamW
-from transformers import BertForMaskedLM, get_linear_schedule_with_warmup
+from transformers import BertForMaskedLM, BertTokenizer, get_linear_schedule_with_warmup
 import os
 import pandas as pd
 from tqdm import tqdm
@@ -12,10 +12,11 @@ import json
 from utils.utils import save_model_state_dict, load_checkpoint, save_checkpoint
 from data_preparation import str_kmer
 from models.seqlab import DNABERTSeqLab
-from utils.seqlab import _create_dataloader
+from utils.seqlab import _create_dataloader, preprocessing
 from datetime import datetime
+import wandb
 
-def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, loss_strategy="sum", device="cpu"):
+def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
     model.to(device)
     batch_input_ids.to(device)
@@ -37,7 +38,7 @@ def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, bat
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
-def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cpu"):
+def __eval__(model, input_ids, attention_mask, input_type_ids, label, device):
     # Make sure model and data are in the same device.
     model.to(device)
     input_ids.to(device)
@@ -47,18 +48,23 @@ def __eval__(model, input_ids, attention_mask, input_type_ids, label, device="cp
 
     correct_token_pred, incorrect_token_pred = 0, 0
     model.eval()
-    with torch.not_grad():
+    pred_labels = []
+    actual_labels = []
+    with torch.no_grad():
         pred = model(input_ids, attention_mask, input_type_ids)
-        for p, z in zip(pred, label):
+        for p, z in zip(pred, label): # Batch
             p_score, p_index = torch.max(p, 1)
-            if p_index == z:
-                correct_token_pred += 1
-            else:
-                incorrect_token_pred += 1
+            for pi, zi in zip(p_index, z):
+                if pi.item() == zi.item():
+                    correct_token_pred += 1
+                else:
+                    incorrect_token_pred += 1
+                pred_labels.append(pi.item())
+                actual_labels.append(zi.item())
 
-    return correct_token_pred, incorrect_token_pred
+    return correct_token_pred, incorrect_token_pred, pred_labels, actual_labels
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', remove_old_model=False, training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum"):
+def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None):
     """
     @param  model: BERT derivatives.
 
@@ -76,34 +82,6 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     print("=====BEGIN TRAINING=====")
     start_time = datetime.now()
     print(f"Start Time {start_time}")
-    # Make directories if directories does not exist.
-    if not os.path.dirname(log_path):
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    
-    # If log file exists, quit training.
-    if os.path.exists(log_path):
-        os.remove(log_path)
-    else:
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-
-    # Save training configuration.
-    training_config = {
-        "num_epochs": epoch_size,
-        "batch_size": batch_size,
-        "grad_accumulation_steps": grad_accumulation_steps,
-        "log": log_path,
-        "save_model_path": save_model_path,
-        "device": device,
-        "training_counter": training_counter,
-    }
-    config_save_path = os.path.join(save_model_path, "config.json")
-    if os.path.exists(config_save_path):
-        os.remove(config_save_path)
-    if not os.path.exists(os.path.dirname(config_save_path)):
-        os.makedirs(os.path.dirname(config_save_path))
-    config_file = open(config_save_path, 'x')
-    json.dump(training_config, config_file, indent=4)
-    config_file.close()
 
     # Writing training log.
     log_file = open(log_path, 'x')
@@ -121,31 +99,27 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
             loss_batch = (loss_batch / grad_accumulation_steps)
             epoch_loss += loss_batch
-            with torch.autograd.set_detect_anomaly(True):
-                loss_batch.backward(retain_graph=True)
 
             if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
                 model.zero_grad()
                 optimizer.step()
                 scheduler.step()
-        
-        torch.cuda.empty_cache()
+
+            if wandb != None:
+                wandb.log({"epoch_loss": epoch_loss})
+                wandb.log({"batch_loss": loss_batch})
+
+                # Optional
+                wandb.watch(model)
+        #torch.cuda.empty_cache()
         
         # After an epoch, save model state.
         save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
         save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
         save_checkpoint(model, optimizer, {
-            "loss": epoch_loss.item(),
+            "epoch_loss": epoch_loss.item(),
             "epoch": i + training_counter,
-            "grad_accumulation_steps": grad_accumulation_steps,
-            "device": device,
-            "batch_size": batch_size,
-            "training_config": training_config,
-        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"), replace=remove_old_model)
-        #if remove_old_model:
-        #    if i + training_counter > 0:
-        #        old_model_path = os.path.join(save_model_path, os.path.basename("checkpoint-{}.pth".format(i + training_counter-1)))
-        #        os.remove(old_model_path)
+        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
 
     #endfor epoch
     log_file.close()
@@ -155,7 +129,8 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     print("=====END TRAINING=====")
     return model
 
-
+def _confusion_matrix(preds, labels):
+    raise NotImplementedError()
 
 def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
     # TODO:
@@ -168,33 +143,32 @@ def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=Non
     if log:
         if os.path.exists(log):
             os.remove(log)
-        os.makedirs(os.path.dirname(log))
+        os.makedirs(os.path.dirname(log), exist_ok=True)
         log_file = open(log, 'x')
-        log_file.write(f"step,scores,correct,incorrect\n")
+        log_file.write(f"step,scores,correct,incorrect,pred_labels,actual_labels\n")
 
     correct_scores = []
-    for step, batch in tqdm(enumerate(validation_dataloader, total=len(validation_dataloader))):
+    for step, batch in tqdm(enumerate(validation_dataloader), total=len(validation_dataloader)):
         input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-        correct_token_pred, incorrect_token_pred = __eval__(model, input_ids, attention_mask, input_type_ids, label)
+        correct_token_pred, incorrect_token_pred, pred_labels, actual_labels = __eval__(model, input_ids, attention_mask, input_type_ids, label, device)
         average_score = correct_token_pred / input_type_ids.shape[1]
         correct_scores.append(average_score)
         if log_file != {}:
-            log_file.write(f"{step},{average_score},{correct_token_pred},{incorrect_token_pred}\n")
+            log_file.write(f"{step},{average_score},{correct_token_pred},{incorrect_token_pred},{' '.join(str(v) for v in pred_labels)},{' '.join(str(v) for v in actual_labels)}\n")
 
     if log_file != {}:
         log_file.close()
-    return True
+    return sum(correct_scores)/len(correct_scores)
 
 def evaluate(model, validation_csv, device="cpu", batch_size=1, log=None):
     from utils.seqlab import preprocessing
     from utils.utils import get_default_tokenizer
     dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
-    if not do_evaluate(model, dataloader, device=device, log=log):
-        print("Evaluation failed.")
-
+    return do_evaluate(model, dataloader, device=device, log=log)
+        
 
 # def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
-def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps="1", device="cpu", resume_checkpoint=None, save_path=None):
+def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps="1", device="cpu", save_path=None, training_counter=0, wandb=None):
     """
     @param  model
     @param  tokenizer
@@ -208,10 +182,6 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
     @param  device (str | None -> ``cpu``)
     @return ``model``
     """
-    resume_training_counter = 0
-    if resume_checkpoint != None:
-        model, optimizer, config = load_checkpoint(resume_checkpoint, model, optimizer)
-        resume_training_counter = config["epoch"]
     
     num_training_genes = len(train_genes)
     for epoch in range(num_epoch):
@@ -219,16 +189,21 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
         for i in range(num_training_genes):
             
             gene = train_genes[i]
-            gene_dataloader = _create_dataloader(gene, batch_size, tokenizer) # Create dataloader for this gene.
+            gene_dataloader = preprocessing(gene, tokenizer, batch_size, do_kmer=True)
             gene_loss = None # This is loss computed from single gene.
             len_dataloader = len(gene_dataloader)
             total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
-            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader, desc=f"Epoch {i+1}/{num_training_genes}"):
+            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader, desc=f"Epoch {i+1}/{num_training_genes} {gene}"):
                 input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
-
-                pred = model(input_ids, attn_mask, token_type_ids)
-                batch_loss = loss_function(pred, label)
+                batch_loss = __train__(model, input_ids, attn_mask, token_type_ids, label, loss_function, device)
                 gene_loss = batch_loss if gene_loss == None else gene_loss + batch_loss
+
+                if wandb != None:
+                    wandb.log({"batch_loss": batch_loss})
+                    wandb.log({"gene_loss": gene_loss})
+
+                    # Optional
+                    wandb.watch(model)
             #endfor
 
             avg_gene_loss = gene_loss / total_training_instance
@@ -242,7 +217,7 @@ def train_using_genes(model, tokenizer, optimizer, scheduler, train_genes, loss_
 
         #endfor
         save_checkpoint(model, optimizer, {
-            'epoch': epoch + 1 + resume_training_counter,
+            'epoch': epoch + training_counter,
             'loss': epoch_loss
         }, save_path)
         torch.cuda.empty_cache()

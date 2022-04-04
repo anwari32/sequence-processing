@@ -58,9 +58,7 @@ class SeqLabHead(nn.Module):
         x = input
         if self.lstm:
             x, (h_n, c_n) = self.lstm(input)
-        #print(x.shape)
         x = self.linear(x)
-        #print(x.shape)
         x = self.classifier(x)
         return x
 

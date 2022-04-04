@@ -6,28 +6,6 @@ import traceback
 import pandas as pd
 import random
 
-def create_k_mer(sequence, k=3, n_k_mer=-1, clean_up=False):
-    """Generate array of k-mer or return original sequence if 
-    from https://github.com/jerryji1993/DNABERT/blob/master/motif/motif_utils.py
-    
-    @param  sequence : sequence you want to process
-    @param  k (int | None -> 3) : how many length you want in k-mer. If k=-1 then original sequence is returned.
-    @param  n_k_mer (int | None -> -1) : how many k-mers are retrieve. If all kmers are required, please put -1.
-    @param  clean_up (boolean : None -> False): Clean ``sequence`` from 'N' characters before converting to kmer.
-    """
-
-    # Clean sequence from N characters.
-    if clean_up:
-        sequence = ''.join(c for c in sequence if c not in ['N'])
-    if k > 0:
-        arr = [sequence[i:i+k] for i in range(len(sequence)+1-k)]
-        if n_k_mer > 0:
-            arr = arr[0:n_k_mer]
-        kmer = ' '.join(arr)
-        return kmer
-    else:
-        return sequence
-
 def break_sequence(sequence, chunk_size=16):
     len_seq = len(sequence)
     chunks = [sequence[i:i+chunk_size] for i in range(0, len_seq, chunk_size)]
@@ -133,6 +111,18 @@ def load_model_state_dict(model, load_path):
 
     model.load_state_dict(torch.load(load_path))
     return model
+
+def save_json_config(json_obj: object, path: str):
+    """
+    Save JSON object.
+    @param  json_obj: JSON object.
+    @param  path: path to save.
+    """
+    if os.path.exists(path):
+        os.remove(path)
+    import json
+    json.dump(json_obj, open(path, "x"))
+
 
 def generate_csv_from_fasta(src_fasta, target_csv, label):
     """

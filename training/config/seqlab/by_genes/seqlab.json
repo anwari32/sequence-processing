@@ -1,0 +1,21 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "gene_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.positive.strand\\gene_index.sample.small.csv",
+    "gene_dir": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.positive.strand\\",
+    "freeze_bert": 0,
+    "num_epochs": 1,
+    "batch_size": 1,
+    "log": "logs\\seqlab\\sample_by_genes\\log.csv",
+    "result": "result\\seqlab\\sample_by_genes",
+    "optimizer": {
+        "name": "adamw",
+        "learning_rate": 4e-4,
+        "epsilon": 1e-6,
+        "beta1": 0.98,
+        "beta2": 0.9,
+        "weight_decay": 0.01
+    },
+    "warmup": 10000,
+    "loss_strategy": "sum",
+    "grad_accumulation_steps": 1
+}
