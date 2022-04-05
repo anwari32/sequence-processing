@@ -110,14 +110,13 @@ if __name__ == "__main__":
 
     print(model)
 
-    """
     wandb.init(project="seqlab-training-by-genes", entity="anwari32")
     wandb.config = {
         "learning_rate": training_config["optimizer"]["learning_rate"],
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
-    """
+
     model = train_using_genes(
         model=model, 
         tokenizer=BertTokenizer.from_pretrained(training_config["pretrained"]),
@@ -129,7 +128,7 @@ if __name__ == "__main__":
         batch_size=training_config["batch_size"], 
         grad_accumulation_steps=training_config["grad_accumulation_steps"],
         device=args["device"],
-        # wandb=wandb,
+        wandb=wandb,
         training_counter=training_counter)
 
     total_config = {

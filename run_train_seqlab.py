@@ -59,7 +59,7 @@ if __name__ == "__main__":
     config = json.load(open(args["training_config"], 'r'))
     dataloader = preprocessing(
         config["train_data"],# csv_file, 
-        BertTokenizer.from_pretrained(config["pretrained"]), #pretrained_path, 
+        BertTokenizer.from_pretrained(config["pretrained"]), # tokenizer
         config["batch_size"], #batch_size,
         do_kmer=True
         )
