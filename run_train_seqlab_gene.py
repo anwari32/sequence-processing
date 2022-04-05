@@ -64,8 +64,14 @@ if __name__ == "__main__":
             sys.exit(2)
 
     training_config = json.load(open(args["training_config"], "r"))
+    if training_config["result"] == "":
+        print(f"Key `result` not found in config.")
+        sys.exit(2)
     if not os.path.exists(training_config["result"]):
         os.makedirs(training_config["result"], exist_ok=True)
+    if training_config["log"] == "":
+        print(f"Key `log` not found in config.")
+        sys.exit(2)
     if not os.path.exists(os.path.dirname(training_config["log"])):
         os.makedirs(os.path.dirname(training_config["log"]), exist_ok=True)
 
