@@ -16,6 +16,7 @@ import os
 import sys
 from utils.utils import save_checkpoint, save_model_state_dict
 from data_preparation import str_kmer
+from pathlib import Path, PureWindowsPath
 
 from models.mtl import MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
@@ -304,11 +305,17 @@ def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000
     """
     @return dataloader (torch.utils.data.DataLoader)
     """
+    csv_file = PureWindowsPath(csv_file)
+    csv_file = str(Path(csv_file))
     if not os.path.exists(csv_file):
         raise FileNotFoundError("File {} not found.".format(csv_file))
         sys.exit(2)
     _start_time = datetime.now()
-    tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
+
+    bert_path = PureWindowsPath(pretrained_tokenizer_path)
+    bert_path = str(Path(bert_path))
+    # tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
+    tokenizer = BertTokenizer.from_pretrained(bert_path)
     sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state)
     arr_input_ids, arr_attn_mask = prepare_data(sequences, tokenizer)
     prom_labels_tensor = tensor(prom_labels)

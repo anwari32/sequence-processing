@@ -1,6 +1,6 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "train_data": "workspace\\mtl/train.sample.csv",
+    "train_data": "workspace\\mtl\\train.sample.csv",
     "validation_data": "workspace\\mtl\\validation.sample.csv",
     "num_epochs": 10,
     "batch_size": 16,

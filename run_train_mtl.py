@@ -9,7 +9,7 @@ from transformers import get_linear_schedule_with_warmup
 import os
 from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import wandb
 
@@ -53,13 +53,13 @@ if __name__ == "__main__":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
     
-    model = init_mtl_model(Path(args["model_config"]))
+    model = init_mtl_model(args["model_config"])
     print(model)
 
     training_config = json.load(open(args["training_config"], 'r'))
     dataloader = preprocessing(
-        Path(training_config["train_data"]),# csv_file, 
-        Path(training_config["pretrained"]), #pretrained_path, 
+        training_config["train_data"],# csv_file, 
+        training_config["pretrained"], #pretrained_path, 
         training_config["batch_size"], #batch_size
         )
 
@@ -85,8 +85,8 @@ if __name__ == "__main__":
     training_steps = len(dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
     
-    log_file_path = Path(training_config["log"])
-    save_model_path = Path(training_config["result"])
+    log_file_path = str(Path(PureWindowsPath(training_config["log"])))
+    save_model_path = str(Path(PureWindowsPath(training_config["result"])))
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     }
 
     whole_config = {
-        "model": json.load(open(args["model_config"], "r")),
+        "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
         "training": training_config
     }
 
