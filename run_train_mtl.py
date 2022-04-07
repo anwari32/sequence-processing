@@ -119,5 +119,4 @@ if __name__ == "__main__":
         #resume_from_checkpoint=args["resume_from_checkpoint"] if "resume_from_checkpoint" in args.keys() else None, 
         #resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None,
         wandb=wandb,
-        cuda_garbage_collection_mode=args["cuda_garbage_collection_mode"]
     )

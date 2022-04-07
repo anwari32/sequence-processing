@@ -66,9 +66,14 @@ def save_model_state_dict(model, save_path, save_filename):
         os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
-def save_checkpoint(model, optimizer, config, path, replace=False):
+def save_checkpoint(model, optimizer, config, path):
     """
     Save model and optimizer internal state with other information (config).
+    If file with same name exists, the file will be replaced.
+    @param  model: model
+    @param  optimizer: optimizer
+    @param  config (dictionary): a dictionary containing information about ``model`` and ``optimizer``.
+    @param  path (str): File path to save checkpoint. 
     """
     save_object = {
         'config': config,
@@ -80,10 +85,7 @@ def save_checkpoint(model, optimizer, config, path, replace=False):
         os.makedirs(dest_dir)
     
     if os.path.exists(path):
-        if replace == True:
-            os.remove(path)
-        else:
-            raise FileExistsError(f"Cannot remove old saved file. File with same name found and replace == ``False``.")
+        os.remove(path)
     
     torch.save(save_object, path)
 
@@ -116,7 +118,7 @@ def save_json_config(json_obj: object, path: str):
     """
     Save JSON object.
     @param  json_obj: JSON object.
-    @param  path: path to save.
+    @param  path: file to save config.
     """
     if os.path.exists(path):
         os.remove(path)

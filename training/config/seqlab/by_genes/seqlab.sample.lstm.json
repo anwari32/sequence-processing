@@ -5,8 +5,8 @@
     "freeze_bert": 0,
     "num_epochs": 1,
     "batch_size": 1,
-    "log": "logs\\seqlab\\sample_by_genes\\log.csv",
-    "result": "result\\seqlab\\sample_by_genes\\",
+    "log": "logs\\seqlab\\sample_by_genes\\base\\log.csv",
+    "result": "result\\seqlab\\sample_by_genes\\base\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

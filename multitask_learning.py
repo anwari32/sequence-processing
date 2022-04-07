@@ -15,6 +15,7 @@ import pandas as pd
 import os
 import sys
 from utils.utils import save_checkpoint, save_model_state_dict
+from data_preparation import str_kmer
 
 from models.mtl import MTModel, PolyAHead, PromoterHead, SpliceSiteHead
 
@@ -137,7 +138,7 @@ def evaluate(model, dataloader, log_path, device='cpu'):
     polya_accuracy = count_polya_correct / len_dataloader * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, cuda_garbage_collection_mode=None):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None):
     """
     @param      dataloader:
     @param      model:
@@ -207,9 +208,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                     # Reset model gradients.
                     model.zero_grad()
-                # Just print something so terminal doesn't look so boring. (-_-)'
-                if cuda_garbage_collection_mode == "aggresive":
-                    torch.cuda.empty_cache()
+
                 # print("Epoch {}, Step {}".format(i, step), end='\r')
             # endfor batch.
 
@@ -256,6 +255,7 @@ def get_sequences(csv_path: str, n_sample=10, random_state=1337):
     if (n_sample > 0):
         df = df.sample(n=n_sample, random_state=random_state)
     sequence = list(df['sequence'])
+    sequence = [str_kmer(s, 3) for s in sequence]
     label_prom = list(df['label_prom'])
     label_ss = list(df['label_ss'])
     label_polya = list(df['label_polya'])

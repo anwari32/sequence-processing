@@ -168,7 +168,7 @@ def evaluate(model, validation_csv, device="cpu", batch_size=1, log=None):
         
 
 # def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
-def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps="1", device="cpu", save_path=None, training_counter=0, wandb=None):
+def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_path=None, training_counter=0, wandb=None):
     """
     @param  model
     @param  tokenizer
@@ -182,45 +182,73 @@ def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer,
     @param  device (str | None -> ``cpu``)
     @return ``model``
     """
-    
-    num_training_genes = len(train_genes)
-    for epoch in range(num_epoch):
-        epoch_loss = None
-        for i in range(num_training_genes):
-            
-            gene = train_genes[i]
-            gene_dataloader = preprocessing(gene, tokenizer, batch_size, do_kmer=True)
-            gene_loss = None # This is loss computed from single gene.
-            len_dataloader = len(gene_dataloader)
-            total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
-            for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader, desc=f"Epoch {i+1}/{num_training_genes} {gene}"):
-                input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
-                batch_loss = __train__(model, input_ids, attn_mask, token_type_ids, label, loss_function, device)
-                gene_loss = batch_loss if gene_loss == None else gene_loss + batch_loss
 
-                if wandb != None:
-                    wandb.log({"batch_loss": batch_loss})
-                    wandb.log({"gene_loss": gene_loss})
+    # Initialize log.
+    logfile = open(log_path, "x")
+    logfile.write("epoch,gene,step,batch_loss,gene_loss,epoch_loss\n")
 
-                    # Optional
-                    wandb.watch(model)
+    def trace_handler(prof):
+        print(prof.key_averages().table(
+            sort_by="self_cuda_time_total", row_limit=-1))
+
+    import torch.profiler
+    with torch.profiler.profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(
+            wait=2,
+            warmup=2,
+            active=6,
+            repeat=1
+        ), 
+        on_trace_ready=trace_handler, 
+        with_stack=True) as profiler:
+            num_training_genes = len(train_genes)
+            for epoch in range(num_epoch):
+                epoch_loss = None
+                for i in range(num_training_genes):
+                    
+                    gene = train_genes[i]
+                    gene_dataloader = preprocessing(gene, tokenizer, batch_size, do_kmer=True)
+                    gene_loss = None # This is loss computed from single gene.
+                    len_dataloader = len(gene_dataloader)
+                    total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
+                    # for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader, desc=f"Epoch {epoch + 1}/{num_epoch} Gene {i+1}/{num_training_genes} {gene}"):
+                    for step, batch in enumerate(gene_dataloader):
+                        print(f"Training Epoch {epoch} {os.path.basename(gene)} {step + 1}/{len_dataloader} {30 * ' '}", end="\r")
+
+                        input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
+                        batch_loss = __train__(model, input_ids, attn_mask, token_type_ids, label, loss_function, device)
+                        gene_loss = batch_loss if gene_loss == None else gene_loss + batch_loss
+
+                        logfile.write(f"{epoch},{os.path.basename(gene)},{step},{batch_loss},{gene_loss},{epoch_loss}\n")
+
+                        if wandb != None:
+                            wandb.log({"batch_loss": batch_loss})
+                            wandb.log({"gene_loss": gene_loss})
+
+                            # Optional
+                            wandb.watch(model)
+
+                        torch.cuda.empty_cache()
+                    #endfor
+
+                    gene_loss = gene_loss / total_training_instance
+                    epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
+                    gene_loss.backward()
+
+                    if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
+                        optimizer.step()
+                        scheduler.step()
+                        model.zero_grad()
+
+                #endfor
+
+                # Save trained model after this epoch is finished.
+                save_checkpoint(model, optimizer, {
+                    'epoch': epoch + training_counter,
+                    'loss': epoch_loss
+                }, os.path.join(save_path, f"checkpoint-{epoch}.pth"))
+                torch.cuda.empty_cache()
             #endfor
-
-            avg_gene_loss = gene_loss / total_training_instance
-            epoch_loss = avg_gene_loss if epoch_loss == None else epoch_loss + avg_gene_loss
-            avg_gene_loss.backward()
-
-            if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
-                optimizer.step()
-                scheduler.step()
-                model.zero_grad()
-
-        #endfor
-        save_checkpoint(model, optimizer, {
-            'epoch': epoch + training_counter,
-            'loss': epoch_loss
-        }, save_path)
-        torch.cuda.empty_cache()
-    #endfor
-
+    logfile.close()
     return model

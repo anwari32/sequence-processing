@@ -469,7 +469,22 @@ def kmer(seq, length, window_size=1):
     @param      window_size (int): stride.
     @return     (array of string): array of kmer.
     """
-    return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
+    if length > len(seq):
+        return [seq]
+    else:
+        return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
+
+def generate_subsequences(seq, length, stride=1):
+    length_seq = len(seq)
+    index = 0
+    subsequences = []
+    cont = True
+    while (index < length_seq and cont == True):
+        subsequences.append(seq[index:index+length])
+        index += stride
+        if index >= length_seq:
+            cont = False
+    return subsequences
 
 def str_kmer(seq: str, length: int, window_size=1):
     """
@@ -603,6 +618,19 @@ def generate_shuffled_data(fasta_src, target_shuffled_csv, label=0, max_sequence
     except Exception as e:
         print('Error {}'.format(e))
         return False
+
+def split_csv(src_csv: str, fractions: list, dest_csvs: list):
+    if len(fractions) != len(dest_csvs):
+        raise ValueError("`fractions` and `dest_csv` must be in same size.")
+    df = pd.read_csv(src_csv)
+    for i in range(len(fractions)):
+        if i + 1 < len(fractions):
+            frac_df = df.sample(frac=fractions[i])
+            frac_df.to_csv(dest_csvs[i], index=False)
+            df = df.drop(frac_df.index)
+        else:
+            df.to_csv(dest_csvs[i], index=False)
+        
 
 def generate_datasets(src_csv, target_dir, train_frac=0.8, val_frac=0.1, test_frac=0.1, seed=1337):
     """
@@ -871,8 +899,12 @@ def merge_prom_ss_polya_csv(csv_file_map, csv_target):
     try:
         if os.path.exists(csv_target):
             os.remove(csv_target)
-        
-        df = pd.DataFrame(columns=['sequence', 'label_prom', 'label_ss', 'label_polya'])
+        _cols = ['sequence', 'label_prom', 'label_ss', 'label_polya']
+        # df = pd.DataFrame(columns=_cols)
+        if os.path.exists(csv_target):
+            os.remove(csv_target)
+        dest = open(csv_target, "x")
+        dest.write("sequence,label_prom,label_ss,label_polya\n")
         prom_dataset = csv_file_map['prom']
         for path in prom_dataset:
             prom_df = pd.read_csv(path)
@@ -880,7 +912,9 @@ def merge_prom_ss_polya_csv(csv_file_map, csv_target):
                 row = {}
                 row['sequence'] = r['sequence']
                 row['label_prom'] = r['label']
-                df = df.append(row, ignore_index=True)
+                # df = df.append(row, ignore_index=True)
+                # df = pd.concat([df, pd.DataFrame([[row["sequence"], row["label_prom"], 0, 0]], columns=_cols)])
+                dest.write(f"{r['sequence']},{r['label']},{0},{0}\n")
 
         ss_dataset = csv_file_map['ss']
         for path in ss_dataset:
@@ -889,7 +923,9 @@ def merge_prom_ss_polya_csv(csv_file_map, csv_target):
                 row = {}
                 row['sequence'] = r['sequence']
                 row['label_ss'] = r['label']
-                df = df.append(row, ignore_index=True)
+                # df = df.append(row, ignore_index=True)
+                # df = pd.concat([df, pd.DataFrame([[row["sequence"], 0, row["label_ss"], 0]], columns=_cols)])
+                dest.write(f"{r['sequence']},{0},{r['label']},{0}\n")
 
         polya_dataset = csv_file_map['polya']
         for path in polya_dataset:
@@ -898,15 +934,18 @@ def merge_prom_ss_polya_csv(csv_file_map, csv_target):
                 row = {}
                 row['sequence'] = r['sequence']
                 row['label_polya'] = r['label']
-                df = df.append(row, ignore_index=True)
+                # df = df.append(row, ignore_index=True)
+                # df = pd.concat([df, pd.DataFrame([[row["sequence"], 0, 0, row["label_polya"]]], columns=_cols)])
+                dest.write(f"{r['sequence']},{0},{0},{r['label']}\n")
 
-        df.to_csv(csv_target, index=False)
+        # df.to_csv(csv_target, index=False)
+        dest.close()
         return True
     except Exception as e:
         print('Error {}'.format(e))
         return False
 
-def generate_polya_index_from_annotated_genome(annotated_genome_gff_path, target_csv_path, polya_keywords=['poly a', 'poly(a)', 'polya-a'], label=1, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl,product'):
+def generate_polya_index_from_annotated_genome(annotated_genome_gff_path, target_csv_path, polya_keywords=['poly a', 'poly(a)', 'polya-a'], label=1, header='sequence_id,refseq,region,start_index,end_index,start,end,gene,gene_id,genbank,ensembl,product', strand='+'):
     """
     Special purpose function to generate polya index.
     @param  annotated_genome_path (string): path to annotated genome GFF file.
@@ -926,23 +965,24 @@ def generate_polya_index_from_annotated_genome(annotated_genome_gff_path, target
         for line in gff:
             gff_line = _gff_parseline(line)
             if gff_line:
-                gff_line_product_desc = gff_line['product'].lower().strip()
-                is_polya = _check_segment_product(polya_keywords, gff_line_product_desc)
-                if is_polya:
-                    target_csv.write('{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
-                        gff_line['sequence_id'],
-                        gff_line['refseq'],
-                        gff_line['region'],
-                        gff_line['start_index'],
-                        gff_line['end_index'],
-                        gff_line['start'],
-                        gff_line['end'],
-                        gff_line['gene'],
-                        gff_line['gene_id'],
-                        gff_line['genbank'],
-                        gff_line['ensembl'],
-                        gff_line['product']
-                    ))
+                if gff_line['strand'] == strand: # Only write if gff line comes from positive strand.
+                    gff_line_product_desc = gff_line['product'].lower().strip()
+                    is_polya = _check_segment_product(polya_keywords, gff_line_product_desc)
+                    if is_polya:
+                        target_csv.write('{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(
+                            gff_line['sequence_id'],
+                            gff_line['refseq'],
+                            gff_line['region'],
+                            gff_line['start_index'],
+                            gff_line['end_index'],
+                            gff_line['start'],
+                            gff_line['end'],
+                            gff_line['gene'],
+                            gff_line['gene_id'],
+                            gff_line['genbank'],
+                            gff_line['ensembl'],
+                            gff_line['product']
+                        ))
         target_csv.close()
         gff.close()
         return True
@@ -998,7 +1038,34 @@ def generate_polya_positive_dataset_from_index(polya_index_path, target_csv_path
         print('error stacktrace {}'.format(traceback.format_exc()))
         return False
 
-def generate_kmer_csv(src_csv_path, target_csv_path, kmer_size=3):
+def generate_chunk_csv(src_csv_path, target_csv_path, chunk_size, stride):
+    try:
+        if not os.path.exists(src_csv_path):
+            raise Exception("File {} not found.".format(src_csv_path))
+
+        if os.path.exists(target_csv_path):
+            os.remove(target_csv_path)
+        
+        src_df = pd.read_csv(src_csv_path)
+        len_src_df = len(src_df)
+        _columns = src_df.columns.tolist()
+        target_df = pd.DataFrame(columns=_columns)
+
+        for i, r in src_df.iterrows():
+            print("Generating chunk for <{}>: {}/{}                                                      ".format(src_csv_path, i+1, len_src_df), end='\r')
+            sequence = r['sequence']
+            kmer_sequence = kmer(sequence, chunk_size, window_size=stride)
+            for chunk in kmer_sequence:
+                frame = pd.DataFrame([[chunk, r['label']]], columns=_columns)
+                target_df = pd.concat([target_df, frame])
+        #endfor
+        target_df.to_csv(target_csv_path, index=False)
+        return True
+    except Exception as e:
+        print("Error {}".format(e))
+        return False
+
+def generate_kmer_csv(src_csv_path, target_csv_path, kmer_size=3, stride=1):
     try:
         if not os.path.exists(src_csv_path):
             raise Exception("File {} not found.".format(src_csv_path))
@@ -1014,7 +1081,7 @@ def generate_kmer_csv(src_csv_path, target_csv_path, kmer_size=3):
         for i, r in src_df.iterrows():
             print("Generating kmer for <{}>: {}/{}                                                      ".format(src_csv_path, i+1, len_src_df), end='\r')
             sequence = r['sequence']
-            kmer_sequence = kmer(sequence, kmer_size)
+            kmer_sequence = kmer(sequence, kmer_size, window_size=stride)
             kmer_sequence = ' '.join(kmer_sequence)
             frame = pd.DataFrame([[kmer_sequence, r['label']]], columns=_columns)
             target_df = pd.concat([target_df, frame])
@@ -1045,14 +1112,10 @@ def generate_negative_dataset(positive_csv_path, target_csv_path, shuffle_chunk_
         src_df = pd.read_csv(positive_csv_path)
         target_csv_df = pd.DataFrame(columns=src_df.columns.tolist())
         for i, r in src_df.iterrows():
-            seq_id = r['seq_id']
+            # seq_id = r['seq_id']
             sequence = r['sequence']
             shuffled_sequence = shuffle_sequence(sequence, chunk_size=shuffle_chunk_size)
-            target_csv_df = target_csv_df.append({
-                'seq_id': f"{seq_id}-negative",
-                'sequence': shuffled_sequence,
-                'label': negative_label
-            }, ignore_index=True)
+            target_csv_df = pd.concat([target_csv_df, pd.DataFrame([[shuffled_sequence, negative_label]], columns=["sequence", "label"])])
         # endfor
         target_csv_df.to_csv(target_csv_path, index=False)
         return True

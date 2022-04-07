@@ -70,8 +70,10 @@ if __name__ == "__main__":
     if not os.path.exists(training_config["result"]):
         os.makedirs(training_config["result"], exist_ok=True)
     if training_config["log"] == "":
-        print(f"Key `log` not found in config.")
+        print(f"Log not specified. ")
         sys.exit(2)
+    if os.path.exists(training_config["log"]):
+        os.remove(training_config["log"])
     if not os.path.exists(os.path.dirname(training_config["log"])):
         os.makedirs(os.path.dirname(training_config["log"]), exist_ok=True)
 
@@ -114,7 +116,7 @@ if __name__ == "__main__":
     training_steps = len(train_genes) * training_config["num_epochs"]
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
 
-    print(model)
+    # print(model)
 
     wandb.init(project="seqlab-training-by-genes", entity="anwari32")
     wandb.config = {
@@ -135,6 +137,8 @@ if __name__ == "__main__":
         grad_accumulation_steps=training_config["grad_accumulation_steps"],
         device=args["device"],
         wandb=wandb,
+        save_path=training_config["result"],
+        log_path=training_config["log"],
         training_counter=training_counter)
 
     total_config = {
@@ -142,7 +146,10 @@ if __name__ == "__main__":
         "model_config": json.load(open(args["model_config"], "r")),
         "model_version": json.load(open(args["model_version"], "r")) if "model_version" in args.keys() else "default"
     }
-    save_json_config(total_config, training_config["log"])
+
+    # Final config is saved in JSON format in the same folder as log file.
+    # Final config is saved in `config.json` file.
+    save_json_config(total_config, os.path.join(os.path.dirname(training_config["log"]), "config.json"))
     
     
 
