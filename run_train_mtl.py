@@ -53,7 +53,7 @@ if __name__ == "__main__":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
     
-    model = init_mtl_model(args["model_config"])
+    model = init_mtl_model(Path(args["model_config"]))
     print(model)
 
     training_config = json.load(open(args["training_config"], 'r'))
