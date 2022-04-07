@@ -1,12 +1,12 @@
 {
-    "pretrained": "pretrained/3-new-12w-0",
-    "train_data": "workspace/mtl/train.sample.csv",
-    "validation_data": "workspace/mtl/validation.sample.csv",
+    "pretrained": "pretrained\\3-new-12w-0",
+    "train_data": "workspace\\mtl/train.sample.csv",
+    "validation_data": "workspace\\mtl\\validation.sample.csv",
     "num_epochs": 10,
     "batch_size": 16,
-    "log": "logs/mtl/train.sample-b.16/log.csv",
-    "result": "result/mtl/train.sample-b-16/",
-    "arch": "models/config/mtl/config_mtl.json",
+    "log": "logs\\mtl\\train.sample-b.16\\log.csv",
+    "result": "result\\mtl\\train.sample-b-16\\",
+    "arch": "models\\config\\mtl\\config_mtl.json",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

@@ -9,6 +9,7 @@ from transformers import get_linear_schedule_with_warmup
 import os
 from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
+from pathlib import Path
 
 import wandb
 
@@ -57,8 +58,8 @@ if __name__ == "__main__":
 
     training_config = json.load(open(args["training_config"], 'r'))
     dataloader = preprocessing(
-        training_config["train_data"],# csv_file, 
-        training_config["pretrained"], #pretrained_path, 
+        Path(training_config["train_data"]),# csv_file, 
+        Path(training_config["pretrained"]), #pretrained_path, 
         training_config["batch_size"], #batch_size
         )
 
@@ -84,8 +85,8 @@ if __name__ == "__main__":
     training_steps = len(dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
     
-    log_file_path = training_config["log"]
-    save_model_path = training_config["result"]
+    log_file_path = Path(training_config["log"])
+    save_model_path = Path(training_config["result"])
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
