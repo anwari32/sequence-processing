@@ -1,11 +1,11 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "train_data": "workspace\\mtl\\train.csv",
-    "validation_data": "workspace\\mtl\\validation.csv",
+    "train_data": "workspace\\mtl\\train.balanced.csv",
+    "validation_data": "workspace\\mtl\\validation.balanced.csv",
     "num_epochs": 10,
-    "batch_size": 16,
-    "log": "logs\\mtl\\train-b.16\\log.csv",
-    "result": "result\\mtl\\train-b16\\",
+    "batch_size": 32,
+    "log": "logs\\mtl\\train.balanced-b.32\\log.csv",
+    "result": "result\\mtl\\train.balanced-b.32\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

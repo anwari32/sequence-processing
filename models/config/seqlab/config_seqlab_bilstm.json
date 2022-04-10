@@ -1,5 +1,5 @@
 {
-    "pretrained": "pretrained/3-new-12w-0",
+    "pretrained": "pretrained\\3-new-12w-0",
     "use_lstm": 1,
     "lstm": {
         "input_dim": 768,

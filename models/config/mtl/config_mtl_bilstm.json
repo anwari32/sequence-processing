@@ -1,22 +1,22 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
     "prom_head": {
-        "num_labels": 1,
+        "num_labels": 2,
         "dropout_prob": 0.5,
         "input_dim": 1536,
-        "hidden_size": 128
+        "hidden_size": 1536
     },
     "ss_head": {
         "num_labels": 2,
         "dropout_prob": 0.1,
         "input_dim": 1536,
-        "hidden_size": 512
+        "hidden_size": 1536
     },
     "polya_head": {
         "num_labels": 2,
         "dropout_prob": 0.1,
         "input_dim": 1536,
-        "hidden_size": 64
+        "hidden_size": 1536
     },
     "use_lstm": 1,
     "lstm": {

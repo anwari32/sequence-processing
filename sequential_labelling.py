@@ -12,9 +12,11 @@ import json
 from utils.utils import save_model_state_dict, load_checkpoint, save_checkpoint
 from data_preparation import str_kmer
 from models.seqlab import DNABERTSeqLab
-from utils.seqlab import _create_dataloader, preprocessing
 from datetime import datetime
 import wandb
+from utils.seqlab import preprocessing, convert_ids_to_tokens
+from utils.utils import get_default_tokenizer
+
 
 def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
@@ -63,6 +65,44 @@ def __eval__(model, input_ids, attention_mask, input_type_ids, label, device):
                 actual_labels.append(zi.item())
 
     return correct_token_pred, incorrect_token_pred, pred_labels, actual_labels
+
+def evaluate_genes(model, eval_genes, device="cpu"):
+    model.eval()
+    for gene in eval_genes:
+        dataloader = preprocessing(gene, get_default_tokenizer())
+        gene_chunk_accuracy, gene_chunk_error, token_preds, tokens = do_evaluate_gene(model, dataloader, device)
+
+    return None
+
+def do_evaluate_gene(model, dataloader, device):
+    """
+    Evaluate single gene.
+    @param  model
+    @param  dataloader
+    @param  device
+    """
+    gene_accuracy_score = 0
+    label_preds = []
+    labels = []
+    gene_chunk_accuracy = []
+    gene_chunk_error = []
+    for step, batch in dataloader: # Evaluating each chunk.
+        input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
+        correct_token_pred, incorrect_token_pred, pred_labels, target_labels = __eval__(model, input_ids, attn_mask, token_type_ids, label, device)
+        label_preds.append(pred_labels)
+        labels.append(target_labels)
+        gene_chunk_accuracy.append(correct_token_pred / len(pred_labels))
+        gene_chunk_error.append(incorrect_token_pred / len(pred_labels))
+
+    # Since there is two additional tokens for BERT processing, we remove those two tokens leaving 510 token only.
+    label_preds = [p[1:511] for p in label_preds]
+    labels = [p[1:511] for p in labels]
+
+    tokens_preds = [convert_ids_to_tokens(p) for p in label_preds]
+    tokens = [convert_ids_to_tokens(p) for p in labels]
+
+    return gene_chunk_accuracy, gene_chunk_error, tokens_preds, tokens
+
 
 def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None):
     """
@@ -129,9 +169,6 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     print("=====END TRAINING=====")
     return model
 
-def _confusion_matrix(preds, labels):
-    raise NotImplementedError()
-
 def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
     # TODO:
     # Implements how model evaluate model.
@@ -161,14 +198,12 @@ def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=Non
     return sum(correct_scores)/len(correct_scores)
 
 def evaluate(model, validation_csv, device="cpu", batch_size=1, log=None):
-    from utils.seqlab import preprocessing
-    from utils.utils import get_default_tokenizer
     dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
     return do_evaluate(model, dataloader, device=device, log=log)
         
 
 # def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
-def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_path=None, training_counter=0, wandb=None):
+def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None):
     """
     @param  model
     @param  tokenizer
@@ -184,7 +219,7 @@ def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer,
     """
 
     # Initialize log.
-    logfile = open(log_path, "x")
+    logfile = open(log_file_path, "x")
     logfile.write("epoch,gene,step,batch_loss,gene_loss,epoch_loss\n")
 
     def trace_handler(prof):
@@ -242,6 +277,11 @@ def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer,
                         model.zero_grad()
 
                 #endfor
+
+                # Eval model if eval_genes is available.
+                if eval_genes:
+                    eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
+                    eval_genes()
 
                 # Save trained model after this epoch is finished.
                 save_checkpoint(model, optimizer, {

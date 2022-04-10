@@ -54,7 +54,7 @@ if __name__ == "__main__":
             sys.exit(2)
     
     model = init_mtl_model(args["model_config"])
-    print(model)
+    # print(model)
 
     training_config = json.load(open(args["training_config"], 'r'))
     dataloader = preprocessing(
@@ -102,6 +102,11 @@ if __name__ == "__main__":
         "training": training_config
     }
 
+    validation_dataloader = None
+    if "validation_data" in training_config.keys():
+        eval_data_path = str(Path(PureWindowsPath(training_config["validation_data"])))
+        validation_dataloader = preprocessing(eval_data_path, training_config["pretrained"], 1)
+
     trained_model = train(
         dataloader, 
         model, 
@@ -120,4 +125,5 @@ if __name__ == "__main__":
         #resume_from_checkpoint=args["resume_from_checkpoint"] if "resume_from_checkpoint" in args.keys() else None, 
         #resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None,
         wandb=wandb,
+        eval_dataloader=validation_dataloader
     )

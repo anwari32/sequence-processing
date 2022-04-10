@@ -31,6 +31,7 @@ class PromoterHead(nn.Module):
     """
     def __init__(self, config):
         super().__init__()
+        self.num_labels = int(config["num_labels"])
         self.stack = nn.Sequential(
             nn.Linear(config["input_dim"], out_features=config["hidden_size"]), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
             nn.ReLU(), 
@@ -53,6 +54,7 @@ class SpliceSiteHead(nn.Module):
     """
     def __init__(self, config):
         super().__init__()
+        self.num_labels = int(config["num_labels"])
         self.stack = nn.Sequential(
             nn.Linear(config["input_dim"], out_features=config["hidden_size"]),
             nn.ReLU(),
@@ -75,6 +77,7 @@ class PolyAHead(nn.Module):
     """
     def __init__(self, config):
         super().__init__()
+        self.num_labels = int(config["num_labels"])
         self.stack = nn.Sequential(
             nn.Linear(config["input_dim"], config["hidden_size"]), # Adapt from BERT layer which provide 768 outputs.
             nn.ReLU(), # Assume using ReLU.

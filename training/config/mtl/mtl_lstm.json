@@ -1,9 +1,0 @@
-{
-    "pretrained": "pretrained/3-new-12w-0",
-    "train_data": "workspace/mtl/train.sample.150.csv",
-    "num_epochs": 1,
-    "batch_size": 1,
-    "log": "log/mtl/sample_lstm/log.csv",
-    "result": "result/mtl/sample_lstm",
-    "arch": "models/config/mtl/config_mtl_lstm.json"
-}

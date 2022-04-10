@@ -75,6 +75,18 @@ Index_Dictionary = {
 
 from models.seqlab import DNABERTSeqLab
 
+def id2token(id):
+    return Index_Dictionary[id]
+
+def token2id(token):
+    return Label_Dictionary[token]
+
+def convert_ids_to_tokens(ids):
+    return [id2token(id) for id in ids]
+
+def convert_tokens_to_ids(tokens):
+    return [token2id(token) for token in tokens]
+
 def _get_sequential_labelling(csv_file, do_kmer=False, kmer_size=3):
     df = pd.read_csv(csv_file)
     sequences = list(df['sequence'])
