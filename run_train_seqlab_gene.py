@@ -12,6 +12,8 @@ from torch.cuda import device_count as cuda_device_count
 from utils.utils import load_checkpoint, save_json_config
 import wandb
 import pandas as pd
+from pathlib import Path, PureWindowsPath
+from datetime import datetime
 
 def _parse_argv(argvs):
     opts, args = getopt(argvs, "t:m:d:f", ["training-config=", "model-config=", "device=", "force-cpu", "training-counter=", "resume-from-checkpoint=", "resume-from-optimizer=", "cuda-garbage-collection-mode="])
@@ -63,19 +65,15 @@ if __name__ == "__main__":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
 
-    training_config = json.load(open(args["training_config"], "r"))
+    training_config_path = str(Path(PureWindowsPath(args["training_config"])))
+    training_config = json.load(open(training_config_path, "r"))
     if training_config["result"] == "":
         print(f"Key `result` not found in config.")
         sys.exit(2)
-    if not os.path.exists(training_config["result"]):
-        os.makedirs(training_config["result"], exist_ok=True)
-    if training_config["log"] == "":
-        print(f"Log not specified. ")
-        sys.exit(2)
-    if os.path.exists(training_config["log"]):
-        os.remove(training_config["log"])
-    if not os.path.exists(os.path.dirname(training_config["log"])):
-        os.makedirs(os.path.dirname(training_config["log"]), exist_ok=True)
+    
+    result_path = str(Path(PureWindowsPath(training_config["result"])))
+    if not os.path.exists(result_path):
+        os.makedirs(result_path, exist_ok=True)
 
     model = init_seqlab_model(args["model_config"])
     model.to(args["device"])
@@ -102,15 +100,20 @@ if __name__ == "__main__":
 
     loss_function = torch.nn.CrossEntropyLoss()
 
-    gene_index = training_config["gene_index"]
-    gene_dir = training_config["gene_dir"]
-
-    df = pd.read_csv(training_config["gene_index"])
+    train_df = pd.read_csv(training_config["gene_train_index"])
+    validation_df = pd.read_csv(training_config["gene_validation_index"])
     train_genes = []
-    for i, r in df.iterrows():
+    for i, r in train_df.iterrows():
         train_genes.append(
-            os.path.join(training_config["gene_dir"], r["chr"], r["gene"])
+            str(Path(PureWindowsPath(os.path.join(training_config["gene_dir"], r["chr"], r["gene"]))))
         )    
+
+    eval_genes = []
+    for i, r in validation_df.iterrows():
+        eval_genes.append(
+            str(Path(PureWindowsPath(os.path.join(training_config["gene_dir"], r["chr"], r["gene"]))))
+        )
+
     # print("\n".join(train_genes))
     print(f"# Genes: {len(train_genes)}")
     training_steps = len(train_genes) * training_config["num_epochs"]
@@ -125,6 +128,16 @@ if __name__ == "__main__":
         "batch_size": training_config["batch_size"]
     }
 
+    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
+
+    save_model_path = str(Path(PureWindowsPath(training_config["result"])))
+    save_model_path = os.path.join(save_model_path, "by_genes", cur_date)
+
+    for p in [log_file_path, save_model_path]:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+
     model = train_by_genes(
         model=model, 
         tokenizer=BertTokenizer.from_pretrained(training_config["pretrained"]),
@@ -137,9 +150,10 @@ if __name__ == "__main__":
         grad_accumulation_steps=training_config["grad_accumulation_steps"],
         device=args["device"],
         wandb=wandb,
-        save_path=training_config["result"],
-        log_file_path=training_config["log"],
-        training_counter=training_counter)
+        save_path=save_model_path,
+        log_file_path=log_file_path,
+        training_counter=training_counter,
+        eval_genes=eval_genes)
 
     total_config = {
         "training_config": training_config,

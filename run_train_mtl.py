@@ -89,7 +89,9 @@ if __name__ == "__main__":
     log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
+
     save_model_path = str(Path(PureWindowsPath(training_config["result"])))
+    save_model_path = os.path.join(save_model_path, cur_date)
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 

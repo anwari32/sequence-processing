@@ -65,8 +65,8 @@ def __forward_gene_non_overlap__(model, dataloader: DataLoader, device: str, los
     # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
     contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
     
-    print(contig_predicted_labels, contig_predicted_labels[0].shape)
-    print(contig_target_labels, contig_target_labels[0].shape)
+    # print(contig_predicted_labels, contig_predicted_labels[0].shape)
+    # print(contig_target_labels, contig_target_labels[0].shape)
 
     # We need to merge contigs in ``contig_predicted_labels`` into single contig. First we convert those tensor-label sequence into label token.
     # and also merge target label in ``contig_target_labels`` into single contig.
@@ -80,6 +80,8 @@ def __forward_gene_non_overlap__(model, dataloader: DataLoader, device: str, los
     if loss_function:
         gene_loss = loss_function(predicted_assembly, target_assembly)
 
+    # print(predicted_assembly)
+    # print(target_assembly)
     return gene_loss, predicted_assembly, target_assembly
 
 def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, device):
@@ -125,31 +127,37 @@ def __eval_gene__(model, dataloader, device):
     correct_label, incorrect_label = 0, 0
     predicted_label_token, target_label_token = [], []
     with torch.no_grad():
-        gene_loss, predicted_label_tensor, target_label_tensor = __forward_gene__(model, dataloader, device)
+        gene_loss, predicted_label_tensor, target_label_tensor = __forward_gene_non_overlap__(model, dataloader, device)
         values, indices = torch.max(predicted_label_tensor, 1)
         for p, q in zip(indices, target_label_tensor):
             if p.item() == q.item():
                 correct_label += 1
             else:
                 incorrect_label += 1
-        predicted_label_token = list(indices)
-        predicted_label_token = [convert_ids_to_tokens(id) for id in predicted_label_token]
-        target_label_token = list(target_label_tensor)
-        target_label_token = [convert_ids_to_tokens(id) for id in target_label_token]
+        predicted_label_token = [p.item() for p in list(indices)]
+        target_label_token = [p.item() for p in list(target_label_tensor)]
+
+        predicted_label_token = convert_ids_to_tokens(predicted_label_token)
+        target_label_token = convert_ids_to_tokens(target_label_token)
     
     accuracy_score = correct_label / (correct_label + incorrect_label) * 100
     incorrect_score = incorrect_label / (correct_label + incorrect_label) * 100
 
     return accuracy_score, incorrect_score, predicted_label_token, target_label_token
 
-def evaluate_genes(model, eval_genes, device, eval_log):
+def evaluate_genes(model, eval_genes, device, eval_log, epoch):
     model.eval()
-    eval_logfile = open(eval_log)
-    eval_logfile.write(f"gene,accuracy,error,predicted_label,target_label\n")
+    eval_logfile = {}
+    if not os.path.exists(eval_log):
+        eval_logfile = open(eval_log, "x")
+        eval_logfile.write(f"epoch,gene,accuracy,error,predicted_label,target_label\n")
+    else:
+        eval_logfile = open(eval_log, "a")
+    
     for gene in eval_genes:
-        dataloader = preprocessing_kmer(gene, get_default_tokenizer())
+        dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1)
         accuracy_score, incorrect_score, predicted_label_token, target_label_token = __eval_gene__(model, dataloader, device)
-        eval_logfile.write(f"{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
+        eval_logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
     #endfor
     eval_logfile.close()
     return None
@@ -272,7 +280,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         # Eval model if eval_genes is available.
         if eval_genes:
             eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
-            evaluate_genes(model, eval_genes, device, eval_log)
+            evaluate_genes(model, eval_genes, device, eval_log, epoch)
 
         # Save trained model after this epoch is finished.
         save_checkpoint(model, optimizer, {
