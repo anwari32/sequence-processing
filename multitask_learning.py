@@ -66,48 +66,47 @@ def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, la
         pred_polya = output['polya']
 
         # Prediction.
-        predicted_prom, prom_actual, prom_eval = 0, 0, 0
+        predicted_prom, prom_eval = 0, 0
         if model.promoter_layer.num_labels == 1:
             predicted_prom = torch.round(pred_prom).item()
-            prom_actual = label_prom.float().item()
-            prom_eval = (predicted_prom == prom_actual)
+            prom_eval = (predicted_prom == label_prom.item())
         else:
-            predicted_prom, predicted_prom_index = torch.max(pred_ss, 1)
-            predicted_prom_index = predicted_prom_index.item()
-            ss_eval = (predicted_prom_index == label_prom.item())    
+            prom_val, predicted_prom_index = torch.max(pred_ss, 1)
+            predicted_prom = predicted_prom_index.item()
+            prom_eval = (predicted_prom_index == label_prom.item())    
 
-        predicted_ss, predicted_ss_index, ss_eval = 0, 0, 0
+        predicted_ss, ss_eval = 0, 0
         if model.splice_site_layer.num_labels == 1:
             predicted_ss = torch.round(pred_ss).item()
-            ss_actual = label_ss.float().item()
-            ss_eval = (predicted_ss == ss_actual)
+            ss_eval = (predicted_ss == label_ss.item())
         else:
-            predicted_ss, predicted_ss_index = torch.max(pred_ss, 1)
-            predicted_ss_index = predicted_ss_index.item()
+            ss_val, predicted_ss_index = torch.max(pred_ss, 1)
+            predicted_ss = predicted_ss_index.item()
             ss_eval = (predicted_ss_index == label_ss.item())
 
-        predicted_polya, predicted_polya_index, polya_eval = 0, 0, 0
+        predicted_polya, polya_eval = 0, 0
         if model.polya_layer.num_labels == 1:
             predicted_polya = torch.round(pred_polya).item()
-            polya_actual = label_polya.float().item()
-            polya_eval = (predicted_polya == polya_actual)
+            polya_eval = (predicted_polya == label_polya.item())
         else:
-            predicted_polya, predicted_polya_index = torch.max(pred_polya, 1)
-            predicted_polya_index = predicted_polya_index.item()
+            polya_val, predicted_polya_index = torch.max(pred_polya, 1)
+            predicted_polya = predicted_polya_index.item()
             polya_eval = (predicted_polya_index == label_polya.item())
         
-    return (prom_eval, predicted_prom, prom_actual, 
-        ss_eval, predicted_ss_index, label_ss.item(), 
-        polya_eval, predicted_polya_index, label_polya.item())
+    return (prom_eval, predicted_prom, label_prom.item(), 
+        ss_eval, predicted_ss, label_ss.item(), 
+        polya_eval, predicted_polya, label_polya.item())
 
-def evaluate(model, dataloader, log_path, device):
-    if os.path.exists(log_path):
-        os.remove(log_path)
+def evaluate(model, dataloader, log_path, device, cur_epoch):
     log_dir = os.path.dirname(log_path)
+    log = {}
     if not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-    log = open(log_path, 'x')
-    log.write("step,prom_eval,prom_predict,prom_actual,ss_eval,ss_predict,ss_actual,polya_eval,polya_predict,polya_actual\n")
+    if not os.path.exists(log_path):
+        log = open(log_path, "x")
+        log.write("epoch,step,prom_eval,prom_predict,prom_label,ss_eval,ss_predict,ss_label,polya_eval,polya_predict,polya_label\n")
+    else:
+        log = open(log_path, "a")
     model.eval()
     model.to(device)
     count_prom_correct = 0
@@ -129,18 +128,18 @@ def evaluate(model, dataloader, log_path, device):
     for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc=f"Evaluating"):
         input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
 
-        prom_eval, prom_predict, prom_actual, ss_eval, ss_predict, ss_actual, polya_eval, polya_predict, polya_actual = __eval__(model, input_ids, attn_mask, label_prom, label_ss, label_polya, device)
+        prom_eval, prom_predict, prom_label, ss_eval, ss_predict, ss_label, polya_eval, polya_predict, polya_label = __eval__(model, input_ids, attn_mask, label_prom, label_ss, label_polya, device)
         prom_evals.append(prom_eval)
         prom_predicts.append(prom_predicts)
-        prom_actuals.append(prom_actual)
+        prom_actuals.append(prom_label)
         ss_evals.append(ss_eval)
         ss_predicts.append(ss_predict)
-        ss_actuals.append(ss_actual)
+        ss_actuals.append(ss_label)
         polya_evals.append(polya_eval)
         polya_predicts.append(polya_predict)
-        polya_actuals.append(polya_actual)
+        polya_actuals.append(polya_label)
 
-        log.write(f"{step},{1 if prom_eval else 0},{prom_predict},{prom_actual},{1 if ss_eval else 0},{ss_predict},{ss_actual},{1 if polya_eval else 0},{polya_predict},{polya_actual}\n")
+        log.write(f"{cur_epoch},{step},{1 if prom_eval else 0},{prom_predict},{prom_label},{1 if ss_eval else 0},{ss_predict},{ss_label},{1 if polya_eval else 0},{polya_predict},{polya_label}\n")
     #endfor
     log.close()
     # Compute average accuracy.
@@ -188,6 +187,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             wandb.watch(model)
 
         for i in range(epoch_size):
+            model.train()
             model.zero_grad()
             epoch_loss = 0
             for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Training Epoch [{}/{}]".format(i + 1 + training_counter, epoch_size)):
@@ -237,7 +237,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
             if eval_dataloader:
                 eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
-                prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device)
+                prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter)
                 if wandb:
                     wandb.log({"prom_accuracy": prom_accuracy})
                     wandb.log({"ss_accuracy": ss_accuracy})

@@ -1,5 +1,7 @@
 from datetime import datetime
 import json
+
+from transformers import BertTokenizer
 from models.seqlab import DNABERTSeqLab
 from torch.optim import AdamW
 from torch import tensor
@@ -159,4 +161,28 @@ def preprocessing(csv_file: str, tokenizer, batch_size, do_kmer=True, kmer_size=
     tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_labels, batch_size)
     end = datetime.now()
     # print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
+    return tensor_dataloader
+
+def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> DataLoader:
+    """
+    Process sequence and label from ``csv_file`` which are already in kmer format.
+    e.q.    sequence    -> `AAG AGG GGC GCG CGA ...` (kmer format)
+            label       -> `iii iiE EEE EEi Eii ...` (kmer format)
+
+    @param  csv_file (str)
+    @param  tokenizer (BertTokenizer)
+    @param  batch_size (int)
+    """
+    df = pd.read_csv(csv_file)
+    sequences = list(df["sequence"])
+    labels = list(df["label"])
+    arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr = [], [], [], []
+    for seq, label in zip(sequences, labels):
+        input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
+        arr_input_ids.append(input_ids)
+        arr_attention_mask.append(attention_mask)
+        arr_token_type_ids.append(token_type_ids)
+        arr_label_repr.append(label_repr)
+    
+    tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr, batch_size)
     return tensor_dataloader

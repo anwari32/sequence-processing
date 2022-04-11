@@ -7,7 +7,6 @@ from Bio import SeqIO
 #                        -k <how many k in k-mer> 
 #                        -n <how many k-mer is retrieved>
 
-
 # Generate array of k-mer or return original sequence if 
 # from https://github.com/jerryji1993/DNABERT/blob/master/motif/motif_utils.py
 #

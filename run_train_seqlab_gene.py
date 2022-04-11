@@ -4,7 +4,7 @@ import json
 import sys
 import os
 from transformers import BertTokenizer, get_linear_schedule_with_warmup
-from sequential_labelling import preprocessing, train_using_genes
+from sequential_labelling import preprocessing_kmer, train_by_genes
 from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
 import torch
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         "batch_size": training_config["batch_size"]
     }
 
-    model = train_using_genes(
+    model = train_by_genes(
         model=model, 
         tokenizer=BertTokenizer.from_pretrained(training_config["pretrained"]),
         optimizer=optimizer, 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         device=args["device"],
         wandb=wandb,
         save_path=training_config["result"],
-        log_path=training_config["log"],
+        log_file_path=training_config["log"],
         training_counter=training_counter)
 
     total_config = {

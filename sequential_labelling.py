@@ -1,3 +1,4 @@
+from sklearn.metrics import accuracy_score
 import torch
 from torch import tensor
 from torch.nn import NLLLoss
@@ -10,15 +11,15 @@ import pandas as pd
 from tqdm import tqdm
 import json
 from utils.utils import save_model_state_dict, load_checkpoint, save_checkpoint
-from data_preparation import str_kmer
+from data_preparation import merge_kmer
 from models.seqlab import DNABERTSeqLab
 from datetime import datetime
 import wandb
-from utils.seqlab import preprocessing, convert_ids_to_tokens
-from utils.utils import get_default_tokenizer
+from utils.seqlab import preprocessing_kmer, convert_ids_to_tokens
+from utils.tokenizer import get_default_tokenizer
 
 
-def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, device, loss_strategy="sum"):
+def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
     model.to(device)
     batch_input_ids.to(device)
@@ -40,7 +41,59 @@ def __train__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, bat
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
-def __eval__(model, input_ids, attention_mask, input_type_ids, label, device):
+def __forward_gene_non_overlap__(model, dataloader: DataLoader, device: str, loss_function=None):
+    """
+    This function utilizes non-overlapping sequence.
+    """
+
+    # Make sure model and data are in the same device.
+    model.train()
+    model.to(device)
+    contig_predicted_labels = []
+    contig_target_labels = []
+    for step, batch in enumerate(dataloader):
+        input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+        prediction = model(input_ids, attn_mask, token_type_ids)
+        for pred, label in zip(prediction, labels): # Iterate through batch dimension.
+            contig_predicted_labels.append(pred)
+            contig_target_labels.append(label)
+        # contig_predicted_labels, contig_target_labels = __forward_gene__(model, batch_input_ids, batch_attn_mask, batch_input_ids, batch_labels)
+    #endfor
+
+    # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
+    contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
+    # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
+    contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
+    
+    print(contig_predicted_labels, contig_predicted_labels[0].shape)
+    print(contig_target_labels, contig_target_labels[0].shape)
+
+    # We need to merge contigs in ``contig_predicted_labels`` into single contig. First we convert those tensor-label sequence into label token.
+    # and also merge target label in ``contig_target_labels`` into single contig.
+    predicted_assembly = contig_predicted_labels[0]
+    target_assembly = contig_target_labels[0]
+    for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
+        predicted_assembly = torch.concat((predicted_assembly, pred), 0)
+        target_assembly = torch.concat((target_assembly, target), 0)
+
+    gene_loss = None
+    if loss_function:
+        gene_loss = loss_function(predicted_assembly, target_assembly)
+
+    return gene_loss, predicted_assembly, target_assembly
+
+def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, device):
+    """
+    Evaluate model in a sequence represented as ``input_ids``, ``attention_mask``, and ``input_type_ids`` against ``label``.
+    @param  model:
+    @param  input_ids:
+    @param  attention_mask:
+    @param  input_type_ids:
+    @param  label:
+    @param  device:
+    @return (correct_token_pred, incorrect_token_pred, pred_labels, target_labels): tuple
+    """
+
     # Make sure model and data are in the same device.
     model.to(device)
     input_ids.to(device)
@@ -51,7 +104,7 @@ def __eval__(model, input_ids, attention_mask, input_type_ids, label, device):
     correct_token_pred, incorrect_token_pred = 0, 0
     model.eval()
     pred_labels = []
-    actual_labels = []
+    target_labels = []
     with torch.no_grad():
         pred = model(input_ids, attention_mask, input_type_ids)
         for p, z in zip(pred, label): # Batch
@@ -62,49 +115,46 @@ def __eval__(model, input_ids, attention_mask, input_type_ids, label, device):
                 else:
                     incorrect_token_pred += 1
                 pred_labels.append(pi.item())
-                actual_labels.append(zi.item())
+                target_labels.append(zi.item())
 
-    return correct_token_pred, incorrect_token_pred, pred_labels, actual_labels
+    return correct_token_pred, incorrect_token_pred, pred_labels, target_labels
 
-def evaluate_genes(model, eval_genes, device="cpu"):
+def __eval_gene__(model, dataloader, device):
+    model.to(device)
     model.eval()
-    for gene in eval_genes:
-        dataloader = preprocessing(gene, get_default_tokenizer())
-        gene_chunk_accuracy, gene_chunk_error, token_preds, tokens = do_evaluate_gene(model, dataloader, device)
+    correct_label, incorrect_label = 0, 0
+    predicted_label_token, target_label_token = [], []
+    with torch.no_grad():
+        gene_loss, predicted_label_tensor, target_label_tensor = __forward_gene__(model, dataloader, device)
+        values, indices = torch.max(predicted_label_tensor, 1)
+        for p, q in zip(indices, target_label_tensor):
+            if p.item() == q.item():
+                correct_label += 1
+            else:
+                incorrect_label += 1
+        predicted_label_token = list(indices)
+        predicted_label_token = [convert_ids_to_tokens(id) for id in predicted_label_token]
+        target_label_token = list(target_label_tensor)
+        target_label_token = [convert_ids_to_tokens(id) for id in target_label_token]
+    
+    accuracy_score = correct_label / (correct_label + incorrect_label) * 100
+    incorrect_score = incorrect_label / (correct_label + incorrect_label) * 100
 
+    return accuracy_score, incorrect_score, predicted_label_token, target_label_token
+
+def evaluate_genes(model, eval_genes, device, eval_log):
+    model.eval()
+    eval_logfile = open(eval_log)
+    eval_logfile.write(f"gene,accuracy,error,predicted_label,target_label\n")
+    for gene in eval_genes:
+        dataloader = preprocessing_kmer(gene, get_default_tokenizer())
+        accuracy_score, incorrect_score, predicted_label_token, target_label_token = __eval_gene__(model, dataloader, device)
+        eval_logfile.write(f"{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
+    #endfor
+    eval_logfile.close()
     return None
 
-def do_evaluate_gene(model, dataloader, device):
-    """
-    Evaluate single gene.
-    @param  model
-    @param  dataloader
-    @param  device
-    """
-    gene_accuracy_score = 0
-    label_preds = []
-    labels = []
-    gene_chunk_accuracy = []
-    gene_chunk_error = []
-    for step, batch in dataloader: # Evaluating each chunk.
-        input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
-        correct_token_pred, incorrect_token_pred, pred_labels, target_labels = __eval__(model, input_ids, attn_mask, token_type_ids, label, device)
-        label_preds.append(pred_labels)
-        labels.append(target_labels)
-        gene_chunk_accuracy.append(correct_token_pred / len(pred_labels))
-        gene_chunk_error.append(incorrect_token_pred / len(pred_labels))
-
-    # Since there is two additional tokens for BERT processing, we remove those two tokens leaving 510 token only.
-    label_preds = [p[1:511] for p in label_preds]
-    labels = [p[1:511] for p in labels]
-
-    tokens_preds = [convert_ids_to_tokens(p) for p in label_preds]
-    tokens = [convert_ids_to_tokens(p) for p in labels]
-
-    return gene_chunk_accuracy, gene_chunk_error, tokens_preds, tokens
-
-
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None):
+def train_by_sequences(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None):
     """
     @param  model: BERT derivatives.
 
@@ -134,7 +184,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
         epoch_loss = 0
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{i + 1 + training_counter}/{epoch_size}]"):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
-            loss_batch = __train__(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
+            loss_batch = __forward_sequence__(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
             log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
             loss_batch = (loss_batch / grad_accumulation_steps)
@@ -169,41 +219,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size,
     print("=====END TRAINING=====")
     return model
 
-def do_evaluate(model: DNABERTSeqLab, validation_dataloader: DataLoader, log=None, batch_size=1, device='cpu'):
-    # TODO:
-    # Implements how model evaluate model.
-    model.to(device)
-    model.eval()
-
-    # Enable logging if log exists.
-    log_file = {}
-    if log:
-        if os.path.exists(log):
-            os.remove(log)
-        os.makedirs(os.path.dirname(log), exist_ok=True)
-        log_file = open(log, 'x')
-        log_file.write(f"step,scores,correct,incorrect,pred_labels,actual_labels\n")
-
-    correct_scores = []
-    for step, batch in tqdm(enumerate(validation_dataloader), total=len(validation_dataloader)):
-        input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)
-        correct_token_pred, incorrect_token_pred, pred_labels, actual_labels = __eval__(model, input_ids, attention_mask, input_type_ids, label, device)
-        average_score = correct_token_pred / input_type_ids.shape[1]
-        correct_scores.append(average_score)
-        if log_file != {}:
-            log_file.write(f"{step},{average_score},{correct_token_pred},{incorrect_token_pred},{' '.join(str(v) for v in pred_labels)},{' '.join(str(v) for v in actual_labels)}\n")
-
-    if log_file != {}:
-        log_file.close()
-    return sum(correct_scores)/len(correct_scores)
-
-def evaluate(model, validation_csv, device="cpu", batch_size=1, log=None):
-    dataloader = preprocessing(validation_csv, get_default_tokenizer(), batch_size=batch_size)
-    return do_evaluate(model, dataloader, device=device, log=log)
-        
-
-# def train_using_gene(model, tokenizer, optimizer, scheduler, num_epoch, batch_size, train_genes, loss_function, grad_accumulation_step="1", device="cpu"):
-def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None):
+def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None):
     """
     @param  model
     @param  tokenizer
@@ -220,75 +236,50 @@ def train_using_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer,
 
     # Initialize log.
     logfile = open(log_file_path, "x")
-    logfile.write("epoch,gene,step,batch_loss,gene_loss,epoch_loss\n")
+    logfile.write("epoch,gene,gene_loss,epoch_loss\n")
 
-    def trace_handler(prof):
-        print(prof.key_averages().table(
-            sort_by="self_cuda_time_total", row_limit=-1))
+    num_training_genes = len(train_genes)
+    for epoch in range(num_epoch):
+        epoch_loss = None
+        for i in range(num_training_genes):
+            
+            gene = train_genes[i]
+            gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
+            # gene_loss = None # This is loss computed from single gene.
+            gene_loss, predicted_label, target_label = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function)
+            epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
+            gene_loss.backward()
 
-    import torch.profiler
-    with torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-        schedule=torch.profiler.schedule(
-            wait=2,
-            warmup=2,
-            active=6,
-            repeat=1
-        ), 
-        on_trace_ready=trace_handler, 
-        with_stack=True) as profiler:
-            num_training_genes = len(train_genes)
-            for epoch in range(num_epoch):
-                epoch_loss = None
-                for i in range(num_training_genes):
-                    
-                    gene = train_genes[i]
-                    gene_dataloader = preprocessing(gene, tokenizer, batch_size, do_kmer=True)
-                    gene_loss = None # This is loss computed from single gene.
-                    len_dataloader = len(gene_dataloader)
-                    total_training_instance = len_dataloader * batch_size # How many small sequences are in training.
-                    # for step, batch in tqdm(enumerate(gene_dataloader), total=len_dataloader, desc=f"Epoch {epoch + 1}/{num_epoch} Gene {i+1}/{num_training_genes} {gene}"):
-                    for step, batch in enumerate(gene_dataloader):
-                        print(f"Training Epoch {epoch} {os.path.basename(gene)} {step + 1}/{len_dataloader} {30 * ' '}", end="\r")
+            # Write gene training log.
+            logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{gene_loss.item()},{epoch_loss.item()}")
 
-                        input_ids, attn_mask, token_type_ids, label = tuple(t.to(device) for t in batch)
-                        batch_loss = __train__(model, input_ids, attn_mask, token_type_ids, label, loss_function, device)
-                        gene_loss = batch_loss if gene_loss == None else gene_loss + batch_loss
+            # Record log in the cloud.
+            if wandb:
+                wandb.log({"gene_loss": gene_loss.item()})
 
-                        logfile.write(f"{epoch},{os.path.basename(gene)},{step},{batch_loss},{gene_loss},{epoch_loss}\n")
+            # Check of gradient must be cleared or not.
+            if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
 
-                        if wandb != None:
-                            wandb.log({"batch_loss": batch_loss})
-                            wandb.log({"gene_loss": gene_loss})
+        #endfor
 
-                            # Optional
-                            wandb.watch(model)
+        # Record epoch loss.
+        if wandb:
+            wandb.log({"epoch_loss": epoch_loss.item()})
 
-                        torch.cuda.empty_cache()
-                    #endfor
+        # Eval model if eval_genes is available.
+        if eval_genes:
+            eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
+            evaluate_genes(model, eval_genes, device, eval_log)
 
-                    gene_loss = gene_loss / total_training_instance
-                    epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
-                    gene_loss.backward()
-
-                    if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
-                        optimizer.step()
-                        scheduler.step()
-                        model.zero_grad()
-
-                #endfor
-
-                # Eval model if eval_genes is available.
-                if eval_genes:
-                    eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
-                    eval_genes()
-
-                # Save trained model after this epoch is finished.
-                save_checkpoint(model, optimizer, {
-                    'epoch': epoch + training_counter,
-                    'loss': epoch_loss
-                }, os.path.join(save_path, f"checkpoint-{epoch}.pth"))
-                torch.cuda.empty_cache()
-            #endfor
+        # Save trained model after this epoch is finished.
+        save_checkpoint(model, optimizer, {
+            'epoch': epoch + training_counter,
+            'loss': epoch_loss
+        }, os.path.join(save_path, f"checkpoint-{epoch}.pth"))
+        torch.cuda.empty_cache()
+    #endfor
     logfile.close()
     return model

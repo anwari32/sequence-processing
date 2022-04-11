@@ -10,6 +10,7 @@ import os
 from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
 from pathlib import Path, PureWindowsPath
+from datetime import datetime
 
 import wandb
 
@@ -85,7 +86,9 @@ if __name__ == "__main__":
     training_steps = len(dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
     
-    log_file_path = str(Path(PureWindowsPath(training_config["log"])))
+    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
     save_model_path = str(Path(PureWindowsPath(training_config["result"])))
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)

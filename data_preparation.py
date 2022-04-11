@@ -474,6 +474,12 @@ def kmer(seq, length, window_size=1):
     else:
         return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
 
+def merge_kmer(seq: list) -> str:
+    merged = [kmer[0] for kmer in seq[0:-1]]
+    merged.append(seq[-1])
+    merged = "".join(merged)
+    return merged
+
 def generate_subsequences(seq, length, stride=1):
     length_seq = len(seq)
     index = 0
