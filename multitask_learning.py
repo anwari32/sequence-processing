@@ -187,6 +187,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             wandb.watch(model)
 
         for i in range(epoch_size):
+            epoch_start_time = datetime.now()
             model.train()
             model.zero_grad()
             epoch_loss = 0
@@ -227,11 +228,12 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     model.zero_grad()
             # endfor batch.
 
+            epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
             if wandb:
                 wandb.log({"epoch_loss": epoch_loss.item() / len_dataloader})
+                wandb.log({"epoch_duration": str(epoch_duration)})
                 wandb.watch(model)
-
 
             # After an epoch, eval model if eval_dataloader is given.
             prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
