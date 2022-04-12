@@ -1,0 +1,23 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "train_data": "workspace\\mtl\\train.balanced.csv",
+    "validation_data": "workspace\\mtl\\validation.balanced.csv",
+    "num_epochs": 10,
+    "batch_size": 8,
+    "log": "logs\\mtl\\train.balanced-b.16\\",
+    "result": "result\\mtl\\train.balanced-b.16\\",
+    "optimizer": {
+        "name": "adamw",
+        "learning_rate": 4e-4,
+        "epsilon": 1e-6,
+        "beta1": 0.98,
+        "beta2": 0.9,
+        "weight_decay": 0.01
+    },
+    "warmup": 10000,
+    "loss_strategy": "sum",
+    "grad_accumulation_steps": 1,
+    "prom_loss_fn": "crossentropy",
+    "ss_loss_fn": "crossentropy",
+    "polya_loss_fn": "crossentropy"
+}
