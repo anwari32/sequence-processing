@@ -3,7 +3,7 @@
     "train_data": "workspace\\mtl\\train.balanced.csv",
     "validation_data": "workspace\\mtl\\validation.balanced.csv",
     "num_epochs": 10,
-    "batch_size": 16,
+    "batch_size": 8,
     "log": "logs\\mtl\\train.balanced-b.16\\",
     "result": "result\\mtl\\train.balanced-b.16\\",
     "optimizer": {

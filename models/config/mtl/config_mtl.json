@@ -1,5 +1,5 @@
 {
-    "pretrained": "pretrained\\3-new-12w-0",
+    "pretrained": "pretrained\\3-new-12w-0\\",
     "prom_head": {
         "num_labels": 2,
         "dropout_prob": 0.1,
