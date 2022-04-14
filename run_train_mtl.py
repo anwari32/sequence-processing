@@ -9,13 +9,26 @@ from transformers import get_linear_schedule_with_warmup
 import os
 from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
+from utils.utils import save_json_config
 from pathlib import Path, PureWindowsPath
 from datetime import datetime
 
 import wandb
 
 def parse_args(argv):
-    opts, args = getopt(argv, "t:m:d:f", ["training-config=", "model-config=", "device=", "force-cpu", "training-counter=", "resume-from-checkpoint=", "resume-from-optimizer=", "cuda-garbage-collection-mode="])
+    opts, args = getopt(argv, "t:m:d:f", [
+        "training-config=", 
+        "model-config=", 
+        "device=", 
+        "force-cpu", 
+        "training-counter=", 
+        "resume-from-checkpoint=", 
+        "resume-from-optimizer=", 
+        "cuda-garbage-collection-mode=", 
+        "run-name=",
+        "n-gpu=",
+        "fp16"
+        ])
     output = {}
     for o, a in opts:
         if o in ["-t", "--training-config"]:
@@ -34,6 +47,12 @@ def parse_args(argv):
             output["resume_from_optimimzer"] = a
         elif o in ["--cuda-garbage-collection-mode"]:
             output["cuda_garbage_collection_mode"] = a
+        elif o in ["--run-name"]:
+            output["run_name"] = a
+        elif o in ["--n-gpu"]:
+            output["n_gpu"] = int(a)
+        elif o in ["--fp16"]:
+            output["fp16"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -43,6 +62,8 @@ if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
     for key in args.keys():
         print(key, args[key])
+    
+    training_config = json.load(open(args["training_config"], 'r'))
 
     # Make sure input parameters are valid.
     if not "force-cpu" in args.keys():
@@ -54,22 +75,9 @@ if __name__ == "__main__":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
     
+    print(f"Preparing Model & Optimizer")
     model = init_mtl_model(args["model_config"])
-    # print(model)
-
-    training_config = json.load(open(args["training_config"], 'r'))
-    dataloader = preprocessing(
-        training_config["train_data"],# csv_file, 
-        training_config["pretrained"], #pretrained_path, 
-        training_config["batch_size"], #batch_size
-        )
-
-    loss_fn = {
-        "prom": BCELoss() if training_config["prom_loss_fn"] == "bce" else CrossEntropyLoss(),
-        "ss": BCELoss() if training_config["ss_loss_fn"] == "bce" else CrossEntropyLoss(),
-        "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
-    }
-
+    model.to(args["device"])
     optimizer = init_optimizer(
         training_config["optimizer"]["name"], 
         model.parameters(), 
@@ -79,6 +87,26 @@ if __name__ == "__main__":
         training_config["optimizer"]["beta2"], 
         training_config["optimizer"]["weight_decay"]
     )
+
+    # print(model)
+    print(f"Preparing Training Data")
+    dataloader = preprocessing(
+        training_config["train_data"],# csv_file, 
+        training_config["pretrained"], #pretrained_path, 
+        training_config["batch_size"], #batch_size
+        )
+    
+    print(f"Preparing Validation Data")
+    validation_dataloader = None
+    if "validation_data" in training_config.keys():
+        eval_data_path = str(Path(PureWindowsPath(training_config["validation_data"])))
+        validation_dataloader = preprocessing(eval_data_path, training_config["pretrained"], 1)
+
+    loss_fn = {
+        "prom": BCELoss() if training_config["prom_loss_fn"] == "bce" else CrossEntropyLoss(),
+        "ss": BCELoss() if training_config["ss_loss_fn"] == "bce" else CrossEntropyLoss(),
+        "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
+    }
 
     epoch_size = training_config["num_epochs"]
     batch_size = training_config["batch_size"]
@@ -95,7 +123,10 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
-    wandb.init(project="thesis-mtl", entity="anwari32")    
+    wandb.init(project="thesis-mtl", entity="anwari32") 
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
     wandb.config = {
         "learning_rate": training_config["optimizer"]["learning_rate"],
         "epochs": training_config["num_epochs"],
@@ -107,10 +138,7 @@ if __name__ == "__main__":
         "training": training_config
     }
 
-    validation_dataloader = None
-    if "validation_data" in training_config.keys():
-        eval_data_path = str(Path(PureWindowsPath(training_config["validation_data"])))
-        validation_dataloader = preprocessing(eval_data_path, training_config["pretrained"], 1)
+    start_time = datetime.now()
 
     trained_model = train(
         dataloader, 
@@ -130,5 +158,22 @@ if __name__ == "__main__":
         #resume_from_checkpoint=args["resume_from_checkpoint"] if "resume_from_checkpoint" in args.keys() else None, 
         #resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None,
         wandb=wandb,
-        eval_dataloader=validation_dataloader
+        eval_dataloader=validation_dataloader,
+        fp16=args["fp16"] if "fp16" in args.keys() else None,
+        n_gpu=args["n_gpu"] if "n_gpu" in args.keys() else 1,
     )
+
+    end_time = datetime.now()
+    running_time = end_time - start_time
+
+    print(f"Training Duration {running_time}")
+
+    total_config = {
+        "training_config": training_config,
+        "model_config": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
+        "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
+        "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
+        "running_time": str(running_time)
+    }
+
+    save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
