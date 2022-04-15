@@ -2,7 +2,7 @@ import json
 import traceback
 import torch
 from torch import cuda
-from torch.nn import CrossEntropyLoss, BCELoss
+from torch.nn import CrossEntropyLoss, BCELoss, DataParallel
 from torch import nn
 from torch.optim import AdamW
 from torch import tensor
@@ -33,17 +33,21 @@ def __train__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, l
     pred_polya = output["polya"]
 
     loss_prom, loss_ss, loss_polya = 0, 0, 0
-    if model.promoter_layer.num_labels == 1:
+    num_prom_labels, num_ss_labels, num_polya_labels = 0, 0, 0
+    _model = model
+    if isinstance(model, DataParallel):
+        _model = model.module
+    if _model.promoter_layer.num_labels == 1:
         loss_prom = loss_fn_prom(pred_prom, label_prom.float().reshape(-1, 1))
     else:
         loss_prom = loss_fn_prom(pred_prom, label_prom)    
     
-    if model.splice_site_layer.num_labels == 1:
+    if _model.splice_site_layer.num_labels == 1:
         loss_ss = loss_fn_ss(pred_ss, label_ss.float().reshape(-1, 1))
     else:
         loss_ss = loss_fn_ss(pred_ss, label_ss)
 
-    if model.polya_layer.num_labels == 1:
+    if _model.polya_layer.num_labels == 1:
         loss_polya = loss_fn_polya(pred_polya, label_polya.float().reshape(-1, 1))
     else:
         loss_polya = loss_fn_polya(pred_polya, label_polya)
@@ -151,7 +155,7 @@ def evaluate(model, dataloader, log_path, device, cur_epoch):
     polya_accuracy = count_polya_correct / len(polya_evals) * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, fp16=None, n_gpu=1):
     """
     @param      dataloader:
     @param      model:
@@ -185,6 +189,19 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     try:
         if wandb:
             wandb.watch(model)
+
+        if fp16:
+            print(f"Enabling mixed precision")
+            try:
+                from apex import fp16
+            except ImportError:
+                raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+            model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    
+        if n_gpu > 1:
+            print(f"Enabling DataParallel")
+            model = torch.nn.DataParallel(model)
+
 
         for i in range(epoch_size):
             epoch_start_time = datetime.now()

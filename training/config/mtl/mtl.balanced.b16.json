@@ -1,5 +1,5 @@
 {
-    "pretrained": "pretrained\\3-new-12w-0",
+    "pretrained": "pretrained\\3-new-12w-0\\",
     "train_data": "workspace\\mtl\\train.balanced.csv",
     "validation_data": "workspace\\mtl\\validation.balanced.csv",
     "num_epochs": 10,
