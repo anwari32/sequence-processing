@@ -1,3 +1,4 @@
+from ast import Import
 import json
 import traceback
 import torch
@@ -155,7 +156,7 @@ def evaluate(model, dataloader, log_path, device, cur_epoch):
     polya_accuracy = count_polya_correct / len(polya_evals) * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, fp16=None, n_gpu=1):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, n_gpu=1):
     """
     @param      dataloader:
     @param      model:
@@ -190,18 +191,14 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
         if wandb:
             wandb.watch(model)
 
-        if fp16:
-            print(f"Enabling mixed precision")
-            try:
-                from apex import fp16
-            except ImportError:
-                raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
-            model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
-    
         if n_gpu > 1:
             print(f"Enabling DataParallel")
             model = torch.nn.DataParallel(model)
-
+        
+        from torch.cuda.amp import autocast, GradScaler                
+        scaler = GradScaler()
+                
+        scaler = GradScaler()
 
         for i in range(epoch_size):
             epoch_start_time = datetime.now()
@@ -210,14 +207,16 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             epoch_loss = 0
             for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Training Epoch [{}/{}]".format(i + 1 + training_counter, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
-                loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+                with autocast():
+                    loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
 
-                # Following MTDNN (Liu et. al., 2019), loss is summed.
-                loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
+                    # Following MTDNN (Liu et. al., 2019), loss is summed.
+                    loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
 
-                # Log loss values and learning rate.
-                lr = optimizer.param_groups[0]['lr']
-                log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom, loss_ss, loss_polya, lr))
+                    # Log loss values and learning rate.
+                    lr = optimizer.param_groups[0]['lr']
+                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom, loss_ss, loss_polya, lr))
+
 
                 # Update parameters and learning rate for every batch.
                 # Since this training is based on batch, then for every batch optimizer.step() and scheduler.step() are called.
@@ -234,15 +233,20 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     wandb.log({"polya_loss": loss_polya.item()})
 
                 # Backpropagation.
-                loss.backward(retain_graph=True)
+                # loss.backward(retain_graph=True)                
+                scaler.scale(loss).backward()
+
 
                 if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
                     # Update learning rate and scheduler.
-                    optimizer.step()
+                    # optimizer.step()
+                    scaler.step(optimizer)
+                    scaler.update()
                     scheduler.step()
 
                     # Reset model gradients.
-                    model.zero_grad()
+                    # model.zero_grad()
+                    optimizer.zero_grad()
             # endfor batch.
 
             epoch_duration = datetime.now() - epoch_start_time
@@ -282,6 +286,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 if os.path.exists(old_model_path):
                     os.remove(old_model_path)
         # endfor epoch.
+    except ImportError: 
+        raise ImportError("Error importing autocase or GradScaler")
     except Exception as e:
         log_file.close()
         print(traceback.format_exc())

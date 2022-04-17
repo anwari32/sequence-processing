@@ -159,7 +159,6 @@ if __name__ == "__main__":
         #resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None,
         wandb=wandb,
         eval_dataloader=validation_dataloader,
-        fp16=args["fp16"] if "fp16" in args.keys() else None,
         n_gpu=args["n_gpu"] if "n_gpu" in args.keys() else 1,
     )
 
