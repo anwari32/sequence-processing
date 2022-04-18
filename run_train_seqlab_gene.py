@@ -121,7 +121,6 @@ if __name__ == "__main__":
 
     # print(model)
 
-    wandb.init(project="seqlab-training-by-genes", entity="anwari32")
     wandb.init(project="thesis-mtl", entity="anwari32") 
     if "run_name" in args.keys():
         wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
@@ -158,7 +157,7 @@ if __name__ == "__main__":
         log_file_path=log_file_path,
         training_counter=training_counter,
         eval_genes=eval_genes,
-        device_list=[])
+        device_list=args["device_list"] if "device_list" in args.keys() else [])
 
     total_config = {
         "training": training_config,

@@ -252,7 +252,6 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     
     from torch.cuda.amp import autocast, GradScaler                
     scaler = GradScaler()
-        
 
     # Initialize log.
     logfile = open(log_file_path, "x")
@@ -276,7 +275,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
             # Record log in the cloud.
             if wandb:
-                wandb.log({"gene_loss": gene_loss.item()})
+                wandb.log({f"{os.path.basename(gene).split('.')[0]}_gene_loss": gene_loss.item()})
 
             # gene_loss.backward()
             scaler.scale(gene_loss).backward()
