@@ -26,7 +26,7 @@ def parse_args(argv):
         "resume-from-optimizer=", 
         "cuda-garbage-collection-mode=", 
         "run-name=",
-        "n-gpu=",
+        "device-list=",
         "fp16"
         ])
     output = {}
