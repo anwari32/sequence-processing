@@ -49,8 +49,8 @@ def parse_args(argv):
             output["cuda_garbage_collection_mode"] = a
         elif o in ["--run-name"]:
             output["run_name"] = a
-        elif o in ["--n-gpu"]:
-            output["n_gpu"] = int(a)
+        elif o in ["--device-list"]:
+            output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--fp16"]:
             output["fp16"] = True
         else:
@@ -159,7 +159,7 @@ if __name__ == "__main__":
         #resume_from_optimizer=args["resume_from_optimizer"] if "resume_from_optimizer" in args.keys() else None,
         wandb=wandb,
         eval_dataloader=validation_dataloader,
-        n_gpu=args["n_gpu"] if "n_gpu" in args.keys() else 1,
+        device_list=args["device_list"] if "device_list" in args.keys() else [],
     )
 
     end_time = datetime.now()

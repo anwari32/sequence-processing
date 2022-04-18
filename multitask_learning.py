@@ -156,7 +156,7 @@ def evaluate(model, dataloader, log_path, device, cur_epoch):
     polya_accuracy = count_polya_correct / len(polya_evals) * 100
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, n_gpu=1):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     """
     @param      dataloader:
     @param      model:
@@ -190,7 +190,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     try:
         if wandb:
             wandb.watch(model)
-
+        
+        n_gpu = len(device_list)
         if n_gpu > 1:
             print(f"Enabling DataParallel")
             model = torch.nn.DataParallel(model)
