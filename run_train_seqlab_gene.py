@@ -16,7 +16,17 @@ from pathlib import Path, PureWindowsPath
 from datetime import datetime
 
 def _parse_argv(argvs):
-    opts, args = getopt(argvs, "t:m:d:f", ["training-config=", "model-config=", "device=", "force-cpu", "training-counter=", "resume-from-checkpoint=", "resume-from-optimizer=", "cuda-garbage-collection-mode="])
+    opts, args = getopt(argvs, "t:m:d:f", [
+        "training-config=", 
+        "model-config=", 
+        "device=", 
+        "force-cpu", 
+        "training-counter=", 
+        "resume-from-checkpoint=", 
+        "resume-from-optimizer=", 
+        "run-name=",
+        "device-list="
+    ])
     output = {}
     for o, a in opts:
         if o in ["-t", "--training-config"]:
@@ -33,6 +43,8 @@ def _parse_argv(argvs):
             output["resume_from_checkpoint"] = a
         elif o in ["--device-list"]:
             output["device_list"] = [int(x) for x in a.split(",")]
+        elif o in ["--run-name"]:
+            output["run_name"] = a
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -131,8 +143,9 @@ if __name__ == "__main__":
         "batch_size": training_config["batch_size"]
     }
 
-    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
 
     save_model_path = str(Path(PureWindowsPath(training_config["result"])))
@@ -140,6 +153,8 @@ if __name__ == "__main__":
 
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
+    
+    start_time = datetime.now()
 
     model = train_by_genes(
         model=model, 
@@ -159,14 +174,20 @@ if __name__ == "__main__":
         eval_genes=eval_genes,
         device_list=args["device_list"] if "device_list" in args.keys() else [])
 
+    end_time = datetime.now()
+    running_time = end_time - start_time
+
     total_config = {
         "training": training_config,
-        "model": json.load(open(args["model_config"], "r")),
+        "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
+        "start_time": start_time,
+        "end_time": end_time,
+        "running_time": running_time,
     }
 
     # Final config is saved in JSON format in the same folder as log file.
     # Final config is saved in `config.json` file.
-    save_json_config(total_config, os.path.join(os.path.dirname(training_config["log"]), "config.json"))
+    save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
     
     
 
