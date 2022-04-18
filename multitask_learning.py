@@ -70,9 +70,13 @@ def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, la
         pred_ss = output['ss']
         pred_polya = output['polya']
 
+        _model = model
+        if isinstance(model, DataParallel):
+            _model = model.module
+
         # Prediction.
         predicted_prom, prom_eval = 0, 0
-        if model.promoter_layer.num_labels == 1:
+        if _model.promoter_layer.num_labels == 1:
             predicted_prom = torch.round(pred_prom).item()
             prom_eval = (predicted_prom == label_prom.item())
         else:
@@ -81,7 +85,7 @@ def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, la
             prom_eval = (predicted_prom_index == label_prom.item())    
 
         predicted_ss, ss_eval = 0, 0
-        if model.splice_site_layer.num_labels == 1:
+        if _model.splice_site_layer.num_labels == 1:
             predicted_ss = torch.round(pred_ss).item()
             ss_eval = (predicted_ss == label_ss.item())
         else:
@@ -90,7 +94,7 @@ def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, la
             ss_eval = (predicted_ss_index == label_ss.item())
 
         predicted_polya, polya_eval = 0, 0
-        if model.polya_layer.num_labels == 1:
+        if _model.polya_layer.num_labels == 1:
             predicted_polya = torch.round(pred_polya).item()
             polya_eval = (predicted_polya == label_polya.item())
         else:
@@ -198,9 +202,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
         
         from torch.cuda.amp import autocast, GradScaler                
         scaler = GradScaler()
-                
-        scaler = GradScaler()
-
+        
         for i in range(epoch_size):
             epoch_start_time = datetime.now()
             model.train()

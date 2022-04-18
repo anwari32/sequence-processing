@@ -31,8 +31,8 @@ def _parse_argv(argvs):
             output["training_counter"] = a
         elif o in ["--resume-from-checkpoint"]:
             output["resume_from_checkpoint"] = a
-        elif o in ["--cuda-garbage-collection-mode"]:
-            output["cuda_garbage_collection_mode"] = a
+        elif o in ["--device-list"]:
+            output["device_list"] = [int(x) for x in a.split(",")]
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -122,6 +122,10 @@ if __name__ == "__main__":
     # print(model)
 
     wandb.init(project="seqlab-training-by-genes", entity="anwari32")
+    wandb.init(project="thesis-mtl", entity="anwari32") 
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
     wandb.config = {
         "learning_rate": training_config["optimizer"]["learning_rate"],
         "epochs": training_config["num_epochs"],
@@ -153,12 +157,12 @@ if __name__ == "__main__":
         save_path=save_model_path,
         log_file_path=log_file_path,
         training_counter=training_counter,
-        eval_genes=eval_genes)
+        eval_genes=eval_genes,
+        device_list=[])
 
     total_config = {
-        "training_config": training_config,
-        "model_config": json.load(open(args["model_config"], "r")),
-        "model_version": json.load(open(args["model_version"], "r")) if "model_version" in args.keys() else "default"
+        "training": training_config,
+        "model": json.load(open(args["model_config"], "r")),
     }
 
     # Final config is saved in JSON format in the same folder as log file.

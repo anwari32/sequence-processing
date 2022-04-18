@@ -227,7 +227,7 @@ def train_by_sequences(model, optimizer, scheduler, train_dataloader, epoch_size
     print("=====END TRAINING=====")
     return model
 
-def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None):
+def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
     """
     @param  model
     @param  tokenizer
@@ -242,6 +242,18 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     @return ``model``
     """
 
+    if wandb:
+        wandb.watch(model)
+
+    n_gpu = len(device_list)
+    if n_gpu > 1:
+        print(f"Enabling DataParallel")
+        model = torch.nn.DataParallel(model, device_list)
+    
+    from torch.cuda.amp import autocast, GradScaler                
+    scaler = GradScaler()
+        
+
     # Initialize log.
     logfile = open(log_file_path, "x")
     logfile.write("epoch,gene,gene_loss,epoch_loss\n")
@@ -254,10 +266,11 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             gene = train_genes[i]
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
             # gene_loss = None # This is loss computed from single gene.
-            gene_loss, predicted_label, target_label = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function)
+            with autocast():
+                gene_loss, predicted_label, target_label = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function)
+                
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
-            gene_loss.backward()
-
+            
             # Write gene training log.
             logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{gene_loss.item()},{epoch_loss.item()}")
 
@@ -265,11 +278,16 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             if wandb:
                 wandb.log({"gene_loss": gene_loss.item()})
 
+            # gene_loss.backward()
+            scaler.scale(gene_loss).backward()
+
             # Check of gradient must be cleared or not.
             if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
-                optimizer.step()
+                # optimizer.step()
+                scaler.step(optimizer)
+                scaler.update()
                 scheduler.step()
-                model.zero_grad()
+                optimizer.zero_grad()
 
         #endfor
 
