@@ -194,7 +194,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
         n_gpu = len(device_list)
         if n_gpu > 1:
             print(f"Enabling DataParallel")
-            model = torch.nn.DataParallel(model)
+            model = torch.nn.DataParallel(model, device_list)
         
         from torch.cuda.amp import autocast, GradScaler                
         scaler = GradScaler()
