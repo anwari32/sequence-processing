@@ -1,22 +1,16 @@
-from sklearn.metrics import accuracy_score
 import torch
-from torch import autocast, tensor
 from torch.nn import NLLLoss
-from torch.nn.functional import one_hot
-from torch.utils.data import DataLoader, TensorDataset
-from torch.optim import AdamW
-from transformers import BertForMaskedLM, BertTokenizer, get_linear_schedule_with_warmup
+from torch.utils.data import DataLoader
+from transformers import BertTokenizer
 import os
-import pandas as pd
 from tqdm import tqdm
-import json
-from utils.utils import save_model_state_dict, load_checkpoint, save_checkpoint
-from data_preparation import merge_kmer
+from utils.utils import save_model_state_dict, save_checkpoint
 from models.seqlab import DNABERTSeqLab
 from datetime import datetime
 import wandb
 from utils.seqlab import preprocessing_kmer, convert_ids_to_tokens
 from utils.tokenizer import get_default_tokenizer
+from torch.cuda.amp import autocast, GradScaler
 
 
 def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, device, loss_strategy="sum"):
@@ -41,51 +35,65 @@ def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_ty
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
-def __forward_gene_non_overlap__(model, dataloader: DataLoader, device: str, loss_function=None, label=None):
+def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, device: str, loss_function=None, label: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train"):
     """
     This function utilizes non-overlapping sequence.
     """
 
     # Make sure model and data are in the same device.
-    model.eval()
     model.to(device)
     contig_predicted_labels = []
     contig_target_labels = []
-    from torch.cuda.amp import autocast
-    with autocast(enabled=True, cache_enabled=True):
-        for step, batch in tqdm(enumerate(dataloader), desc=f"Training {label}", total=len(dataloader)):
-            input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+    scaler = GradScaler()
+    description = f"Training {label}" if mode == "train" else f"Validating {label}"
+    for step, batch in tqdm(enumerate(dataloader), desc=description, total=len(dataloader)):
+        input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+        contig_loss = None
+        with autocast(enabled=True, cache_enabled=True):
             prediction = model(input_ids, attn_mask, token_type_ids)
             for pred, label in zip(prediction, labels): # Iterate through batch dimension.
                 contig_predicted_labels.append(pred)
                 contig_target_labels.append(label)
-                # contig_predicted_labels, contig_target_labels = __forward_gene__(model, batch_input_ids, batch_attn_mask, batch_input_ids, batch_labels)
+                assert pred != None, f"Prediction must not be None, got {pred}"
+                assert label != None, f"Label must not be None, got {label}"
+                if contig_loss == None:
+                    contig_loss = loss_function(pred, label)
+                else:
+                    contig_loss += loss_function(pred, label)
             #endfor
-            
-
-        # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
-        contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
-        # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
-        contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
         
-        # print(contig_predicted_labels, contig_predicted_labels[0].shape)
-        # print(contig_target_labels, contig_target_labels[0].shape)
+        if wandb:
+            wandb.log({f"{label}_contig_loss": contig_loss.item()})
 
-        # We need to merge contigs in ``contig_predicted_labels`` into single assembly. First we convert those tensor-label sequence into label token.
-        # and also merge target label in ``contig_target_labels`` into single assembly.
-        predicted_assembly = contig_predicted_labels[0]
-        target_assembly = contig_target_labels[0]
-        for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
-            predicted_assembly = torch.concat((predicted_assembly, pred), 0)
-            target_assembly = torch.concat((target_assembly, target), 0)
+        if mode == "train":
+            if scaler:
+                scaler.scale(contig_loss).backward()
+            else:
+                contig_loss.backward()
 
-        gene_loss = None
-        if loss_function:
-            gene_loss = loss_function(predicted_assembly, target_assembly)
+    # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
+    contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
+    # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
+    contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
+    
+    # print(contig_predicted_labels, contig_predicted_labels[0].shape)
+    # print(contig_target_labels, contig_target_labels[0].shape)
 
-            # print(predicted_assembly)
+    # We need to merge contigs in ``contig_predicted_labels`` into single assembly. First we convert those tensor-label sequence into label token.
+    # and also merge target label in ``contig_target_labels`` into single assembly.
+    predicted_assembly = contig_predicted_labels[0]
+    target_assembly = contig_target_labels[0]
+    for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
+        predicted_assembly = torch.concat((predicted_assembly, pred), 0)
+        target_assembly = torch.concat((target_assembly, target), 0)
+
+    gene_loss = None
+    if loss_function:
+        gene_loss = loss_function(predicted_assembly, target_assembly)
+
+        # print(predicted_assembly)
             # print(target_assembly)
-    return gene_loss, predicted_assembly, target_assembly
+    return gene_loss, predicted_assembly, target_assembly, scaler
 
 def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, device):
     """
@@ -124,13 +132,13 @@ def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, d
 
     return correct_token_pred, incorrect_token_pred, pred_labels, target_labels
 
-def __eval_gene__(model, dataloader, device):
+def __eval_gene__(model, dataloader, device, loss_fn, label: str = None):
     model.to(device)
     model.eval()
     correct_label, incorrect_label = 0, 0
     predicted_label_token, target_label_token = [], []
     with torch.no_grad():
-        gene_loss, predicted_label_tensor, target_label_tensor = __forward_gene_non_overlap__(model, dataloader, device)
+        gene_loss, predicted_label_tensor, target_label_tensor, scaler = __forward_gene_non_overlap__(model, dataloader, device, loss_fn, label=label, mode="validation")
         values, indices = torch.max(predicted_label_tensor, 1)
         for p, q in zip(indices, target_label_tensor):
             if p.item() == q.item():
@@ -146,21 +154,21 @@ def __eval_gene__(model, dataloader, device):
     accuracy_score = correct_label / (correct_label + incorrect_label) * 100
     incorrect_score = incorrect_label / (correct_label + incorrect_label) * 100
 
-    return accuracy_score, incorrect_score, predicted_label_token, target_label_token
+    return accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss
 
-def evaluate_genes(model, eval_genes, device, eval_log, epoch):
+def evaluate_genes(model, eval_genes, device, eval_log, epoch, loss_fn):
     model.eval()
     eval_logfile = {}
     if not os.path.exists(eval_log):
         eval_logfile = open(eval_log, "x")
-        eval_logfile.write(f"epoch,gene,accuracy,error,predicted_label,target_label\n")
+        eval_logfile.write(f"epoch,gene,accuracy,error,loss,predicted_label,target_label\n")
     else:
         eval_logfile = open(eval_log, "a")
     
     for gene in eval_genes:
         dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1)
-        accuracy_score, incorrect_score, predicted_label_token, target_label_token = __eval_gene__(model, dataloader, device)
-        eval_logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
+        accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss = __eval_gene__(model, dataloader, device, loss_fn, label=os.path.basename(gene).split('.')[0])
+        eval_logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
     #endfor
     eval_logfile.close()
     return None
@@ -250,12 +258,8 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
     n_gpu = len(device_list)
     if n_gpu > 1:
-        print(f"Enabling DataParallel.")
         model = torch.nn.DataParallel(model, device_list)
-    else:
-        print(f"Single GPU mode.")
     
-    from torch.cuda.amp import GradScaler      
     scaler = GradScaler()
 
     # Initialize log.
@@ -271,25 +275,20 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             gene_name = os.path.basename(gene).split(".")[0]
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
             # gene_loss = None # This is loss computed from single gene.
-            gene_loss, predicted_label, target_label = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, label=gene_name)
+            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, label=gene_name, scaler=scaler)
             
             gene_loss = gene_loss / grad_accumulation_steps
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
             
             # Write gene training log.
-            logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{gene_loss.item()},{epoch_loss.item()}")
+            logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{gene_loss.item()},{epoch_loss.item()}\n")
 
             # Record log in the cloud.
             if wandb:
                 wandb.log({f"{os.path.basename(gene).split('.')[0]}_gene_loss": gene_loss.item()})
 
-            # gene_loss.backward()
-            model.train() # Set model to training mode.
-            scaler.scale(gene_loss).backward()
-
             # Check of gradient must be cleared or not.
-            #if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
-                # optimizer.step()
+            # Optimizer is reset after a gene is finised.
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
@@ -304,7 +303,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         # Eval model if eval_genes is available.
         if eval_genes:
             eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
-            evaluate_genes(model, eval_genes, device, eval_log, epoch)
+            evaluate_genes(model, eval_genes, device, eval_log, epoch, loss_function)
 
         # Save trained model after this epoch is finished.
         save_checkpoint(model, optimizer, {

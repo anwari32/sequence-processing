@@ -4,10 +4,10 @@
     "gene_validation_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\gene_index.sample.csv",
     "gene_dir": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\",
     "freeze_bert": 0,
-    "num_epochs": 1,
+    "num_epochs": 2,
     "batch_size": 1,
-    "log": "logs\\seqlab\\by_genes\\sample\\non-overlap\\base\\",
-    "result": "result\\seqlab\\by_genes\\sample\\non-overlap\\base\\",
+    "log": "logs\\seqlab\\sample\\non-overlap\\base\\",
+    "result": "result\\seqlab\\sample\\non-overlap\\base\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

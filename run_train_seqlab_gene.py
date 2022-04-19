@@ -127,12 +127,12 @@ if __name__ == "__main__":
             str(Path(PureWindowsPath(os.path.join(training_config["gene_dir"], r["chr"], r["gene"]))))
         )
 
-    # print("\n".join(train_genes))
     print(f"# Genes: {len(train_genes)}")
     training_steps = len(train_genes) * training_config["num_epochs"]
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
 
-    # print(model)
+    if "device_list" in args.keys():
+        print(f"# GPU: {len(args['device_list'])}")
 
     wandb.init(project="thesis-mtl", entity="anwari32") 
     if "run_name" in args.keys():
@@ -143,7 +143,6 @@ if __name__ == "__main__":
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
-
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
@@ -183,7 +182,7 @@ if __name__ == "__main__":
         "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
         "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
         "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
-        "running_time": running_time,
+        "running_time": str(running_time),
     }
 
     # Final config is saved in JSON format in the same folder as log file.
