@@ -112,8 +112,8 @@ if __name__ == "__main__":
 
     loss_function = torch.nn.CrossEntropyLoss()
 
-    train_df = pd.read_csv(training_config["gene_train_index"])
-    validation_df = pd.read_csv(training_config["gene_validation_index"])
+    train_df = pd.read_csv(str(Path(PureWindowsPath(training_config["gene_train_index"]))))
+    validation_df = pd.read_csv(str(Path(PureWindowsPath(training_config["gene_validation_index"]))))
     train_genes = []
     for i, r in train_df.iterrows():
         train_genes.append(
