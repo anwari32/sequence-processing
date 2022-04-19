@@ -9,6 +9,7 @@ from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
 import torch
 from torch.cuda import device_count as cuda_device_count
+from utils.tokenizer import get_default_tokenizer
 from utils.utils import load_checkpoint, save_json_config
 import wandb
 import pandas as pd
@@ -158,7 +159,7 @@ if __name__ == "__main__":
 
     model = train_by_genes(
         model=model, 
-        tokenizer=BertTokenizer.from_pretrained(training_config["pretrained"]),
+        tokenizer=get_default_tokenizer(),
         optimizer=optimizer, 
         scheduler=scheduler, 
         train_genes=train_genes, 
