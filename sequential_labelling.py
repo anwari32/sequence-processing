@@ -1,6 +1,6 @@
 from sklearn.metrics import accuracy_score
 import torch
-from torch import tensor
+from torch import autocast, tensor
 from torch.nn import NLLLoss
 from torch.nn.functional import one_hot
 from torch.utils.data import DataLoader, TensorDataset
@@ -41,47 +41,50 @@ def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_ty
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
-def __forward_gene_non_overlap__(model, dataloader: DataLoader, device: str, loss_function=None):
+def __forward_gene_non_overlap__(model, dataloader: DataLoader, device: str, loss_function=None, label=None):
     """
     This function utilizes non-overlapping sequence.
     """
 
     # Make sure model and data are in the same device.
-    model.train()
+    model.eval()
     model.to(device)
     contig_predicted_labels = []
     contig_target_labels = []
-    for step, batch in enumerate(dataloader):
-        input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
-        prediction = model(input_ids, attn_mask, token_type_ids)
-        for pred, label in zip(prediction, labels): # Iterate through batch dimension.
-            contig_predicted_labels.append(pred)
-            contig_target_labels.append(label)
-        # contig_predicted_labels, contig_target_labels = __forward_gene__(model, batch_input_ids, batch_attn_mask, batch_input_ids, batch_labels)
-    #endfor
+    from torch.cuda.amp import autocast
+    with autocast(enabled=True, cache_enabled=True):
+        for step, batch in tqdm(enumerate(dataloader), desc=f"Training {label}", total=len(dataloader)):
+            input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
+            prediction = model(input_ids, attn_mask, token_type_ids)
+            for pred, label in zip(prediction, labels): # Iterate through batch dimension.
+                contig_predicted_labels.append(pred)
+                contig_target_labels.append(label)
+                # contig_predicted_labels, contig_target_labels = __forward_gene__(model, batch_input_ids, batch_attn_mask, batch_input_ids, batch_labels)
+            #endfor
+            
 
-    # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
-    contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
-    # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
-    contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
-    
-    # print(contig_predicted_labels, contig_predicted_labels[0].shape)
-    # print(contig_target_labels, contig_target_labels[0].shape)
+        # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
+        contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
+        # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
+        contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
+        
+        # print(contig_predicted_labels, contig_predicted_labels[0].shape)
+        # print(contig_target_labels, contig_target_labels[0].shape)
 
-    # We need to merge contigs in ``contig_predicted_labels`` into single contig. First we convert those tensor-label sequence into label token.
-    # and also merge target label in ``contig_target_labels`` into single contig.
-    predicted_assembly = contig_predicted_labels[0]
-    target_assembly = contig_target_labels[0]
-    for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
-        predicted_assembly = torch.concat((predicted_assembly, pred), 0)
-        target_assembly = torch.concat((target_assembly, target), 0)
+        # We need to merge contigs in ``contig_predicted_labels`` into single assembly. First we convert those tensor-label sequence into label token.
+        # and also merge target label in ``contig_target_labels`` into single assembly.
+        predicted_assembly = contig_predicted_labels[0]
+        target_assembly = contig_target_labels[0]
+        for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
+            predicted_assembly = torch.concat((predicted_assembly, pred), 0)
+            target_assembly = torch.concat((target_assembly, target), 0)
 
-    gene_loss = None
-    if loss_function:
-        gene_loss = loss_function(predicted_assembly, target_assembly)
+        gene_loss = None
+        if loss_function:
+            gene_loss = loss_function(predicted_assembly, target_assembly)
 
-    # print(predicted_assembly)
-    # print(target_assembly)
+            # print(predicted_assembly)
+            # print(target_assembly)
     return gene_loss, predicted_assembly, target_assembly
 
 def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, device):
@@ -247,10 +250,12 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
     n_gpu = len(device_list)
     if n_gpu > 1:
-        print(f"Enabling DataParallel")
+        print(f"Enabling DataParallel.")
         model = torch.nn.DataParallel(model, device_list)
+    else:
+        print(f"Single GPU mode.")
     
-    from torch.cuda.amp import autocast, GradScaler                
+    from torch.cuda.amp import GradScaler      
     scaler = GradScaler()
 
     # Initialize log.
@@ -263,11 +268,12 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         for i in range(num_training_genes):
             
             gene = train_genes[i]
+            gene_name = os.path.basename(gene).split(".")[0]
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
             # gene_loss = None # This is loss computed from single gene.
-            with autocast():
-                gene_loss, predicted_label, target_label = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function)
-                
+            gene_loss, predicted_label, target_label = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, label=gene_name)
+            
+            gene_loss = gene_loss / grad_accumulation_steps
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
             
             # Write gene training log.
@@ -278,15 +284,16 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 wandb.log({f"{os.path.basename(gene).split('.')[0]}_gene_loss": gene_loss.item()})
 
             # gene_loss.backward()
+            model.train() # Set model to training mode.
             scaler.scale(gene_loss).backward()
 
             # Check of gradient must be cleared or not.
-            if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
+            #if i % grad_accumulation_steps == 0 or (i + 1) == num_training_genes:
                 # optimizer.step()
-                scaler.step(optimizer)
-                scaler.update()
-                scheduler.step()
-                optimizer.zero_grad()
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+            optimizer.zero_grad()
 
         #endfor
 

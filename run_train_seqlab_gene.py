@@ -180,8 +180,8 @@ if __name__ == "__main__":
     total_config = {
         "training": training_config,
         "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
-        "start_time": start_time,
-        "end_time": end_time,
+        "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
+        "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
         "running_time": running_time,
     }
 

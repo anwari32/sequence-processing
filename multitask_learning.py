@@ -239,7 +239,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 # loss.backward(retain_graph=True)                
                 scaler.scale(loss).backward()
 
-
                 if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
                     # Update learning rate and scheduler.
                     # optimizer.step()
