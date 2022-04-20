@@ -214,9 +214,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
                     
                     # Accumulate promoter, splice site, and poly-A loss.
-                    avg_prom_loss += avg_prom_loss
-                    avg_ss_loss += avg_ss_loss
-                    avg_polya_loss += avg_polya_loss
+                    avg_prom_loss += loss_prom
+                    avg_ss_loss += loss_ss
+                    avg_polya_loss += loss_polya
 
                     # Following MTDNN (Liu et. al., 2019), loss is summed.
                     loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
