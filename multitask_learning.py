@@ -11,6 +11,8 @@ from datetime import datetime
 import pandas as pd
 import os
 import sys
+
+import wandb
 from utils.utils import save_checkpoint, save_model_state_dict
 from data_preparation import str_kmer
 from pathlib import Path, PureWindowsPath
@@ -102,7 +104,7 @@ def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, la
         ss_eval, predicted_ss, label_ss.item(), 
         polya_eval, predicted_polya, label_polya.item())
 
-def evaluate(model, dataloader, log_path, device, cur_epoch):
+def evaluate(model, dataloader, log_path, device, cur_epoch, wandb: wandb=None):
     log_dir = os.path.dirname(log_path)
     log = {}
     if not os.path.exists(log_dir):
@@ -154,6 +156,12 @@ def evaluate(model, dataloader, log_path, device, cur_epoch):
     prom_accuracy = count_prom_correct / len(prom_evals) * 100
     ss_accuracy = count_ss_correct / len(ss_evals) * 100
     polya_accuracy = count_polya_correct / len(polya_evals) * 100
+
+    if wandb:
+        wandb.log({"validation/prom_accuracy": prom_accuracy, "train/epoch": cur_epoch})
+        wandb.log({"validation/ss_accuracy": ss_accuracy, "train/epoch": cur_epoch})
+        wandb.log({"validation/polya_accuracy": polya_accuracy, "train/epoch": cur_epoch})
+
     return prom_accuracy, ss_accuracy, polya_accuracy
 
 def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
@@ -190,7 +198,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     try:
         if wandb:
             wandb.define_metric("train/epoch")
-            wandb.define_metric("epoch/*", step_metric="train/epoch")
+            wandb.define_metric("train/*", step_metric="train/epoch")
+            wandb.define_metric("validation/epoch")
+            wandb.define_metric("validation/*", step_metric="train/epoch")
         
         n_gpu = len(device_list)
         if n_gpu > 1:
@@ -260,19 +270,19 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             # Log losses with wandb.
             avg_prom_loss = avg_prom_loss / len_dataloader
             avg_prom_loss_log = {
-                "epoch/prom_loss": avg_prom_loss.item(),
+                "train/prom_loss": avg_prom_loss.item(),
                 "train/epoch": i
             }
             wandb.log(avg_prom_loss_log)
             avg_ss_loss = avg_ss_loss / len_dataloader
             avg_ss_loss_log = {
-                "epoch/ss_loss": avg_ss_loss.item(),
+                "train/ss_loss": avg_ss_loss.item(),
                 "train/epoch": i
             }
             wandb.log(avg_ss_loss_log)
             avg_polya_loss = avg_polya_loss / len_dataloader
             avg_polya_loss_log = {
-                "epoch/polya_loss": avg_polya_loss.item(),
+                "train/polya_loss": avg_polya_loss.item(),
                 "train/epoch": i
             }
             wandb.log(avg_polya_loss_log)
@@ -287,11 +297,11 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
             if eval_dataloader:
                 eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
-                prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter)
+                prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, wandb=wandb)
                 if wandb:
-                    wandb.log({"epoch/prom_accuracy": prom_accuracy, "train/epoch": i} )
-                    wandb.log({"epoch/ss_accuracy": ss_accuracy, "train/epoch": i})
-                    wandb.log({"epoch/polya_accuracy": polya_accuracy, "train/epoch": i})
+                    wandb.log({"validation/prom_accuracy": prom_accuracy, "train/epoch": i} )
+                    wandb.log({"validation/ss_accuracy": ss_accuracy, "train/epoch": i})
+                    wandb.log({"validation/polya_accuracy": polya_accuracy, "train/epoch": i})
 
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
