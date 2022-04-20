@@ -193,6 +193,11 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     len_dataloader = len(dataloader)
     try:
         if wandb:
+            wandb.define_metrics("epoch")
+            wandb.define_metrics("epoch_loss", step_metric="epoch")
+            wandb.define_metrics("prom_loss")
+            wandb.define_metrics("ss_loss")
+            wandb.define_metrics("polya_loss")
             wandb.watch(model)
         
         n_gpu = len(device_list)
@@ -230,10 +235,10 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Wandb.
                 if wandb:
-                    wandb.log({"loss": loss.item()})
-                    wandb.log({"prom_loss": loss_prom.item()})
-                    wandb.log({"ss_loss": loss_ss.item()})
-                    wandb.log({"polya_loss": loss_polya.item()})
+                    wandb.log({"loss": loss.item()}, step=step)
+                    wandb.log({"prom_loss": loss_prom.item()}, step=step)
+                    wandb.log({"ss_loss": loss_ss.item()}, step=step)
+                    wandb.log({"polya_loss": loss_polya.item()}, step=step)
 
                 # Backpropagation.
                 # loss.backward(retain_graph=True)                
@@ -254,8 +259,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
             if wandb:
-                wandb.log({"epoch_loss": epoch_loss.item() / len_dataloader})
-                wandb.log({"epoch_duration": str(epoch_duration)})
+                wandb.log({"epoch_loss": epoch_loss.item() / len_dataloader}, step=i)
+                wandb.log({"epoch_duration": str(epoch_duration)}, step=i)
                 wandb.watch(model)
 
             # After an epoch, eval model if eval_dataloader is given.
@@ -264,9 +269,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
                 prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter)
                 if wandb:
-                    wandb.log({"prom_accuracy": prom_accuracy})
-                    wandb.log({"ss_accuracy": ss_accuracy})
-                    wandb.log({"polya_accuracy": polya_accuracy})
+                    wandb.log({"prom_accuracy": prom_accuracy}, step=i)
+                    wandb.log({"ss_accuracy": ss_accuracy}, step=i)
+                    wandb.log({"polya_accuracy": polya_accuracy}, step=i)
                     wandb.watch(model)
 
             # Calculate epoch loss over len(dataloader)
