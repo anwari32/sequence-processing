@@ -249,6 +249,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     wandb.log({"prom_loss": loss_prom.item()})
                     wandb.log({"ss_loss": loss_ss.item()})
                     wandb.log({"polya_loss": loss_polya.item()})
+                    wandb.log({"learning_rate": lr})
 
                 # Backpropagation.
                 # loss.backward(retain_graph=True)                
