@@ -132,14 +132,9 @@ if __name__ == "__main__":
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
-
-    whole_config = {
-        "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
-        "training": training_config
-    }
+    wandb.watch(model)
 
     start_time = datetime.now()
-
     trained_model = train(
         dataloader, 
         model, 
@@ -161,7 +156,6 @@ if __name__ == "__main__":
         eval_dataloader=validation_dataloader,
         device_list=args["device_list"] if "device_list" in args.keys() else [],
     )
-
     end_time = datetime.now()
     running_time = end_time - start_time
 

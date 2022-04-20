@@ -189,15 +189,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     len_dataloader = len(dataloader)
     try:
         if wandb:
-            wandb.define_metrics("epoch")
-            wandb.define_metrics("epoch_loss_by_epoch", step_metric="epoch")
-            wandb.define_metrics("prom_loss_by_epoch", step_metric="epoch")
-            wandb.define_metrics("ss_loss_by_epoch", step_metric="epoch")
-            wandb.define_metrics("polya_loss_by_epoch", step_metric="epoch")
-            wandb.define_metrics("prom_accuracy_by_epoch", step_metric="epoch")
-            wandb.define_metrics("ss_accuracy_by_epoch", step_metrics="epoch")
-            wandb.define_metrics("polya_accuracy_by_epoch", step_metrics="epoch")
-            wandb.watch(model)
+            wandb.define_metrics("train/epoch")
+            wandb.define_metrics("epoch/*", step_metric="train/epoch")
         
         n_gpu = len(device_list)
         if n_gpu > 1:
@@ -242,10 +235,10 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                 # Wandb.
                 if wandb:
-                    wandb.log({"loss": loss.item()}, step=step)
-                    wandb.log({"prom_loss": loss_prom.item()}, step=step)
-                    wandb.log({"ss_loss": loss_ss.item()}, step=step)
-                    wandb.log({"polya_loss": loss_polya.item()}, step=step)
+                    wandb.log({"loss": loss.item()})
+                    wandb.log({"prom_loss": loss_prom.item()})
+                    wandb.log({"ss_loss": loss_ss.item()})
+                    wandb.log({"polya_loss": loss_polya.item()})
 
                 # Backpropagation.
                 # loss.backward(retain_graph=True)                
@@ -267,19 +260,19 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             # Log losses with wandb.
             avg_prom_loss = avg_prom_loss / len_dataloader
             avg_prom_loss_log = {
-                "prom_loss_by_epoch": avg_prom_loss.item(),
+                "epoch/prom_loss": avg_prom_loss.item(),
                 "epoch": i
             }
             wandb.log(avg_prom_loss_log)
             avg_ss_loss = avg_ss_loss / len_dataloader
             avg_ss_loss_log = {
-                "ss_loss_by_epoch": avg_ss_loss.item(),
+                "epoch/ss_loss": avg_ss_loss.item(),
                 "epoch": i
             }
             wandb.log(avg_ss_loss_log)
             avg_polya_loss = avg_polya_loss / len_dataloader
             avg_polya_loss_log = {
-                "polya_loss_by_epoch": avg_polya_loss.item(),
+                "epoch/polya_loss": avg_polya_loss.item(),
                 "epoch": i
             }
             wandb.log(avg_polya_loss_log)
@@ -299,7 +292,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     wandb.log({"prom_accuracy_by_epoch": prom_accuracy, "epoch": i} )
                     wandb.log({"ss_accuracy_by_epoch": ss_accuracy, "epoch": i})
                     wandb.log({"polya_accuracy_by_epoch": polya_accuracy, "epoch": i})
-                    wandb.watch(model)
 
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
