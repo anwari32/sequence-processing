@@ -143,6 +143,8 @@ if __name__ == "__main__":
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
+    wandb.define_metric("epoch")
+    wandb.define_metric("epoch_loss", step_metric="epoch")
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
