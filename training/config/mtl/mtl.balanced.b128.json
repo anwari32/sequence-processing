@@ -4,8 +4,8 @@
     "validation_data": "workspace\\mtl\\validation.balanced.csv",
     "num_epochs": 10,
     "batch_size": 128,
-    "log": "logs\\mtl\\train.balanced-b.64\\",
-    "result": "result\\mtl\\train.balanced-b.64\\",
+    "log": "logs\\mtl\\train.balanced-b.128\\",
+    "result": "result\\mtl\\train.balanced-b.128\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,
