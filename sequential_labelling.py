@@ -35,22 +35,28 @@ def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_ty
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
-def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, device: str, loss_function=None, label: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train"):
+def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, device: str, loss_function=None, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train"):
     """
     This function utilizes non-overlapping sequence.
     """
+    # Assertion
+    assert mode == "train" or mode == "validation", f"Expected `train` or `validation` but found {mode}"
 
     # Make sure model and data are in the same device.
     model.to(device)
     contig_predicted_labels = []
     contig_target_labels = []
     scaler = GradScaler()
-    description = f"Training {label}" if mode == "train" else f"Validating {label}"
+    description = f"Training {gene_name}" if mode == "train" else f"Validating {gene_name}"
 
-    if wandb:
-        wandb.define_metric(f"{label}_step")
-        wandb.define_metric(f"{label}_loss", step_metric=f"{label}_step")
-    
+    if wandb != None:
+        if mode == "train":
+            wandb.define_metric(f"{gene_name}/train_step")
+            wandb.define_metric(f"{gene_name}/train_contig_loss", step_metric=f"{gene_name}/train_step")
+        if mode == "validation":
+            wandb.define_metric(f"{gene_name}/validation_step")
+            wandb.define_metric(f"{gene_name}/validation_contig_loss", step_metric=f"{gene_name}/validation_step")
+
     for step, batch in tqdm(enumerate(dataloader), desc=description, total=len(dataloader)):
         input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
         contig_loss = None
@@ -67,13 +73,19 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, d
                     contig_loss += loss_function(pred, label)
             #endfor
         
-        if wandb:
-            # wandb.log({f"{label}_contig_loss": contig_loss.item()})
-            log_entry = {
-                "f{label}_loss": contig_loss,
-                "f{label}_step": step
-            }
-            wandb.log(log_entry)
+        if wandb != None:
+            if mode == "train":
+                log_entry = {
+                    f"{gene_name}/train_contig_loss": contig_loss.item(),
+                    f"{gene_name}/train_step": step
+                }
+                wandb.log(log_entry)
+            if mode == "validation":
+                log_entry = {
+                    f"{gene_name}/validation_contig_loss": contig_loss.item(),
+                    f"{gene_name}/validation_step": step
+                }
+                wandb.log(log_entry)
 
         if mode == "train":
             if scaler:
@@ -94,6 +106,8 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, d
     predicted_assembly = contig_predicted_labels[0]
     target_assembly = contig_target_labels[0]
     for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
+
+        # Appending contigs.
         predicted_assembly = torch.concat((predicted_assembly, pred), 0)
         target_assembly = torch.concat((target_assembly, target), 0)
 
@@ -101,8 +115,6 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, d
     if loss_function:
         gene_loss = loss_function(predicted_assembly, target_assembly)
 
-        # print(predicted_assembly)
-            # print(target_assembly)
     return gene_loss, predicted_assembly, target_assembly, scaler
 
 def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, device):
@@ -142,19 +154,14 @@ def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, d
 
     return correct_token_pred, incorrect_token_pred, pred_labels, target_labels
 
-def __eval_gene__(model, dataloader, device, loss_fn, label: str = None, wandb: wandb = None, at_step: int = 0):
+def __eval_gene__(model, dataloader, device, loss_fn, gene_name: str = None, wandb: wandb = None, at_epoch: int = 0):
     model.to(device)
     model.eval()
     correct_label, incorrect_label = 0, 0
     predicted_label_token, target_label_token = [], []
 
-    if wandb:
-        wandb.define_metric(f"{label}_validation_step")
-        wandb.define_metric(f"{label}_validation_accuracy", step=f"{label}_validation_step")
-        wandb.define_metric(f"{label}_validation_error", step=f"{label}_validation_step")
-
     with torch.no_grad():
-        gene_loss, predicted_label_tensor, target_label_tensor, scaler = __forward_gene_non_overlap__(model, dataloader, device, loss_fn, label=label, mode="validation")
+        gene_loss, predicted_label_tensor, target_label_tensor, scaler = __forward_gene_non_overlap__(model, dataloader, device, loss_fn, gene_name=gene_name, mode="validation", wandb=wandb)
         values, indices = torch.max(predicted_label_tensor, 1)
         for p, q in zip(indices, target_label_tensor):
             if p.item() == q.item():
@@ -170,14 +177,6 @@ def __eval_gene__(model, dataloader, device, loss_fn, label: str = None, wandb: 
     accuracy_score = correct_label / (correct_label + incorrect_label) * 100
     incorrect_score = incorrect_label / (correct_label + incorrect_label) * 100
 
-    if wandb:
-        log_entry = {
-            f"{label}_validation_step": at_step,
-            f"{label}_validation_accuracy": accuracy_score,
-            f"{label}_validation_error": incorrect_score
-        }
-        wandb.log(log_entry)
-
     return accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss
 
 def evaluate_genes(model, eval_genes, device, eval_log, epoch, loss_fn, wandb=None):
@@ -188,10 +187,25 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, loss_fn, wandb=No
         eval_logfile.write(f"epoch,gene,accuracy,error,loss,predicted_label,target_label\n")
     else:
         eval_logfile = open(eval_log, "a")
-    
+        
     for gene in eval_genes:
+        gene_name = os.path.basename(gene).split('.')[0]
         dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1)
-        accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss = __eval_gene__(model, dataloader, device, loss_fn, label=os.path.basename(gene).split('.')[0], wandb=wandb, at_step=epoch)
+        accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss = __eval_gene__(model, dataloader, device, loss_fn, gene_name=gene_name, wandb=wandb, at_epoch=epoch)
+
+        # Log accuracy and incorrect score for each gene after an epoch.
+        if wandb != None:
+            wandb.define_metric(f"{gene_name}/validation_accuracy_at_epoch", step_metric="epoch/no_epoch")
+            wandb.define_metric(f"{gene_name}/validation_error_at_epoch", step_metric="epoch/no_epoch")
+            wandb.define_metric(f"{gene_name}/validation_loss_at_epoch", step_metric="epoch/no_epoch")
+            log_entry = {
+                f"{gene_name}/validation_accuracy_at_epoch": accuracy_score,
+                f"{gene_name}/validation_error_at_epoch": incorrect_score,
+                f"{gene_name}/validation_loss_at_epoch": gene_loss.item(),
+                f"epoch/no_epoch": epoch
+            }
+            wandb.log(log_entry)
+
         eval_logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
     #endfor
     eval_logfile.close()
@@ -277,9 +291,6 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     @return ``model``
     """
 
-    if wandb:
-        wandb.watch(model)
-
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = torch.nn.DataParallel(model, device_list)
@@ -292,14 +303,17 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
     num_training_genes = len(train_genes)
     for epoch in range(num_epoch):
+        model.train()
         epoch_loss = None
+        wandb.define_metric("epoch/no_epoch")
         for i in range(num_training_genes):
             
             gene = train_genes[i]
             gene_name = os.path.basename(gene).split(".")[0]
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
+
             # gene_loss = None # This is loss computed from single gene.
-            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, wandb=wandb, label=gene_name, scaler=scaler)
+            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler)
             
             gene_loss = gene_loss / grad_accumulation_steps
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
@@ -308,8 +322,14 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{gene_loss.item()},{epoch_loss.item()}\n")
 
             # Record log in the cloud.
-            if wandb:
-                wandb.log({f"{os.path.basename(gene).split('.')[0]}_gene_loss": gene_loss.item()})
+            # Record gene loss in this epoch.
+            if wandb != None:
+                wandb.define_metric(f"{gene_name}/epoch_loss", step_metric="epoch/no_epoch")
+                log_entry = {
+                    f"{gene_name}/epoch_loss": gene_loss.item(),
+                    "epoch/no_epoch": epoch
+                }
+                wandb.log(log_entry)
 
             # Check of gradient must be cleared or not.
             # Optimizer is reset after a gene is finised.
@@ -321,12 +341,10 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         #endfor
 
         # Record epoch loss.
-        if wandb:
-            wandb.log({
-                    "epoch_loss": epoch_loss.item(),
-                    "epoch": epoch    
-                    })
-            wandb.log({"epoch_loss": epoch_loss.item()})
+        # Epoch loss is accumulation of all gene losses.
+        if wandb != None:
+            wandb.define_metric("epoch/loss", step_metric="epoch/no_epoch")
+            wandb.log({"epoch/loss": epoch_loss.item(), "epoch/no_epoch": epoch})
 
         # Eval model if eval_genes is available.
         if eval_genes:
