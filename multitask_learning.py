@@ -270,27 +270,22 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             # Calculate average loss for promoter, splice site, and poly-A.
             # Log losses with wandb.
             avg_prom_loss = avg_prom_loss / len_dataloader
-            avg_prom_loss_log = {
-                "train/prom_loss": avg_prom_loss.item(),
-                "train/epoch": i
-            }
-            wandb.log(avg_prom_loss_log)
             avg_ss_loss = avg_ss_loss / len_dataloader
-            avg_ss_loss_log = {
-                "train/ss_loss": avg_ss_loss.item(),
-                "train/epoch": i
-            }
-            wandb.log(avg_ss_loss_log)
             avg_polya_loss = avg_polya_loss / len_dataloader
-            avg_polya_loss_log = {
+            avg_epoch_loss = epoch_loss / len_dataloader
+            log_entry = {
+                "train/prom_loss": avg_prom_loss.item(),
+                "train/ss_loss": avg_ss_loss.item(),
                 "train/polya_loss": avg_polya_loss.item(),
+                "train/loss": avg_epoch_loss.item(),
                 "train/epoch": i
             }
-            wandb.log(avg_polya_loss_log)
+            wandb.log(log_entry)
 
             epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
             if wandb:
+                wandb.define_metric("epoch/loss", step_metric="train/epoch")
                 wandb.log({"epoch/loss": epoch_loss.item() / len_dataloader, "train/epoch": i})
                 wandb.watch(model)
 
