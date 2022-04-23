@@ -1,11 +1,11 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "gene_train_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\gene_index.sample.csv",
-    "gene_validation_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\gene_index.sample.csv",
+    "gene_train_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\gene_index.training.sample.csv",
+    "gene_validation_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\gene_index.validation.sample.csv",
     "gene_dir": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\",
     "freeze_bert": 0,
     "num_epochs": 5,
-    "batch_size": 1,
+    "batch_size": 4,
     "log": "logs\\seqlab\\by_genes\\sample\\non-overlap\\lstm\\",
     "result": "result\\seqlab\\by_genes\\sample\\non-overlap\\lstm\\",
     "optimizer": {

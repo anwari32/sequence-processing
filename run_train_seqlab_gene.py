@@ -179,6 +179,8 @@ if __name__ == "__main__":
     end_time = datetime.now()
     running_time = end_time - start_time
 
+    print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
+
     total_config = {
         "training": training_config,
         "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),

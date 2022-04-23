@@ -82,8 +82,12 @@ class DNABERTSeqLab(nn.Module):
         self.seqlab_head = SeqLabHead(config)
         self.activation = nn.Softmax(dim=2)
 
-    def forward(self, input_ids, attention_masks, token_type_ids):
-        output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
+    # def forward(self, input_ids, attention_masks, token_type_ids):
+    # No need to include `token_type_ids`` since this is single sequence-related prediction.
+    # `token_type_ids` is used for next sentence prediction where input contains two sentence.
+    def forward(self, input_ids, attention_masks):
+        # output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
+        output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
         output = output[0] # Last hidden state
         output = self.seqlab_head(output)
         output = self.activation(output)
