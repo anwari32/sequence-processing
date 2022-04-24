@@ -320,6 +320,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     logfile.write("epoch,gene,gene_loss,epoch_loss\n")
 
     num_training_genes = len(train_genes)
+    best_accuracy = 0
 
     for epoch in range(num_epoch):
         model.train()
@@ -387,11 +388,18 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 }
                 wandb.log(validation_log)
 
-        # Save trained model after this epoch is finished.
-        save_checkpoint(model, optimizer, {
-            'epoch': epoch + training_counter,
-            'loss': epoch_loss
-        }, os.path.join(save_path, f"checkpoint-{epoch}.pth"))
+            # Save trained model if this epoch produces better model.
+            if avg_accuracy > best_accuracy:
+                save_checkpoint(model, optimizer, {
+                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                    "epoch": (i + training_counter),
+                    "batch_size": batch_size,
+                }, os.path.join(save_path, f"checkpoint-{epoch + training_counter}.pth"))
+
+                old_model_path = os.path.join(save_path, f"checkpoint-{epoch + training_counter - 1}.pth")
+                if os.path.exists(old_model_path):
+                    os.remove(old_model_path)
+
         torch.cuda.empty_cache()
     #endfor
     logfile.close()

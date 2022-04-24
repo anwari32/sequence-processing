@@ -4,8 +4,8 @@
     "validation_data": "workspace\\mtl\\train.sample.csv",
     "num_epochs": 10,
     "batch_size": 1,
-    "log": "logs\\mtl\\train.sample-b.16\\",
-    "result": "result\\mtl\\train.sample-b-16\\",
+    "log": "logs\\mtl\\train.sample-b16\\",
+    "result": "result\\mtl\\train.sample-b16\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

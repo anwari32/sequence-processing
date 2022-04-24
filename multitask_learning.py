@@ -164,7 +164,7 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, wandb: wandb=None):
 
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     """
     @param      dataloader:
     @param      model:
@@ -196,6 +196,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     start_time = datetime.now()
     len_dataloader = len(dataloader)
     try:
+        # Last best accuracy.
+        best_accuracy = 0 
         if wandb:
             wandb.define_metric("train/epoch")
             wandb.define_metric("train/*", step_metric="train/epoch")
@@ -294,27 +296,34 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             if eval_dataloader:
                 eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
                 prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, wandb=wandb)
+                avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
                 if wandb:
                     wandb.log({"validation/prom_accuracy": prom_accuracy, "train/epoch": i} )
                     wandb.log({"validation/ss_accuracy": ss_accuracy, "train/epoch": i})
                     wandb.log({"validation/polya_accuracy": polya_accuracy, "train/epoch": i})
+                    wandb.log({"validation/avg_accuracy": avg_accuracy, "train/epoch": i})
 
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
-            save_model_state_dict(model, save_model_path, f"epoch-{i + training_counter}.pth")
-            save_model_state_dict(optimizer, save_model_path, f"optimizer-{i + training_counter}.pth")
-            save_checkpoint(model, optimizer, {
-                "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-                "epoch": (i + training_counter),
-                "batch_size": batch_size,
-                "device": device,
-                "grad_accumulation_steps": grad_accumulation_steps,
-                "prom_accuracy": prom_accuracy,
-                "ss_accuracy": ss_accuracy,
-                "polya_accuracy": polya_accuracy
-            }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}"))
-            if remove_old_model:
-                old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+
+            # Save model with best validation score.
+            if avg_accuracy > best_accuracy:
+                best_accuracy = avg_accuracy
+
+                # Save checkpoint.
+                save_checkpoint(model, optimizer, {
+                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                    "epoch": (i + training_counter),
+                    "batch_size": batch_size,
+                    "device": device,
+                    "grad_accumulation_steps": grad_accumulation_steps,
+                    "prom_accuracy": prom_accuracy,
+                    "ss_accuracy": ss_accuracy,
+                    "polya_accuracy": polya_accuracy
+                }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
+
+                # Remove previous model.
+                old_model_path = os.path.join(save_model_path, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))
                 if os.path.exists(old_model_path):
                     os.remove(old_model_path)
         # endfor epoch.
