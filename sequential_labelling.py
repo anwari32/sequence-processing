@@ -352,8 +352,11 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 wandb.log(log_entry)
 
             # If model uses LSTM, reset hidden state and cell state if a gene has been processed.
-            if model.seqlab_head.lstm:
-                model.seqlab_head.lstm.reset_hidden()
+            _model = model
+            if isinstance(model, torch.nn.DataParallel):
+                _model = model.module
+            if _model.seqlab_head.lstm:
+                _model.seqlab_head.lstm.reset_hidden()
 
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.
