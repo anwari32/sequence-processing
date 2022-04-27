@@ -167,3 +167,6 @@ if __name__ == "__main__":
     }
 
     save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+
+    # Save final trained model.
+    
