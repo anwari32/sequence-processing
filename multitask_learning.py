@@ -338,7 +338,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     end_time = datetime.now()
     elapsed_time = end_time - start_time
     print(f"Start Time: {start_time}, End Time: {end_time}, Training Duration {elapsed_time}")
-    return model
+    return model, optimizer
 
 def get_sequences(csv_path: str, n_sample=10, random_state=1337):
     r"""

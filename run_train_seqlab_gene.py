@@ -10,7 +10,7 @@ from utils.optimizer import init_optimizer
 import torch
 from torch.cuda import device_count as cuda_device_count
 from utils.tokenizer import get_default_tokenizer
-from utils.utils import load_checkpoint, save_json_config
+from utils.utils import load_checkpoint, save_checkpoint, save_json_config
 import wandb
 import pandas as pd
 from pathlib import Path, PureWindowsPath
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     
     start_time = datetime.now()
 
-    model = train_by_genes(
+    model, optimizer = train_by_genes(
         model=model, 
         tokenizer=get_default_tokenizer(),
         optimizer=optimizer, 
@@ -192,6 +192,9 @@ if __name__ == "__main__":
     # Final config is saved in JSON format in the same folder as log file.
     # Final config is saved in `config.json` file.
     save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+
+    # Save final model and optimizer.
+    save_checkpoint(model, optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))
     
     
 

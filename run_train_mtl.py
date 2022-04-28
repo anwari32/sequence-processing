@@ -9,7 +9,7 @@ from transformers import get_linear_schedule_with_warmup
 import os
 from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
-from utils.utils import save_json_config
+from utils.utils import save_checkpoint, save_json_config
 from pathlib import Path, PureWindowsPath
 from datetime import datetime
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     wandb.watch(model)
 
     start_time = datetime.now()
-    trained_model = train(
+    trained_model, trained_optimizer = train(
         dataloader, 
         model, 
         loss_fn, 
@@ -169,4 +169,5 @@ if __name__ == "__main__":
     save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
 
     # Save final trained model.
+    save_checkpoint(trained_model, trained_optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))
     
