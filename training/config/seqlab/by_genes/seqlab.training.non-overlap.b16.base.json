@@ -6,8 +6,8 @@
     "freeze_bert": 0,
     "num_epochs": 10,
     "batch_size": 16,
-    "log": "logs\\seqlab\\by_genes\\training.b-16\\non-overlap\\base\\",
-    "result": "result\\seqlab\\by_genes\\training.b-16\\non-overlap\\base\\",
+    "log": "logs\\seqlab\\by_genes\\training.b16\\non-overlap\\base\\",
+    "result": "result\\seqlab\\by_genes\\training.b16\\non-overlap\\base\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

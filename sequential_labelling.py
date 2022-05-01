@@ -57,7 +57,8 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, d
     #        wandb.define_metric(f"{gene_name}/validation_step")
     #        wandb.define_metric(f"{gene_name}/validation_contig_loss", step_metric=f"{gene_name}/validation_step")
 
-    for step, batch in tqdm(enumerate(dataloader), desc=description, total=len(dataloader)):
+    # for step, batch in tqdm(enumerate(dataloader), desc=description, total=len(dataloader)):
+    for step, batch in enumerate(dataloader):
         input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
         contig_loss = None
         with autocast(enabled=True, cache_enabled=True):
@@ -326,7 +327,8 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         model.train()
         epoch_loss = None
         wandb.define_metric("epoch/epoch")
-        for i in range(num_training_genes):
+        # for i in range(num_training_genes):
+        for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes):
             
             gene = train_genes[i]
             gene_name = os.path.basename(gene).split(".")[0]
@@ -354,8 +356,11 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 wandb.log(log_entry)
 
             # If model uses LSTM, reset hidden state and cell state if a gene has been processed.
-            if model.seqlab_head.lstm:
-                model.seqlab_head.lstm.reset_hidden()
+            _model = model
+            if isinstance(model, torch.nn.DataParallel):
+                _model = model.module
+            if _model.seqlab_head.lstm:
+                _model.seqlab_head.lstm.reset_hidden()
 
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.

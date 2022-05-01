@@ -5,9 +5,9 @@
     "gene_dir": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\",
     "freeze_bert": 0,
     "num_epochs": 10,
-    "batch_size": 16,
-    "log": "logs\\seqlab\\by_genes\\training.b16\\non-overlap\\bilstm\\",
-    "result": "result\\seqlab\\by_genes\\training.b16\\non-overlap\\bilstm\\",
+    "batch_size": 128,
+    "log": "logs\\seqlab\\by_genes\\training.b128\\non-overlap\\base\\",
+    "result": "result\\seqlab\\by_genes\\training.b128\\non-overlap\\base\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,
