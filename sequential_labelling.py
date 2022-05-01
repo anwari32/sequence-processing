@@ -330,23 +330,25 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             
             gene = train_genes[i]
             gene_name = os.path.basename(gene).split(".")[0]
+            gene_dir = os.path.dirname(gene)
+            gene_dir, gene_chr = os.path.split(gene_dir)
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
 
             # gene_loss = None # This is loss computed from single gene.
-            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch)
+            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch, mode="train")
             
             gene_loss = gene_loss / grad_accumulation_steps
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
             
             # Write gene training log.
-            logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{gene_loss.item()},{epoch_loss.item()}\n")
+            logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()}\n")
 
             # Record log in the cloud.
             # Record gene loss in this epoch.
             if wandb != None:
-                wandb.define_metric(f"{gene_name}/epoch_loss", step_metric="epoch/epoch")
+                wandb.define_metric(f"{gene_chr}-{gene_name}/epoch_loss", step_metric="epoch/epoch")
                 log_entry = {
-                    f"{gene_name}/epoch_loss": gene_loss.item(),
+                    f"{gene_chr}-{gene_name}/epoch_loss": gene_loss.item(),
                     "epoch/epoch": epoch
                 }
                 wandb.log(log_entry)
@@ -403,4 +405,4 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         torch.cuda.empty_cache()
     #endfor
     logfile.close()
-    return model
+    return model, optimizer

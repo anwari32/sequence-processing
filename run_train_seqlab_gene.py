@@ -158,7 +158,7 @@ if __name__ == "__main__":
     
     start_time = datetime.now()
 
-    model = train_by_genes(
+    model, optimizer = train_by_genes(
         model=model, 
         tokenizer=get_default_tokenizer(),
         optimizer=optimizer, 
