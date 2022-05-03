@@ -137,7 +137,9 @@ if __name__ == "__main__":
 
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
-
+    
+    if "disable_wandb" not in args.keys():
+        args["disable_wandb"] = False
     if not args["disable_wandb"]:
         wandb.init(project="thesis-mtl", entity="anwari32") 
         if "run_name" in args.keys():
