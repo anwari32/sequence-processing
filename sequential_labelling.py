@@ -318,7 +318,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
     # Initialize log.
     logfile = open(log_file_path, "x")
-    logfile.write("epoch,gene,gene_loss,epoch_loss\n")
+    logfile.write("epoch,gene,gene_loss,epoch_loss,lr\n")
 
     num_training_genes = len(train_genes)
     best_accuracy = 0
@@ -341,9 +341,12 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             
             gene_loss = gene_loss / grad_accumulation_steps
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
-            
+
+            # Get current learning rate and log it.
+            lr = optimizer.param_groups[0]['lr']
+
             # Write gene training log.
-            logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()}\n")
+            logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()},{lr}\n")            
 
             # Record log in the cloud.
             # Record gene loss in this epoch.
@@ -351,7 +354,8 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 wandb.define_metric(f"{gene_chr}-{gene_name}/epoch_loss", step_metric="epoch/epoch")
                 log_entry = {
                     f"{gene_chr}-{gene_name}/epoch_loss": gene_loss.item(),
-                    "epoch/epoch": epoch
+                    "epoch/epoch": epoch,
+                    "learning_rate": lr,
                 }
                 wandb.log(log_entry)
 
