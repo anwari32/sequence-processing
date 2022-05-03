@@ -1,3 +1,4 @@
+from ast import arg
 from genericpath import exists
 from getopt import getopt
 import json
@@ -26,7 +27,8 @@ def _parse_argv(argvs):
         "resume-from-checkpoint=", 
         "resume-from-optimizer=", 
         "run-name=",
-        "device-list="
+        "device-list=",
+        "disable-wandb",
     ])
     output = {}
     for o, a in opts:
@@ -46,6 +48,8 @@ def _parse_argv(argvs):
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--run-name"]:
             output["run_name"] = a
+        elif o in ["disable-wandb"]:
+            output["disable_wandb"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -134,17 +138,20 @@ if __name__ == "__main__":
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
 
-    wandb.init(project="thesis-mtl", entity="anwari32") 
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
-    wandb.config = {
-        "learning_rate": training_config["optimizer"]["learning_rate"],
-        "epochs": training_config["num_epochs"],
-        "batch_size": training_config["batch_size"]
-    }
-    wandb.define_metric("epoch")
-    wandb.define_metric("epoch_loss", step_metric="epoch")
+    if not args["disable_wandb"]:
+        wandb.init(project="thesis-mtl", entity="anwari32") 
+        if "run_name" in args.keys():
+            wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+            wandb.run.save()
+        wandb.config = {
+            "learning_rate": training_config["optimizer"]["learning_rate"],
+            "epochs": training_config["num_epochs"],
+            "batch_size": training_config["batch_size"]
+        }
+        wandb.define_metric("epoch")
+        wandb.define_metric("epoch_loss", step_metric="epoch")
+    else:
+        wandb = None
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
