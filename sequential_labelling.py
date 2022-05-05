@@ -328,7 +328,9 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     for epoch in range(num_epoch):
         model.train()
         epoch_loss = None
-        wandb.define_metric("epoch/epoch")
+        if wandb != None:
+            wandb.define_metric("epoch/epoch")
+
         # for i in range(num_training_genes):
 
         for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes):
@@ -393,7 +395,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
             avg_accuracy, avg_inaccuracy, avg_gene_loss = evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_function, wandb)
 
-            if wandb:
+            if wandb != None:
                 wandb.define_metric("epoch/average_accuracy", step_metric="epoch/epoch")
                 wandb.define_metric("epoch/average_inaccuracy", step_metric="epoch/epoch")
                 wandb.define_metric("epoch/average_gene_loss", step_metric="epoch/epoch")
