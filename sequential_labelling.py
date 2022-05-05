@@ -196,6 +196,8 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_f
         
     for gene in eval_genes:
         gene_name = os.path.basename(gene).split('.')[0]
+        gene_dir = os.path.dirname(gene)
+        gene_dir, gene_chr = os.path.split(os.path.dirname(gene_dir))
         dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1)
         accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss = __eval_gene__(model, dataloader, device, loss_fn, gene_name=gene_name, wandb=wandb, at_epoch=epoch, num_epoch=num_epoch)
         accuracy_score_sum += accuracy_score
@@ -204,18 +206,18 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_f
     
         # Log accuracy and incorrect score for each gene after an epoch.
         if wandb != None:
-            wandb.define_metric(f"{gene_name}/validation_accuracy", step_metric="epoch/epoch")
-            wandb.define_metric(f"{gene_name}/validation_error", step_metric="epoch/epoch")
-            wandb.define_metric(f"{gene_name}/validation_loss", step_metric="epoch/epoch")
+            wandb.define_metric(f"{gene_chr}-{gene_name}/validation_accuracy", step_metric="epoch/epoch")
+            wandb.define_metric(f"{gene_chr}-{gene_name}/validation_error", step_metric="epoch/epoch")
+            wandb.define_metric(f"{gene_chr}-{gene_name}/validation_loss", step_metric="epoch/epoch")
             log_entry = {
-                f"{gene_name}/validation_accuracy_at_epoch": accuracy_score,
-                f"{gene_name}/validation_error_at_epoch": incorrect_score,
-                f"{gene_name}/validation_loss_at_epoch": gene_loss.item(),
+                f"{gene_chr}-{gene_name}/validation_accuracy_at_epoch": accuracy_score,
+                f"{gene_chr}-{gene_name}/validation_error_at_epoch": incorrect_score,
+                f"{gene_chr}-{gene_name}/validation_loss_at_epoch": gene_loss.item(),
                 f"epoch/epoch": epoch
             }
             wandb.log(log_entry)
 
-        eval_logfile.write(f"{epoch},{os.path.basename(gene).split('.')[0]},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
+        eval_logfile.write(f"{epoch},{gene_chr}-{gene_name},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
 
         # After each gene is passed, hidden state and cell state are reset.
         if model.seqlab_head.lstm:
@@ -328,6 +330,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         epoch_loss = None
         wandb.define_metric("epoch/epoch")
         # for i in range(num_training_genes):
+
         for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes):
             
             gene = train_genes[i]
@@ -339,7 +342,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             # gene_loss = None # This is loss computed from single gene.
             gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch, mode="train")
             
-            gene_loss = gene_loss / grad_accumulation_steps
+            gene_loss = gene_loss
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
 
             # Get current learning rate and log it.
@@ -350,14 +353,15 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
             # Record log in the cloud.
             # Record gene loss in this epoch.
-            if wandb != None:
-                wandb.define_metric(f"{gene_chr}-{gene_name}/epoch_loss", step_metric="epoch/epoch")
-                log_entry = {
-                    f"{gene_chr}-{gene_name}/epoch_loss": gene_loss.item(),
-                    "epoch/epoch": epoch,
-                    "learning_rate": lr,
-                }
-                wandb.log(log_entry)
+            # This will make a lot of charts.
+            #if wandb != None:
+            #    wandb.define_metric(f"{gene_chr}-{gene_name}/epoch_loss", step_metric="epoch/epoch")
+            #    log_entry = {
+            #        f"{gene_chr}-{gene_name}/epoch_loss": gene_loss.item(),
+            #        "epoch/epoch": epoch,
+            #        "learning_rate": lr,
+            #    }
+            #    wandb.log(log_entry)
 
             # If model uses LSTM, reset hidden state and cell state if a gene has been processed.
             _model = model
@@ -379,7 +383,9 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         # Epoch loss is accumulation of all gene losses.
         if wandb != None:
             wandb.define_metric("epoch/training_loss", step_metric="epoch/epoch")
+            wandb.define_metric("epoch/average_training_loss", step_metric="epoch/epoch")
             wandb.log({"epoch/training_loss": epoch_loss.item(), "epoch/epoch": epoch})
+            wandb.log({"epoch/average_training_loss": epoch_loss.item() / num_training_genes, "epoch/epoch": epoch})
             
 
         # Eval model if eval_genes is available.
