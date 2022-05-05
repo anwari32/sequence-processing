@@ -81,6 +81,16 @@ if __name__ == "__main__":
         if cuda_device_count > 1 and args["device"] == "cuda":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
+    
+    # Run name is made required. If there is None then Error shall be there.
+    if not "run_name" in args.keys():
+        print("Run name is required.")
+        print("`--run-name=<runname>`")
+        sys.exit(2)
+    
+    # Run name may be the same. So append current datetime to differentiate.
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    args["run_name"] = f"{args['run_name']}-{cur_date}"
 
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
@@ -88,7 +98,8 @@ if __name__ == "__main__":
         print(f"Key `result` not found in config.")
         sys.exit(2)
     
-    result_path = str(Path(PureWindowsPath(training_config["result"])))
+    result_path = os.path.join("run", args["run_name"])
+    # result_path = str(Path(PureWindowsPath(training_config["result"])))
     if not os.path.exists(result_path):
         os.makedirs(result_path, exist_ok=True)
 
@@ -140,6 +151,7 @@ if __name__ == "__main__":
     
     if "disable_wandb" not in args.keys():
         args["disable_wandb"] = False
+    
     if not args["disable_wandb"]:
         wandb.init(project="thesis-mtl", entity="anwari32") 
         if "run_name" in args.keys():
@@ -154,13 +166,14 @@ if __name__ == "__main__":
         wandb.define_metric("epoch_loss", step_metric="epoch")
     else:
         wandb = None
-    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    
+    # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
+    # log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
+    log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
 
-    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
-    log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
-
-    save_model_path = str(Path(PureWindowsPath(training_config["result"])))
-    save_model_path = os.path.join(save_model_path, "by_genes", cur_date)
+    # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
+    # save_model_path = os.path.join(save_model_path, "by_genes", cur_date)
+    save_model_path = os.path.join("run", args["run_name"])
 
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -196,6 +209,7 @@ if __name__ == "__main__":
         "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
         "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
         "running_time": str(running_time),
+        "runname": args["run_name"]
     }
 
     # Final config is saved in JSON format in the same folder as log file.

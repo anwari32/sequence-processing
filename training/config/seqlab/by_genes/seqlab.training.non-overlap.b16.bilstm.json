@@ -6,8 +6,6 @@
     "freeze_bert": 0,
     "num_epochs": 10,
     "batch_size": 16,
-    "log": "logs\\seqlab\\by_genes\\training.b16\\non-overlap\\bilstm\\",
-    "result": "result\\seqlab\\by_genes\\training.b16\\non-overlap\\bilstm\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,
