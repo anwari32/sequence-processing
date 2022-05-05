@@ -94,9 +94,9 @@ if __name__ == "__main__":
 
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
-    if training_config["result"] == "":
-        print(f"Key `result` not found in config.")
-        sys.exit(2)
+    # if training_config["result"] == "":
+    #    print(f"Key `result` not found in config.")
+    #    sys.exit(2)
     
     result_path = os.path.join("run", args["run_name"])
     # result_path = str(Path(PureWindowsPath(training_config["result"])))
