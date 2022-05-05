@@ -48,7 +48,7 @@ def _parse_argv(argvs):
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--run-name"]:
             output["run_name"] = a
-        elif o in ["disable-wandb"]:
+        elif o in ["--disable-wandb"]:
             output["disable_wandb"] = True
         else:
             print(f"Argument {o} not recognized.")
