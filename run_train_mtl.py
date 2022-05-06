@@ -27,7 +27,8 @@ def parse_args(argv):
         "cuda-garbage-collection-mode=", 
         "run-name=",
         "device-list=",
-        "fp16"
+        "fp16",
+        "disable-wandb",
         ])
     output = {}
     for o, a in opts:
@@ -53,6 +54,8 @@ def parse_args(argv):
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--fp16"]:
             output["fp16"] = True
+        elif o in ["--disable-wandb"]:
+            output["disable_wandb"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -75,6 +78,16 @@ if __name__ == "__main__":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
     
+    # Run name is made required. If there is None then Error shall be there.
+    if not "run_name" in args.keys():
+        print("Please specify runname.")
+        print("`--run-name=<runname>`")
+        sys.exit(2)
+    
+    # Run name may be the same. So append current datetime to differentiate.
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    args["run_name"] = f"{args['run_name']}-{cur_date}"
+
     print(f"Preparing Model & Optimizer")
     model = init_mtl_model(args["model_config"])
     model.to(args["device"])
@@ -113,26 +126,29 @@ if __name__ == "__main__":
     
     training_steps = len(dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    
-    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
-    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
 
-    save_model_path = str(Path(PureWindowsPath(training_config["result"])))
-    save_model_path = os.path.join(save_model_path, cur_date)
+    # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
+    # log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
+    log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
+
+    # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
+    # save_model_path = os.path.join(save_model_path, cur_date)
+    save_model_path = os.path.join("run", args["run_name"])
+
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
-    wandb.init(project="thesis-mtl", entity="anwari32") 
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
-    wandb.config = {
-        "learning_rate": training_config["optimizer"]["learning_rate"],
-        "epochs": training_config["num_epochs"],
-        "batch_size": training_config["batch_size"]
-    }
-    wandb.watch(model)
+    if not args["disable_wandb"]:    
+        wandb.init(project="thesis-mtl", entity="anwari32") 
+        if "run_name" in args.keys():
+            wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+            wandb.run.save()
+        wandb.config = {
+            "learning_rate": training_config["optimizer"]["learning_rate"],
+            "epochs": training_config["num_epochs"],
+            "batch_size": training_config["batch_size"]
+        }
+        wandb.watch(model)
 
     start_time = datetime.now()
     trained_model, trained_optimizer = train(
@@ -163,10 +179,12 @@ if __name__ == "__main__":
         "model_config": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
         "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
         "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
-        "running_time": str(running_time)
+        "running_time": str(running_time),
+        "runname": args["run_name"]
     }
 
-    save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+    # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+    save_json_config(total_config, os.path.join("run", args["run_name"], "config.json"))
 
     # Save final trained model.
     save_checkpoint(trained_model, trained_optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))

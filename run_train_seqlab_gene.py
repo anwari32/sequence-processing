@@ -214,7 +214,8 @@ if __name__ == "__main__":
 
     # Final config is saved in JSON format in the same folder as log file.
     # Final config is saved in `config.json` file.
-    save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+    # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+    save_json_config(total_config, os.path.join("run", args["run_name"], "config.json"))
 
     # Save final model and optimizer.
     save_checkpoint(model, optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))

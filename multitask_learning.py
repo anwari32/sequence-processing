@@ -198,7 +198,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     try:
         # Last best accuracy.
         best_accuracy = 0 
-        if wandb:
+        if wandb != None:
             wandb.define_metric("train/epoch")
             wandb.define_metric("train/*", step_metric="train/epoch")
             wandb.define_metric("validation/epoch")
@@ -246,7 +246,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 epoch_loss += loss
 
                 # Wandb.
-                if wandb:
+                if wandb != None:
                     wandb.log({"loss": loss.item()})
                     wandb.log({"prom_loss": loss_prom.item()})
                     wandb.log({"ss_loss": loss_ss.item()})
@@ -258,6 +258,10 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 scaler.scale(loss).backward()
 
                 if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
+                    
+                    # Clip gradient.
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
                     # Update learning rate and scheduler.
                     # optimizer.step()
                     scaler.step(optimizer)
