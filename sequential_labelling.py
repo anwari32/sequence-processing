@@ -373,7 +373,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 _model.seqlab_head.lstm.reset_hidden()
 
             # Gradient clipping. Max grad is set to 1.0.
-            torch.nn.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.
