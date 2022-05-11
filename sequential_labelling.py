@@ -101,9 +101,9 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, optimizer, scheduler, dat
                 contig_loss.backward()                
             
             if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
-                scaler.step(optimizer)
-                scaler.update()
-                scheduler.step()
+                # scaler.step(optimizer)
+                # scaler.update()
+                # scheduler.step()
                 optimizer.zero_grad()
 
 
@@ -389,9 +389,9 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.
             # EDIT 11 May 2022: Moved gradient accumulation and clearance at forward function.
-            # scaler.step(optimizer)
-            # scaler.update()
-            # scheduler.step()
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
             # optimizer.zero_grad()
 
         #endfor
