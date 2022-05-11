@@ -35,7 +35,7 @@ def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_ty
         batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
-def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, device: str, loss_function=None, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch=0, num_epoch=0):
+def __forward_gene_non_overlap__(model: DNABERTSeqLab, optimizer, scheduler, dataloader: DataLoader, device: str, loss_function=None, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0, grad_accumulation_steps: int=1):
     """
     This function utilizes non-overlapping sequence.
     """
@@ -76,6 +76,7 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, d
                     contig_loss += loss_function(pred, label)
             #endfor
         
+        # EDIT 22 May 2022: wandb logging is done outside this function.
         #if wandb != None:
         #    if mode == "train":
         #        log_entry = {
@@ -91,10 +92,20 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, dataloader: DataLoader, d
         #        wandb.log(log_entry)
 
         if mode == "train":
+            if grad_accumulation_steps > 0:
+                contig_loss = contig_loss / grad_accumulation_steps
+
             if scaler:
                 scaler.scale(contig_loss).backward()
             else:
-                contig_loss.backward()
+                contig_loss.backward()                
+            
+            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
+                scaler.step(optimizer)
+                scaler.update()
+                scheduler.step()
+                optimizer.zero_grad()
+
 
     # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
     contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
@@ -342,7 +353,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
 
             # gene_loss = None # This is loss computed from single gene.
-            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch, mode="train")
+            gene_loss, predicted_label, target_label, scaler = __forward_gene_non_overlap__(model, optimizer, scheduler, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch, mode="train", grad_accumulation_steps=grad_accumulation_steps)
             
             gene_loss = gene_loss
             epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
@@ -377,10 +388,11 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.
-            scaler.step(optimizer)
-            scaler.update()
-            scheduler.step()
-            optimizer.zero_grad()
+            # EDIT 11 May 2022: Moved gradient accumulation and clearance at forward function.
+            # scaler.step(optimizer)
+            # scaler.update()
+            # scheduler.step()
+            # optimizer.zero_grad()
 
         #endfor
 
