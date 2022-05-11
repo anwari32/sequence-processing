@@ -179,24 +179,30 @@ if __name__ == "__main__":
         os.makedirs(os.path.dirname(p), exist_ok=True)
     
     start_time = datetime.now()
-
-    model, optimizer = train_by_genes(
-        model=model, 
-        tokenizer=get_default_tokenizer(),
-        optimizer=optimizer, 
-        scheduler=scheduler, 
-        train_genes=train_genes, 
-        loss_function=loss_function, 
-        num_epoch=training_config["num_epochs"], 
-        batch_size=training_config["batch_size"], 
-        grad_accumulation_steps=training_config["grad_accumulation_steps"],
-        device=args["device"],
-        wandb=wandb,
-        save_path=save_model_path,
-        log_file_path=log_file_path,
-        training_counter=training_counter,
-        eval_genes=eval_genes,
-        device_list=args["device_list"] if "device_list" in args.keys() else [])
+    end_time = start_time
+    try:
+        model, optimizer = train_by_genes(
+            model=model, 
+            tokenizer=get_default_tokenizer(),
+            optimizer=optimizer, 
+            scheduler=scheduler, 
+            train_genes=train_genes, 
+            loss_function=loss_function, 
+            num_epoch=training_config["num_epochs"], 
+            batch_size=training_config["batch_size"], 
+            grad_accumulation_steps=training_config["grad_accumulation_steps"],
+            device=args["device"],
+            wandb=wandb,
+            save_path=save_model_path,
+            log_file_path=log_file_path,
+            training_counter=training_counter,
+            eval_genes=eval_genes,
+            device_list=args["device_list"] if "device_list" in args.keys() else [])
+    except Exception as ex:
+        print(ex)
+        end_time = datetime.now()
+        running_time = end_time - start_time
+        print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")    
 
     end_time = datetime.now()
     running_time = end_time - start_time
