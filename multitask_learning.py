@@ -235,7 +235,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
                     # Log loss values and learning rate.
                     lr = optimizer.param_groups[0]['lr']
-                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom, loss_ss, loss_polya, lr))
+                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom.item(), loss_ss.item(), loss_polya.item(), lr))
 
 
                 # Update parameters and learning rate for every batch.

@@ -74,7 +74,7 @@ class DNABERTSeqLab(nn.Module):
         @param  seq2seq_dims:
         @param  loss_strategy (string) | None -> "sum"
         @param  device (string): Default is 'cpu' but you can put 'cuda' if your machine supports cuda.
-        @return (DNASeqLabelling): Object of this class.
+        @return object of this class.
         """
         super().__init__()
         

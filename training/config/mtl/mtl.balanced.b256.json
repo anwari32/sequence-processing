@@ -4,8 +4,6 @@
     "validation_data": "workspace\\mtl\\validation.balanced.csv",
     "num_epochs": 10,
     "batch_size": 256,
-    "log": "logs\\mtl\\train.balanced-b256\\",
-    "result": "result\\mtl\\train.balanced-b256\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,
@@ -14,7 +12,7 @@
         "beta2": 0.9,
         "weight_decay": 0.01
     },
-    "warmup": 10000,
+    "warmup": 0,
     "loss_strategy": "sum",
     "grad_accumulation_steps": 1,
     "prom_loss_fn": "crossentropy",

@@ -5,7 +5,7 @@ from torch.cuda import device_count as cuda_device_count
 from torch.nn import BCELoss, CrossEntropyLoss
 from multitask_learning import train, preprocessing
 from utils.optimizer import init_optimizer
-from transformers import get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup
 import os
 from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
@@ -125,7 +125,8 @@ if __name__ == "__main__":
     batch_size = training_config["batch_size"]
     
     training_steps = len(dataloader) * epoch_size
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
 
     # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     # log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
@@ -138,6 +139,8 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
+    if "disable_wandb" not in args.keys():
+        args["disable_wandb"] = False
     if not args["disable_wandb"]:    
         wandb.init(project="thesis-mtl", entity="anwari32") 
         if "run_name" in args.keys():

@@ -110,7 +110,7 @@ class MTModel(nn.Module):
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
         x = x[0] # Last hidden state.
-        if self.lstm_layer:
+        if self.lstm_layer != None:
             x, (h_n, c_n) = self.lstm_layer(x)
         # print(x.shape)
         x1 = self.promoter_layer(x)
