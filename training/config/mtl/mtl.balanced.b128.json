@@ -12,7 +12,7 @@
         "beta2": 0.9,
         "weight_decay": 0.01
     },
-    "warmup": 0,
+    "warmup": 1000,
     "loss_strategy": "sum",
     "grad_accumulation_steps": 1,
     "prom_loss_fn": "crossentropy",
