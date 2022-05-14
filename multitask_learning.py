@@ -301,7 +301,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
                 prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, wandb=wandb)
                 avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
-                if wandb:
+                if wandb != None:
                     wandb.log({"validation/prom_accuracy": prom_accuracy, "train/epoch": i} )
                     wandb.log({"validation/ss_accuracy": ss_accuracy, "train/epoch": i})
                     wandb.log({"validation/polya_accuracy": polya_accuracy, "train/epoch": i})

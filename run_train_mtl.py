@@ -139,6 +139,7 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
+    wandb = None
     if "disable_wandb" not in args.keys():
         args["disable_wandb"] = False
     if not args["disable_wandb"]:    

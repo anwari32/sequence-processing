@@ -430,6 +430,10 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                     "batch_size": batch_size,
                 }, os.path.join(save_path, f"checkpoint-{epoch + training_counter}.pth"))
 
+                # Had to save BERT layer separately because unknown error miskey match.
+                current_bert_layer = model.bert
+                current_bert_layer.save_pretrained(save_path)
+
                 old_model_path = os.path.join(save_path, f"checkpoint-{epoch + training_counter - 1}.pth")
                 if os.path.exists(old_model_path):
                     os.remove(old_model_path)
