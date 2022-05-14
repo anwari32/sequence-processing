@@ -292,7 +292,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 }
                 wandb.log(log_entry)
 
-
                 wandb.define_metric("epoch/loss", step_metric="train/epoch")
                 wandb.log({"epoch/loss": epoch_loss.item() / len_dataloader, "train/epoch": i})
                 wandb.watch(model)
@@ -329,7 +328,10 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
 
                 # Had to save BERT layer separately because unknown error miskey match.
-                current_bert_layer = model.shared_layer
+                _model = model
+                if isinstance(model, DataParallel):
+                    _model = model.module
+                current_bert_layer = _model.shared_layer
                 current_bert_layer.save_pretrained(save_model_path)
 
                 # Remove previous model.
