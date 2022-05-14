@@ -139,20 +139,24 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
 
-    wandb = None
     if "disable_wandb" not in args.keys():
         args["disable_wandb"] = False
-    if not args["disable_wandb"]:    
-        wandb.init(project="thesis-mtl", entity="anwari32") 
-        if "run_name" in args.keys():
-            wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-            wandb.run.save()
-        wandb.config = {
-            "learning_rate": training_config["optimizer"]["learning_rate"],
-            "epochs": training_config["num_epochs"],
-            "batch_size": training_config["batch_size"]
-        }
-        wandb.watch(model)
+
+    if args["disable_wandb"]:
+        os.environ["WANDB_MODE"] = "offline"
+    else:
+        os.environ["WANDB_MODE"] = "online"
+
+    wandb.init(project="thesis-mtl", entity="anwari32") 
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
+    wandb.config = {
+        "learning_rate": training_config["optimizer"]["learning_rate"],
+        "epochs": training_config["num_epochs"],
+        "batch_size": training_config["batch_size"]
+    }
+    wandb.watch(model)
 
     # Save current model config in run folder.
     model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))

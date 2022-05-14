@@ -168,21 +168,23 @@ if __name__ == "__main__":
     if "disable_wandb" not in args.keys():
         args["disable_wandb"] = False
     
-    if not args["disable_wandb"]:
-        wandb.init(project="thesis-mtl", entity="anwari32") 
-        if "run_name" in args.keys():
-            wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-            wandb.run.save()
-        wandb.config = {
-            "learning_rate": training_config["optimizer"]["learning_rate"],
-            "epochs": training_config["num_epochs"],
-            "batch_size": training_config["batch_size"]
-        }
-        wandb.define_metric("epoch")
-        wandb.define_metric("epoch_loss", step_metric="epoch")
+    if args["disable_wandb"]:
+        os.environ["WANDB_MODE"] = "offline"
     else:
-        wandb = None
-    
+        os.environ["WANDB_MODE"] = "online"
+
+    wandb.init(project="thesis-mtl", entity="anwari32") 
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
+    wandb.config = {
+        "learning_rate": training_config["optimizer"]["learning_rate"],
+        "epochs": training_config["num_epochs"],
+        "batch_size": training_config["batch_size"]
+    }
+    wandb.define_metric("epoch")
+    wandb.define_metric("epoch_loss", step_metric="epoch")
+        
     # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     # log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
     log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
