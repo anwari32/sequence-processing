@@ -279,18 +279,20 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             avg_ss_loss = avg_ss_loss / len_dataloader
             avg_polya_loss = avg_polya_loss / len_dataloader
             avg_epoch_loss = epoch_loss / len_dataloader
-            log_entry = {
-                "train/prom_loss": avg_prom_loss.item(),
-                "train/ss_loss": avg_ss_loss.item(),
-                "train/polya_loss": avg_polya_loss.item(),
-                "train/loss": avg_epoch_loss.item(),
-                "train/epoch": i
-            }
-            wandb.log(log_entry)
 
             epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
             if wandb != None:
+                log_entry = {
+                    "train/prom_loss": avg_prom_loss.item(),
+                    "train/ss_loss": avg_ss_loss.item(),
+                    "train/polya_loss": avg_polya_loss.item(),
+                    "train/loss": avg_epoch_loss.item(),
+                    "train/epoch": i
+                }
+                wandb.log(log_entry)
+
+
                 wandb.define_metric("epoch/loss", step_metric="train/epoch")
                 wandb.log({"epoch/loss": epoch_loss.item() / len_dataloader, "train/epoch": i})
                 wandb.watch(model)
