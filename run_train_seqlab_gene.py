@@ -4,14 +4,14 @@ from getopt import getopt
 import json
 import sys
 import os
-from transformers import BertTokenizer, get_linear_schedule_with_warmup
-from sequential_labelling import preprocessing_kmer, train_by_genes
+from transformers import BertForMaskedLM, get_linear_schedule_with_warmup
+from sequential_labelling import train_by_genes
 from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
 import torch
 from torch.cuda import device_count as cuda_device_count
 from utils.tokenizer import get_default_tokenizer
-from utils.utils import load_checkpoint, save_checkpoint, save_json_config
+from utils.utils import load_checkpoint, load_mtl_model, save_checkpoint, save_json_config
 import wandb
 import pandas as pd
 from pathlib import Path, PureWindowsPath
@@ -103,7 +103,27 @@ if __name__ == "__main__":
     if not os.path.exists(result_path):
         os.makedirs(result_path, exist_ok=True)
 
+    print("Initializing DNABERT-SL")
     model = init_seqlab_model(args["model_config"])
+    if not "mtl" in training_config.keys():
+        print(">> Initializing default DNABERT-SL.")
+    else:
+        if not training_config["mtl"] == "":
+            print(f">> Initializing DNABERT-SL with MTL {training_config['mtl']}")
+            # Load BERT layer from MTL-trained folder.
+            formatted_path = str(Path(PureWindowsPath(training_config["mtl"])))
+            saved_model = BertForMaskedLM.from_pretrained(formatted_path)
+            model.bert = saved_model.bert
+        else:
+            print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-SEL.")
+
+    if "freeze_bert" in training_config.keys():
+        if training_config["freeze_bert"] > 0:
+            print(">> Freeze BERT layer.", end="\r")
+            for param in model.bert.parameters():
+                param.requires_grad = False
+            print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
+
     model.to(args["device"])
     optimizer = init_optimizer(
         training_config["optimizer"]["name"], 
@@ -121,10 +141,6 @@ if __name__ == "__main__":
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         training_counter = int(checkpoint["epoch"]) + 1
-
-    if int(training_config["freeze_bert"]) > 0:
-        for param in model.bert.parameters():
-            param.requires_grad(False)
 
     loss_function = torch.nn.CrossEntropyLoss()
 
@@ -178,6 +194,10 @@ if __name__ == "__main__":
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
     
+    # Save current model config in run folder.
+    model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
+    json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
+
     start_time = datetime.now()
     end_time = start_time
     try:

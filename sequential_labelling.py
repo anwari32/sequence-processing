@@ -175,7 +175,7 @@ def __eval_gene__(model, dataloader, device, loss_fn, gene_name: str = None, wan
     predicted_label_token, target_label_token = [], []
 
     with torch.no_grad():
-        gene_loss, predicted_label_tensor, target_label_tensor, scaler = __forward_gene_non_overlap__(model, dataloader, device, loss_fn, gene_name=gene_name, mode="validation", wandb=wandb, epoch=at_epoch, num_epoch=num_epoch)
+        gene_loss, predicted_label_tensor, target_label_tensor, scaler = __forward_gene_non_overlap__(model, None, None, dataloader, device, loss_fn, gene_name=gene_name, mode="validation", wandb=wandb, epoch=at_epoch, num_epoch=num_epoch)
         values, indices = torch.max(predicted_label_tensor, 1)
         for p, q in zip(indices, target_label_tensor):
             if p.item() == q.item():
@@ -205,7 +205,7 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_f
     # Sum accuracy, incorrect scores.
     accuracy_score_sum, incorrect_score_sum, gene_loss_sum = 0, 0, 0
         
-    for gene in eval_genes:
+    for gene in tqdm(eval_genes, desc=f"Validating Epoch {epoch + 1}/{num_epoch}", total=len(eval_genes)):
         gene_name = os.path.basename(gene).split('.')[0]
         gene_dir = os.path.dirname(gene)
         gene_dir, gene_chr = os.path.split(os.path.dirname(gene_dir))

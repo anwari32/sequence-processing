@@ -153,6 +153,10 @@ if __name__ == "__main__":
         }
         wandb.watch(model)
 
+    # Save current model config in run folder.
+    model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
+    json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
+
     start_time = datetime.now()
     trained_model, trained_optimizer = train(
         dataloader, 
@@ -187,7 +191,7 @@ if __name__ == "__main__":
     }
 
     # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
-    save_json_config(total_config, os.path.join("run", args["run_name"], "config.json"))
+    save_json_config(total_config, os.path.join("run", args["run_name"], "final_config.json"))
 
     # Save final trained model.
     save_checkpoint(trained_model, trained_optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))

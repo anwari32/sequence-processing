@@ -290,7 +290,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
 
             epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
-            if wandb:
+            if wandb != None:
                 wandb.define_metric("epoch/loss", step_metric="train/epoch")
                 wandb.log({"epoch/loss": epoch_loss.item() / len_dataloader, "train/epoch": i})
                 wandb.watch(model)
@@ -325,6 +325,10 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     "ss_accuracy": ss_accuracy,
                     "polya_accuracy": polya_accuracy
                 }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
+
+                # Had to save BERT layer separately because unknown error miskey match.
+                current_bert_layer = model.shared_layer
+                current_bert_layer.save_pretrained(save_model_path)
 
                 # Remove previous model.
                 old_model_path = os.path.join(save_model_path, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))

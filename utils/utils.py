@@ -6,6 +6,11 @@ import traceback
 import pandas as pd
 import random
 
+from transformers import BertForMaskedLM
+from models.mtl import MTModel
+
+from pathlib import Path, PureWindowsPath
+
 def break_sequence(sequence, chunk_size=16):
     len_seq = len(sequence)
     chunks = [sequence[i:i+chunk_size] for i in range(0, len_seq, chunk_size)]
@@ -98,6 +103,26 @@ def load_checkpoint(path):
     #config = saved_object["config"]
     #return model, optimizer, config
     return checkpoint
+
+def load_mtl_model(path):
+    """
+    Load DNABERT-MTL model from certain checkpoint.
+    @param  path (str): path to checkpoint file.
+    @return DNABERT-MTL model.
+    """
+    checkpoint = load_checkpoint(path)
+    saved_model_state_dict = checkpoint["model"]
+    formatted_path = str(Path(PureWindowsPath(path)))
+    dirpath = os.path.dirname(formatted_path)
+    model_config = json.load(open(
+        os.path.join(dirpath, "model_config.json")
+    ))
+    bert = BertForMaskedLM.from_pretrained(model_config["pretrained"])
+    mtl_model = MTModel(bert, model_config)
+    mtl_model.load_state_dict(saved_model_state_dict)
+
+    return mtl_model
+
 
 def load_model_state_dict(model, load_path):
     """

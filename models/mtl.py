@@ -1,16 +1,7 @@
 from torch import cuda
-from torch.nn import CrossEntropyLoss, BCELoss
 from torch import nn
 from torch.optim import AdamW
-from torch import tensor
-from torch.utils.data import TensorDataset, DataLoader
-from transformers import BertForMaskedLM, BertTokenizer, BertPreTrainedModel
-from tqdm import tqdm
-import numpy as np
-from datetime import datetime
-import pandas as pd
 from models.lstm import LSTM_Block
-from utils.utils import save_model_state_dict
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
