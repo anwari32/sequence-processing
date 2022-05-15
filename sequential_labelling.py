@@ -208,25 +208,27 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_f
     for gene in tqdm(eval_genes, desc=f"Validating Epoch {epoch + 1}/{num_epoch}", total=len(eval_genes)):
         gene_name = os.path.basename(gene).split('.')[0]
         gene_dir = os.path.dirname(gene)
-        gene_dir, gene_chr = os.path.split(os.path.dirname(gene_dir))
+        gene_dir, gene_chr = os.path.split(gene_dir)
         dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1)
         accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss = __eval_gene__(model, dataloader, device, loss_fn, gene_name=gene_name, wandb=wandb, at_epoch=epoch, num_epoch=num_epoch)
         accuracy_score_sum += accuracy_score
         incorrect_score_sum += incorrect_score
         gene_loss_sum += gene_loss.item()
-    
+
+        # EDIT 15 May 2022: Remove details for each gene since everything can be seen from eval log.
         # Log accuracy and incorrect score for each gene after an epoch.
-        if wandb != None:
-            wandb.define_metric(f"{gene_chr}-{gene_name}/validation_accuracy", step_metric="epoch/epoch")
-            wandb.define_metric(f"{gene_chr}-{gene_name}/validation_error", step_metric="epoch/epoch")
-            wandb.define_metric(f"{gene_chr}-{gene_name}/validation_loss", step_metric="epoch/epoch")
-            log_entry = {
-                f"{gene_chr}-{gene_name}/validation_accuracy_at_epoch": accuracy_score,
-                f"{gene_chr}-{gene_name}/validation_error_at_epoch": incorrect_score,
-                f"{gene_chr}-{gene_name}/validation_loss_at_epoch": gene_loss.item(),
-                f"epoch/epoch": epoch
-            }
-            wandb.log(log_entry)
+        #if wandb != None:
+        #    wandb.define_metric("validation/epoch")
+        #    wandb.define_metric(f"validation/{gene_chr}-{gene_name}/accuracy", step_metric="validation/epoch")
+        #    wandb.define_metric(f"validation/{gene_chr}-{gene_name}/error", step_metric="validation/epoch")
+        #    wandb.define_metric(f"validation/{gene_chr}-{gene_name}/loss", step_metric="validation/epoch")
+        #    log_entry = {
+        #        f"validation/{gene_chr}-{gene_name}/accuracy": accuracy_score,
+        #        f"validation/{gene_chr}-{gene_name}/error": incorrect_score,
+        #        f"validation/{gene_chr}-{gene_name}/loss": gene_loss.item(),
+        #        f"validation/epoch": epoch
+        #    }
+        #    wandb.log(log_entry)
 
         eval_logfile.write(f"{epoch},{gene_chr}-{gene_name},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
 
@@ -237,9 +239,9 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_f
     #endfor
     eval_logfile.close()
     n_eval_genes = len(eval_genes)
-    avg_accuracy_score = accuracy_score_sum / n_eval_genes
-    avg_incorrect_score = incorrect_score_sum / n_eval_genes
-    avg_gene_loss_score = gene_loss_sum / n_eval_genes
+    avg_accuracy_score = accuracy_score_sum / n_eval_genes # Average accuracy over all genes.
+    avg_incorrect_score = incorrect_score_sum / n_eval_genes # Average inaccuracy over all genes.
+    avg_gene_loss_score = gene_loss_sum / n_eval_genes # Average loss over all genes.
 
     return avg_accuracy_score, avg_incorrect_score, avg_gene_loss_score
 
@@ -336,6 +338,25 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     num_training_genes = len(train_genes)
     best_accuracy = 0
 
+    TRAINING_EPOCH = "train/epoch"
+    TRAINING_LOSS = "train/loss" # Accumulated gene losses.
+    TRAINING_AVG_LOSS = "train/avg_loss" # Accumulated gene losses over all genes.
+
+    VALIDATION_EPOCH = "validation/epoch"
+    VALIDATION_AVG_ACC = "validation/average_accuracy"
+    VALIDATION_AVG_INACC = "validation/average_inaccuracy"
+    VALIDATION_AVG_LOSS = "validation/average_loss"
+
+    if wandb != None:
+        wandb.define_metric(TRAINING_EPOCH)
+        wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
+        wandb.define_metric(TRAINING_AVG_LOSS, step_metric=TRAINING_EPOCH)
+
+        wandb.define_metric(VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_AVG_ACC, step_metric=VALIDATION_EPOCH) # Avaerage accuracy.
+        wandb.define_metric(VALIDATION_AVG_INACC, step_metric=VALIDATION_EPOCH) # Average inaccuracy.
+        wandb.define_metric(VALIDATION_AVG_LOSS, step_metric=VALIDATION_EPOCH) # Average gene loss.
+
     for epoch in range(num_epoch):
         model.train()
         epoch_loss = None
@@ -399,11 +420,11 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         # Record epoch loss.
         # Epoch loss is accumulation of all gene losses.
         if wandb != None:
-            wandb.define_metric("epoch/training_loss", step_metric="epoch/epoch")
-            wandb.define_metric("epoch/average_training_loss", step_metric="epoch/epoch")
-            wandb.log({"epoch/training_loss": epoch_loss.item(), "epoch/epoch": epoch})
-            wandb.log({"epoch/average_training_loss": epoch_loss.item() / num_training_genes, "epoch/epoch": epoch})
-            
+            wandb.log({
+                TRAINING_LOSS: epoch_loss.item(), 
+                TRAINING_AVG_LOSS: epoch_loss.item() / num_training_genes,
+                TRAINING_EPOCH: epoch
+            })            
 
         # Eval model if eval_genes is available.
         if eval_genes:
@@ -411,14 +432,11 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             avg_accuracy, avg_inaccuracy, avg_gene_loss = evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_function, wandb)
 
             if wandb != None:
-                wandb.define_metric("epoch/average_accuracy", step_metric="epoch/epoch")
-                wandb.define_metric("epoch/average_inaccuracy", step_metric="epoch/epoch")
-                wandb.define_metric("epoch/average_gene_loss", step_metric="epoch/epoch")
                 validation_log = {
-                    "epoch/average_accuracy": avg_accuracy,
-                    "epoch/average_inaccuracy": avg_inaccuracy,
-                    "epoch/average_gene_loss": avg_gene_loss,
-                    "epoch/epoch": epoch
+                    VALIDATION_AVG_ACC: avg_accuracy,
+                    VALIDATION_AVG_INACC: avg_inaccuracy,
+                    VALIDATION_AVG_LOSS: avg_gene_loss,
+                    VALIDATION_EPOCH: epoch
                 }
                 wandb.log(validation_log)
 

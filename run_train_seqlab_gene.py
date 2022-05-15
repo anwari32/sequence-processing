@@ -182,8 +182,6 @@ if __name__ == "__main__":
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
-    wandb.define_metric("epoch")
-    wandb.define_metric("epoch_loss", step_metric="epoch")
         
     # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     # log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
