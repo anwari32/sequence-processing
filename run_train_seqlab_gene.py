@@ -4,7 +4,7 @@ from getopt import getopt
 import json
 import sys
 import os
-from transformers import BertForMaskedLM, get_linear_schedule_with_warmup
+from transformers import BertForMaskedLM, get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup
 from sequential_labelling import train_by_genes
 from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
@@ -160,7 +160,8 @@ if __name__ == "__main__":
 
     print(f"# Genes: {len(train_genes)}")
     training_steps = len(train_genes) * training_config["num_epochs"]
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
 
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")

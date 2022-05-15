@@ -5,7 +5,7 @@
     "gene_dir": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\",
     "freeze_bert": 0,
     "num_epochs": 10,
-    "batch_size": 32,
+    "batch_size": 256,
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

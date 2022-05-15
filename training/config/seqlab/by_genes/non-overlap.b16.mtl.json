@@ -4,7 +4,7 @@
     "gene_validation_index": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\gene_validation_index.csv",
     "gene_dir": "workspace\\seqlab\\by_genes\\gene_dir\\seqlab.strand-positive.kmer.stride-510\\",
     "freeze_bert": 0,
-    "mtl": "",
+    "mtl": "run\\mtl-b128-base-20220515-154530",
     "num_epochs": 10,
     "batch_size": 16,
     "optimizer": {
@@ -15,7 +15,7 @@
         "beta2": 0.9,
         "weight_decay": 0.01
     },
-    "warmup": 10000,
+    "warmup": 0,
     "loss_strategy": "sum",
     "grad_accumulation_steps": 1
 }

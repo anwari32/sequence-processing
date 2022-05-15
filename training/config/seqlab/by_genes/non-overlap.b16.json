@@ -14,7 +14,7 @@
         "beta2": 0.9,
         "weight_decay": 0.01
     },
-    "warmup": 10000,
+    "warmup": 0,
     "loss_strategy": "sum",
     "grad_accumulation_steps": 1
 }
