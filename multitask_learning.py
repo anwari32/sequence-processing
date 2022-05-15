@@ -200,9 +200,17 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
         best_accuracy = 0 
         if wandb != None:
             wandb.define_metric("train/epoch")
-            wandb.define_metric("train/*", step_metric="train/epoch")
+            wandb.define_metric("train/prom_loss", step_metric="train/epoch")
+            wandb.define_metric("train/ss_loss", step_metric="train/epoch")
+            wandb.define_metric("train/polya_loss", step_metric="train/epoch")
+            wandb.define_metric("train/loss", step_metric="train/epoch")
+            wandb.define_metric("train/avg_loss", step_metric="train/epoch")
             wandb.define_metric("validation/epoch")
-            wandb.define_metric("validation/*", step_metric="train/epoch")
+            wandb.define_metric("validation/prom_accuracy", step_metric="validation/epoch")
+            wandb.define_metric("validation/ss_accuracy", step_metric="validation/epoch")
+            wandb.define_metric("validation/polya_accuracy", step_metric="validation/epoch")
+            wandb.define_metric("validation/avg_accuracy", step_metric="validation/epoch")
+                    
         
         n_gpu = len(device_list)
         if n_gpu > 1:
@@ -287,13 +295,11 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     "train/prom_loss": avg_prom_loss.item(),
                     "train/ss_loss": avg_ss_loss.item(),
                     "train/polya_loss": avg_polya_loss.item(),
-                    "train/loss": avg_epoch_loss.item(),
+                    "train/avg_loss": avg_epoch_loss.item(),
+                    "train/loss": epoch_loss.item(),
                     "train/epoch": i
                 }
                 wandb.log(log_entry)
-
-                wandb.define_metric("epoch/loss", step_metric="train/epoch")
-                wandb.log({"epoch/loss": epoch_loss.item() / len_dataloader, "train/epoch": i})
                 wandb.watch(model)
 
             # After an epoch, eval model if eval_dataloader is given.
@@ -303,10 +309,13 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, wandb=wandb)
                 avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
                 if wandb != None:
-                    wandb.log({"validation/prom_accuracy": prom_accuracy, "train/epoch": i} )
-                    wandb.log({"validation/ss_accuracy": ss_accuracy, "train/epoch": i})
-                    wandb.log({"validation/polya_accuracy": polya_accuracy, "train/epoch": i})
-                    wandb.log({"validation/avg_accuracy": avg_accuracy, "train/epoch": i})
+                    wandb.log({
+                        "validation/prom_accuracy": prom_accuracy, 
+                        "validation/ss_accuracy": ss_accuracy, 
+                        "validation/polya_accuracy": polya_accuracy, 
+                        "validation/avg_accuracy": avg_accuracy,
+                        "validation/epoch": i
+                        })
 
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
