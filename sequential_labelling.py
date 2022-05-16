@@ -341,6 +341,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     TRAINING_EPOCH = "train/epoch"
     TRAINING_LOSS = "train/loss" # Accumulated gene losses.
     TRAINING_AVG_LOSS = "train/avg_loss" # Accumulated gene losses over all genes.
+    TRAINING_LR = "train/learning_rate" # Training learning rate.
 
     VALIDATION_EPOCH = "validation/epoch"
     VALIDATION_AVG_ACC = "validation/average_accuracy"
@@ -351,6 +352,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         wandb.define_metric(TRAINING_EPOCH)
         wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
         wandb.define_metric(TRAINING_AVG_LOSS, step_metric=TRAINING_EPOCH)
+        wandb.define_metric(TRAINING_LR, step_metric=TRAINING_LOSS)
 
         wandb.define_metric(VALIDATION_EPOCH)
         wandb.define_metric(VALIDATION_AVG_ACC, step_metric=VALIDATION_EPOCH) # Avaerage accuracy.
@@ -363,8 +365,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
         if wandb != None:
             wandb.define_metric("epoch/epoch")
 
-        # for i in range(num_training_genes):
-
+        lr = 0 # Learning rate.
         for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes):
             
             gene = train_genes[i]
@@ -414,6 +415,12 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             scaler.update()
             scheduler.step()
             # optimizer.zero_grad()
+
+            if wandb != None:
+                wandb.log({
+                    TRAINING_LR: lr,
+                    TRAINING_EPOCH: epoch
+                })
 
         #endfor
 
