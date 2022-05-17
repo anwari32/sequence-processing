@@ -13,26 +13,26 @@ from utils.tokenizer import get_default_tokenizer
 from torch.cuda.amp import autocast, GradScaler
 
 
-def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_token_type_ids, batch_labels, loss_function, device, loss_strategy="sum"):
+def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
     model.to(device)
     batch_input_ids.to(device)
     batch_attn_mask.to(device)
-    batch_token_type_ids.to(device)
     batch_labels.to(device)
 
-    prediction = model(batch_input_ids, batch_attn_mask, batch_token_type_ids)
+    with autocast(enabled=True, cache_enabled=True):
+        prediction = model(batch_input_ids, batch_attn_mask)
 
-    # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
-    batch_loss = None
-    for p, l in zip(prediction, batch_labels):
-        loss = loss_function(p, l)
-        if batch_loss == None:
-            batch_loss = loss
-        else:
-            batch_loss += loss
-    if loss_strategy == "average":
-        batch_loss = batch_loss/batch_input_ids.shape[0]
+        # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
+        batch_loss = None
+        for pred, labels in zip(prediction, batch_labels):
+            loss = loss_function(pred, labels)
+            if batch_loss == None:
+                batch_loss = loss
+            else:
+                batch_loss += loss
+        if loss_strategy == "average":
+            batch_loss = batch_loss/batch_input_ids.shape[0]
     return batch_loss
 
 def __forward_gene_non_overlap__(model: DNABERTSeqLab, optimizer, scheduler, dataloader: DataLoader, device: str, loss_function=None, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0, grad_accumulation_steps: int=1):
@@ -131,43 +131,6 @@ def __forward_gene_non_overlap__(model: DNABERTSeqLab, optimizer, scheduler, dat
 
     return gene_loss, predicted_assembly, target_assembly, scaler
 
-def __eval_sequence__(model, input_ids, attention_mask, input_type_ids, label, device):
-    """
-    Evaluate model in a sequence represented as ``input_ids``, ``attention_mask``, and ``input_type_ids`` against ``label``.
-    @param  model:
-    @param  input_ids:
-    @param  attention_mask:
-    @param  input_type_ids:
-    @param  label:
-    @param  device:
-    @return (correct_token_pred, incorrect_token_pred, pred_labels, target_labels): tuple
-    """
-
-    # Make sure model and data are in the same device.
-    model.to(device)
-    input_ids.to(device)
-    attention_mask.to(device)
-    input_type_ids.to(device)
-    label.to(device)
-
-    correct_token_pred, incorrect_token_pred = 0, 0
-    model.eval()
-    pred_labels = []
-    target_labels = []
-    with torch.no_grad():
-        pred = model(input_ids, attention_mask, input_type_ids)
-        for p, z in zip(pred, label): # Batch
-            p_score, p_index = torch.max(p, 1)
-            for pi, zi in zip(p_index, z):
-                if pi.item() == zi.item():
-                    correct_token_pred += 1
-                else:
-                    incorrect_token_pred += 1
-                pred_labels.append(pi.item())
-                target_labels.append(zi.item())
-
-    return correct_token_pred, incorrect_token_pred, pred_labels, target_labels
-
 def __eval_gene__(model, dataloader, device, loss_fn, gene_name: str = None, wandb: wandb = None, at_epoch: int = 0, num_epoch: int = 0):
     model.to(device)
     model.eval()
@@ -245,86 +208,145 @@ def evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_f
 
     return avg_accuracy_score, avg_incorrect_score, avg_gene_loss_score
 
-def train_by_sequences(model, optimizer, scheduler, train_dataloader, epoch_size, batch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None):
-    """
-    @param  model: BERT derivatives.
+def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, loss_strategy, wandb=None):
+    if wandb != None:
+        VALIDATION_EPOCH = "validation/epoch"
+        VALIDATION_LOSS = "validation/loss"
+        VALIDATION_ACCURACY = "validation/accuracy"
 
-    @param  optimizer: optimizer
-    @param  scheduler:
-    @param  train_dataloader:
-    @param  validation_dataloader:
-    @param  epoch_size:
-    @param  batch_size:
-    @param  log_path (string):
-    @param  save_model_path (string): where to save model for each epoch.
-    @param  device (string) | None -> 'cpu': Default value is 'cpu', can be changed into 'cuda', 'cuda:0' for first cuda-compatible device, 'cuda:1' for second device, etc.
-    @return model after training.
-    """
-    print("=====BEGIN TRAINING=====")
-    start_time = datetime.now()
-    print(f"Start Time {start_time}")
+        wandb.define_metric(VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
 
+    model.eval()
+    avg_accuracy = 0
+    avg_loss = 0
+    eval_log_file = None
+    if os.path.exists(eval_log):
+        eval_log_file = open(eval_log, "a")
+    else:
+        eval_log_file = open(eval_log, "x")
+        eval_log_file.write("epoch,step,accuracy,loss,prediction,target")
+    with torch.no_grad():
+        for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc=f"Evaluating {epoch + 1}/{num_epoch}"):
+            input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
+            predictions = model(input_ids, attention_mask)
+            batch_loss = 0
+            batch_accuracy = 0
+            for pred, label in zip(predictions, batch_labels):
+                loss = loss_fn(pred, label)
+                batch_loss += loss
+                accuracy = 0
+                pscores, pindices = torch.max(pred, 1)
+                for idx, lab in zip(pindices, label):
+                    accuracy = accuracy + 1 if idx == lab else 0
+                accuracy = accuracy / predictions.shape[1]
+                batch_accuracy += accuracy
+            avg_accuracy = batch_accuracy / predictions.shape[0]
+            avg_loss = batch_loss / predictions.shape[0]
+
+    if eval_log_file != None:
+        eval_log_file.close()
+        
+    return avg_accuracy, avg_loss
+
+def train_by_sequences(model, optimizer, scheduler, train_dataloader, epoch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None):
+    
     # Writing training log.
     log_file = open(log_path, 'x')
-    log_file.write('epoch,step,loss,learning_rate\n')
+    log_file.write('epoch,step,batch_loss,epoch_loss,learning_rate\n')
+
+    n_gpu = len(device_list)
+    if n_gpu > 1:
+        model = torch.nn.DataParallel(model, device_list)
+    else:
+        print(f"Device {device}")
+
+    scaler = GradScaler()
+
+    if wandb != None:
+        TRAINING_EPOCH = "train/epoch"
+        TRAINING_LOSS = "train/loss"
+
+        wandb.define_metric(TRAINING_EPOCH)
+        wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
+
+        VALIDATION_ACCURACY = "validation/accuracy"
+        VALIDATION_LOSS = "validation/loss"
+        VALIDATION_EPOCH = "validation/epoch"
+
+        wandb.define_metric(VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
 
     # Do training.
     model.to(device)
     model.train()
-    for i in range(epoch_size):
+    best_accuracy = 0
+    for epoch in range(epoch_size):
         epoch_loss = 0
-        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{i + 1 + training_counter}/{epoch_size}]"):
+        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1 + training_counter}/{epoch_size}]"):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
-            loss_batch = __forward_sequence__(model, input_ids, attention_mask, input_type_ids, label, loss_function, loss_strategy)
+            batch_loss = __forward_sequence__(model, input_ids, attention_mask, label, loss_function, device, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
-            log_file.write(f"{i+training_counter},{step},{loss_batch},{lr}\n")
-            loss_batch = (loss_batch / grad_accumulation_steps)
-            epoch_loss += loss_batch
+            batch_loss = (batch_loss / grad_accumulation_steps)
+            epoch_loss += batch_loss
+
+            if scaler:
+                scaler.scale(batch_loss).backward()
+            else:
+                batch_loss.backward()                
 
             if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
-                model.zero_grad()
-                optimizer.step()
+                scaler.step(optimizer)
+                scaler.update()
                 scheduler.step()
+                optimizer.zero_grad()
 
             if wandb != None:
                 wandb.log({"epoch_loss": epoch_loss})
-                wandb.log({"batch_loss": loss_batch})
+                wandb.log({"batch_loss": batch_loss})
 
                 # Optional
                 wandb.watch(model)
-        #torch.cuda.empty_cache()
-        
-        # After an epoch, save model state.
-        save_model_state_dict(model, save_model_path, "epoch-{}.pth".format(i+training_counter))
-        save_model_state_dict(optimizer, save_model_path, "optimizer-{}.pth".format(i+training_counter))
-        save_checkpoint(model, optimizer, {
-            "epoch_loss": epoch_loss.item(),
-            "epoch": i + training_counter,
-        }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
 
+            log_file.write(f"{epoch + training_counter},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
+        
+        # After an epoch, evaluate.
+        if eval_dataloader != None:
+            eval_log = os.path.join(os.path.dirname(log_path), "eval_log.csv")
+            # avg_accuracy, avg_inaccuracy, avg_gene_loss = evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_function, wandb)
+            avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, epoch_size, loss_function, wandb)
+
+            if wandb != None:
+                validation_log = {
+                    VALIDATION_ACCURACY: avg_accuracy,
+                    VALIDATION_LOSS: avg_loss,
+                    VALIDATION_EPOCH: epoch
+                }
+                wandb.log(validation_log)
+
+            # Save trained model if this epoch produces better model.
+            if avg_accuracy > best_accuracy:
+                save_checkpoint(model, optimizer, {
+                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                    "epoch": (epoch + training_counter),
+                }, os.path.join(save_model_path, f"checkpoint-{epoch + training_counter}.pth"))
+
+                # Had to save BERT layer separately because unknown error miskey match.
+                current_bert_layer = model.bert
+                current_bert_layer.save_pretrained(save_model_path)
+
+                old_model_path = os.path.join(save_model_path, f"checkpoint-{epoch + training_counter - 1}.pth")
+                if os.path.exists(old_model_path):
+                    os.remove(old_model_path)
+        
+        torch.cuda.empty_cache()
     #endfor epoch
     log_file.close()
-    end_time = datetime.now()
-    print(f"Finished Time {end_time}")
-    print(f"Training Time {end_time - start_time}")
-    print("=====END TRAINING=====")
-    return model
+    return model, optimizer
 
 def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
-    """
-    @param  model
-    @param  tokenizer
-    @param  optimizer
-    @param  scheduler
-    @param  num_epoch (int | None -> 1)
-    @param  batch_size (int | None -> 1)
-    @param  train_genes (list<string>) : list of gene file path.
-    @param  loss_function
-    @param  grad_accumulation_step (int | None -> 1)
-    @param  device (str | None -> ``cpu``)
-    @return ``model``
-    """
-
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = torch.nn.DataParallel(model, device_list)
@@ -362,8 +384,6 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     for epoch in range(num_epoch):
         model.train()
         epoch_loss = None
-        if wandb != None:
-            wandb.define_metric("epoch/epoch")
 
         lr = 0 # Learning rate.
         for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes):
