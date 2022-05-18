@@ -141,6 +141,13 @@ def train_by_genes(model, train_genes, num_epochs, device, device_list: list, ba
 
     best_accuracy = 0
 
+    training_log = None 
+    training_log_path = os.path.join(save_dir, "training_log.csv")
+    if os.path.exists(training_log_path):
+        os.remove(training_log_path)
+    training_log = open(training_log_path, "x")
+    training_log.write("epoch,step,gene,loss,epoch_loss\n")
+
     for epoch in range(num_epochs):
         epoch_loss = 0
 
@@ -161,6 +168,8 @@ def train_by_genes(model, train_genes, num_epochs, device, device_list: list, ba
 
             scaler = cuda.amp.GradScaler()
 
+            gene_dir = f"{os.path.split(os.path.dirname(gene_file))[1]}"
+            gene_name = f"{os.path.basename(gene_file).split('.')[0]}"
             gene_loss = 0
             for step, batch in enumerate(train_dataloader):
                 input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
@@ -180,6 +189,11 @@ def train_by_genes(model, train_genes, num_epochs, device, device_list: list, ba
                 scaler.unscale_(optimizer)
                 scaler.step(optimizer)
                 scaler.update()
+                scheduler.step()
+                optimizer.zero_grad()
+
+                # Log training progress.
+                training_log.write(f"{epoch},{step},{gene_name},{gene_loss},{epoch_loss}")
             
             epoch_loss += gene_loss
         
@@ -224,5 +238,7 @@ def train_by_genes(model, train_genes, num_epochs, device, device_list: list, ba
                     "accuracy": eval_accuracy,
                     "loss": eval_loss.item()
                 }, os.path.join(save_dir, f"checkpoint-{epoch}.pth"))
-            
+    
+    training_log.close()
+
     return model, optimizer
