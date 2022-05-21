@@ -2,13 +2,11 @@ python3 run_train_mtl.py --training-config=training/config/mtl/mtl.balanced.b16.
 
 
 python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/non-overlap.b1.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-b1-base
-
 python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/non-overlap.b16.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-b16-base
-
 python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/non-overlap.b32.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-b32-base --disable-wandb
-
 python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/non-overlap.b64.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-b64-base --disable-wandb
-
 python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/non-overlap.b128.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-b128-base --disable-wandb
-
 python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/non-overlap.b256.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-b256-base --disable-wandb
+
+python3 run_train_seqlab.py --training-config=training/config/seqlab/by_sequence/non-overlap.b16.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-sequence-b16-base
+python3 run_train_seqlab.py --training-config=training/config/seqlab/by_sequence/non-overlap.b16.json --model-config=models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-sequence-b256-base
