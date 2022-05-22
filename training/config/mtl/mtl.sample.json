@@ -3,7 +3,7 @@
     "train_data": "workspace\\mtl\\train.sample.csv",
     "validation_data": "workspace\\mtl\\validation.sample.csv",
     "num_epochs": 3,
-    "batch_size": 1,
+    "batch_size": 4,
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

@@ -1,11 +1,11 @@
-import json
+from math import remainder
 import traceback
 import torch
 from torch.nn import DataParallel
 from torch import nn
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
-from transformers import BertForMaskedLM, BertTokenizer
+from transformers import BertTokenizer
 from tqdm import tqdm
 from datetime import datetime
 import pandas as pd
@@ -18,33 +18,54 @@ from utils.utils import save_checkpoint
 from data_preparation import str_kmer
 from pathlib import Path, PureWindowsPath
 
-def __train__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
+def forward(model: MTModel, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
     output = model(input_ids, attention_mask)
     pred_prom = output["prom"]
     pred_ss = output["ss"]
     pred_polya = output["polya"]
 
-    loss_prom, loss_ss, loss_polya = 0, 0, 0
-    num_prom_labels, num_ss_labels, num_polya_labels = 0, 0, 0
+    prom_loss, ss_loss, polya_loss = 0, 0, 0
     _model = model
     if isinstance(model, DataParallel):
         _model = model.module
     if _model.promoter_layer.num_labels == 1:
-        loss_prom = loss_fn_prom(pred_prom, label_prom.float().reshape(-1, 1))
+        predicted_prom = torch.round(pred_prom).item() if len(pred_prom) == 1 else [torch.round(p) for p in pred_prom]
+        pred_eval = (predicted_prom == label_prom.item()) if len(predicted_prom) == 1 else sum([1 for p, q in zip(predicted_prom, label_prom) if p == q])
+        prom_loss = loss_fn_prom(pred_prom, label_prom.float().reshape(-1, 1))
     else:
-        loss_prom = loss_fn_prom(pred_prom, label_prom)    
+        prom_val, predicted_prom_index = torch.max(pred_prom, 1)
+        predicted_prom = predicted_prom_index.item() if len(predicted_prom_index) == 1 else [p.item() for p in predicted_prom_index]
+        prom_eval = (predicted_prom == label_prom.item()) if len(label_prom) == 1 else sum([1 for p, q in zip(predicted_prom, label_prom) if p == q])
+        prom_loss = loss_fn_prom(pred_prom, label_prom)    
     
+    predicted_ss, ss_eval, ss_loss = 0, 0, 0
     if _model.splice_site_layer.num_labels == 1:
-        loss_ss = loss_fn_ss(pred_ss, label_ss.float().reshape(-1, 1))
+        predicted_ss = torch.round(pred_ss).item() if len(pred_ss) == 1 else [torch.round(p) for p in pred_ss]
+        ss_eval = (predicted_ss == label_ss.item()) if len(predicted_ss) == 1 else sum([1 for p, q in zip(predicted_ss, label_ss) if p == q])
+        ss_loss = loss_fn_ss(pred_ss, label_ss.float().reshape(-1, 1))
     else:
-        loss_ss = loss_fn_ss(pred_ss, label_ss)
+        ss_val, predicted_ss_index = torch.max(pred_ss, 1)
+        predicted_ss = predicted_ss_index.item() if len(predicted_ss_index) == 1 else [p.item() for p in predicted_ss_index]
+        ss_eval = (predicted_ss == label_ss.item()) if len(label_ss) == 1 else sum([1 for p, q in zip(predicted_ss, label_ss) if p == q])
+        ss_loss = loss_fn_ss(pred_ss, label_ss)
 
+    predicted_polya, polya_eval, polya_loss = 0, 0, 0
     if _model.polya_layer.num_labels == 1:
-        loss_polya = loss_fn_polya(pred_polya, label_polya.float().reshape(-1, 1))
+        predicted_polya = torch.round(pred_prom).item() if len(pred_polya) == 1 else [torch.round(p) for p in pred_polya]
+        polya_eval = (predicted_polya == label_prom.item()) if len(predicted_polya) == 1 else sum([1 for p, q in zip(predicted_polya, label_polya) if p == q])
+        polya_loss = loss_fn_polya(pred_polya, label_polya.float().reshape(-1, 1))
     else:
-        loss_polya = loss_fn_polya(pred_polya, label_polya)
+        polya_val, predicted_polya_index = torch.max(pred_polya, 1)
+        predicted_polya = predicted_polya_index.item() if len(predicted_polya_index) == 1 else [p.item() for p in predicted_polya_index]
+        polya_eval = (predicted_polya == label_polya.item()) if len(label_polya) == 1 else sum([1 for p, q in zip(predicted_polya, label_polya) if p == q])
+        polya_loss = loss_fn_polya(pred_polya, label_polya)
     
-    return loss_prom, loss_ss, loss_polya
+    # return prom_loss, ss_loss, polya_loss
+    return (
+        prom_eval, predicted_prom, label_prom, prom_loss,
+        ss_eval, predicted_ss, label_ss, ss_loss,
+        polya_eval, predicted_polya, label_polya, polya_loss
+    )
 
 def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, label_polya, device, loss_fn):
     model.to(device)
@@ -118,43 +139,31 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, loss_fn: dict, wand
         log = open(log_path, "a")
     model.eval()
     model.to(device)
-    count_prom_correct = 0
-    count_ss_correct = 0
-    count_polya_correct = 0
-    prom_accuracy = 0
-    ss_accuracy = 0
-    polya_accuracy = 0
-    prom_evals = []
-    prom_predicts = []
-    prom_actuals = []
-    prom_losses = []
-    ss_evals = []
-    ss_predicts = []
-    ss_actuals = []
-    ss_losses = []
-    polya_evals = []
-    polya_predicts = []
-    polya_actuals = []
-    polya_losses = []
+    count_prom_correct, count_ss_correct, count_polya_correct = 0, 0, 0
+    prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
+    prom_evals, prom_predicts, prom_actuals, prom_losses = [], [], [], []
+    ss_evals, ss_predicts, ss_actuals, ss_losses = [], [], [], []
+    polya_evals, polya_predicts, polya_actuals, polya_losses = [], [], [], []
 
     len_dataloader = len(dataloader)
-    for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc=f"Evaluating"):
-        input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
-
-        prom_eval, prom_predict, prom_label, prom_loss, ss_eval, ss_predict, ss_label, ss_loss, polya_eval, polya_predict, polya_label, polya_loss = __eval__(model, input_ids, attn_mask, label_prom, label_ss, label_polya, device, loss_fn)
-        prom_evals.append(prom_eval)
-        prom_predicts.append(prom_predicts)
-        prom_actuals.append(prom_label)
-        prom_losses.append(prom_loss)
-        ss_evals.append(ss_eval)
-        ss_predicts.append(ss_predict)
-        ss_actuals.append(ss_label)
-        ss_losses.append(ss_loss)
-        polya_evals.append(polya_eval)
-        polya_predicts.append(polya_predict)
-        polya_actuals.append(polya_label)
-        polya_losses.append(polya_loss)
-        log.write(f"{cur_epoch}, {step},{1 if prom_eval else 0},{prom_predict},{prom_label},{prom_loss},{1 if ss_eval else 0},{ss_predict},{ss_label},{ss_loss},{1 if polya_eval else 0},{polya_predict},{polya_label},{polya_loss}\n")
+    with torch.no_grad():
+        for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc=f"Evaluating"):
+            input_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
+            # prom_eval, prom_predict, prom_label, prom_loss, ss_eval, ss_predict, ss_label, ss_loss, polya_eval, polya_predict, polya_label, polya_loss = __eval__(model, input_ids, attn_mask, label_prom, label_ss, label_polya, device, loss_fn)
+            prom_eval, prom_predict, prom_label, prom_loss, ss_eval, ss_predict, ss_label, ss_loss, polya_eval, polya_predict, polya_label, polya_loss = forward(model, input_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+            prom_evals.append(prom_eval)
+            prom_predicts.append(prom_predict)
+            prom_actuals.append(prom_label.item())
+            prom_losses.append(prom_loss.item())
+            ss_evals.append(ss_eval)
+            ss_predicts.append(ss_predict)
+            ss_actuals.append(ss_label.item())
+            ss_losses.append(ss_loss.item())
+            polya_evals.append(polya_eval)
+            polya_predicts.append(polya_predict)
+            polya_actuals.append(polya_label.item())
+            polya_losses.append(polya_loss.item())
+            log.write(f"{cur_epoch}, {step},{1 if prom_eval else 0},{prom_predict},{prom_label.item()},{prom_loss.item()},{1 if ss_eval else 0},{ss_predict},{ss_label.item()},{ss_loss.item()},{1 if polya_eval else 0},{polya_predict},{polya_label.item()},{polya_loss.item()}\n")
     #endfor
     log.close()
     # Compute average accuracy and loss.
@@ -164,9 +173,9 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, loss_fn: dict, wand
     prom_accuracy = count_prom_correct / len(prom_evals) * 100
     ss_accuracy = count_ss_correct / len(ss_evals) * 100
     polya_accuracy = count_polya_correct / len(polya_evals) * 100
-    prom_loss = sum(prom_losses) / len(prom_losses)
-    ss_loss = sum(ss_losses)/ len(ss_losses)
-    polya_loss = sum(polya_losses) / len(polya_losses)
+    avg_prom_loss = sum(prom_losses) / len(prom_losses)
+    avg_ss_loss = sum(ss_losses)/ len(ss_losses)
+    avg_polya_loss = sum(polya_losses) / len(polya_losses)
 
     if wandb:
         wandb.log({
@@ -195,9 +204,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
     @param      save_model_path (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
     @param      grad_accumulation_steps (int | None = 1): After how many step backward is computed.
     """
+    # Assign model to device.
     model.to(device)
-    model.train()
-    model.zero_grad()
 
     # Setup logging.
     log_file = None
@@ -246,19 +254,22 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
             for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Training Epoch [{}/{}]".format(i + 1 + training_counter, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
                 with autocast():
-                    loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+                    (prom_eval, predicted_prom, label_prom, prom_loss,
+                    ss_eval, predicted_ss, label_ss, ss_loss,
+                    polya_eval, predicted_polya, label_polya, polya_loss) = forward(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+                    # loss_prom, loss_ss, loss_polya = forward(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
                     
                     # Accumulate promoter, splice site, and poly-A loss.
-                    avg_prom_loss += loss_prom
-                    avg_ss_loss += loss_ss
-                    avg_polya_loss += loss_polya
+                    avg_prom_loss += prom_loss
+                    avg_ss_loss += ss_loss
+                    avg_polya_loss += polya_loss
 
                     # Following MTDNN (Liu et. al., 2019), loss is summed.
-                    loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
+                    loss = (prom_loss + ss_loss + polya_loss) / (3 if loss_strategy == "average" else 1)
 
                     # Log loss values and learning rate.
                     lr = optimizer.param_groups[0]['lr']
-                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom.item(), loss_ss.item(), loss_polya.item(), lr))
+                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, prom_loss.item(), ss_loss.item(), polya_loss.item(), lr))
 
 
                 # Update parameters and learning rate for every batch.
@@ -271,9 +282,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                 # Wandb.
                 if wandb != None:
                     wandb.log({"loss": loss.item()})
-                    wandb.log({"prom_loss": loss_prom.item()})
-                    wandb.log({"ss_loss": loss_ss.item()})
-                    wandb.log({"polya_loss": loss_polya.item()})
+                    wandb.log({"prom_loss": prom_loss.item()})
+                    wandb.log({"ss_loss": ss_loss.item()})
+                    wandb.log({"polya_loss": polya_loss.item()})
                     wandb.log({"learning_rate": lr})
 
                 # Backpropagation.
@@ -377,6 +388,15 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
     elapsed_time = end_time - start_time
     print(f"Start Time: {start_time}, End Time: {end_time}, Training Duration {elapsed_time}")
     return model, optimizer
+
+def train_by_steps(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, max_steps: int, batch_size: int, save_dir: str, device: str='cpu', training_counter: int=0, loss_strategy: str="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
+    num_epochs = max_steps // len(dataloader) + (1 if max_steps % len(dataloader) > 0 else 0)
+
+    log_file_path = os.path.join(save_dir, "log.csv")
+    save_model_path = os.path.join(save_dir)
+    trained_model, trained_optimizer = train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, num_epochs, log_file_path, device, save_model_path, training_counter=training_counter, loss_strategy=loss_strategy, grad_accumulation_steps=grad_accumulation_steps, wandb=wandb, eval_dataloader=eval_dataloader, device_list=device_list)
+
+    return trained_model, trained_optimizer
 
 def get_sequences(csv_path: str, n_sample=10, random_state=1337):
     r"""

@@ -27,8 +27,10 @@ def parse_args(argv):
         "cuda-garbage-collection-mode=", 
         "run-name=",
         "device-list=",
+        "max-steps=",
         "fp16",
         "disable-wandb",
+        "batch-size="
         ])
     output = {}
     for o, a in opts:
@@ -56,6 +58,10 @@ def parse_args(argv):
             output["fp16"] = True
         elif o in ["--disable-wandb"]:
             output["disable_wandb"] = True
+        elif o in ["--max-steps"]:
+            output["max_steps"] = int(a)
+        elif o in ["--batch-size"]:
+            output["batch_size"] = int(a)
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -88,6 +94,9 @@ if __name__ == "__main__":
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     args["run_name"] = f"{args['run_name']}-{cur_date}"
 
+    epoch_size = training_config["num_epochs"]
+    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"] # Override batch size if given in command.
+
     print(f"Preparing Model & Optimizer")
     model = init_mtl_model(args["model_config"])
     model.to(args["device"])
@@ -106,7 +115,7 @@ if __name__ == "__main__":
     dataloader = preprocessing(
         training_config["train_data"],# csv_file, 
         training_config["pretrained"], #pretrained_path, 
-        training_config["batch_size"], #batch_size
+        batch_size #batch_size
         )
     
     print(f"Preparing Validation Data")
@@ -120,9 +129,6 @@ if __name__ == "__main__":
         "ss": BCELoss() if training_config["ss_loss_fn"] == "bce" else CrossEntropyLoss(),
         "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
     }
-
-    epoch_size = training_config["num_epochs"]
-    batch_size = training_config["batch_size"]
     
     training_steps = len(dataloader) * epoch_size
     # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
@@ -153,8 +159,8 @@ if __name__ == "__main__":
         wandb.run.save()
     wandb.config = {
         "learning_rate": training_config["optimizer"]["learning_rate"],
-        "epochs": training_config["num_epochs"],
-        "batch_size": training_config["batch_size"]
+        "epochs": epoch_size,
+        "batch_size": batch_size
     }
     wandb.watch(model)
 
@@ -163,24 +169,47 @@ if __name__ == "__main__":
     json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
 
     start_time = datetime.now()
-    trained_model, trained_optimizer = train(
-        dataloader, 
-        model, 
-        loss_fn, 
-        optimizer, 
-        scheduler, 
-        batch_size=training_config["batch_size"], 
-        epoch_size=training_config["num_epochs"], 
-        log_file_path=log_file_path, 
-        device=args["device"], 
-        save_model_path=save_model_path, 
-        training_counter=args["training_counter"] if "training_counter" in args.keys() else 0, 
-        loss_strategy=training_config["loss_strategy"], 
-        grad_accumulation_steps=training_config["grad_accumulation_steps"], 
-        wandb=wandb,
-        eval_dataloader=validation_dataloader,
-        device_list=args["device_list"] if "device_list" in args.keys() else [],
-    )
+
+    trained_model, trained_optimizer = None, None
+    save_dir = os.path.join("run", args["run_name"])
+    device = args["device"]
+    training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
+    loss_strategy=training_config["loss_strategy"]
+    grad_accumulation_steps=training_config["grad_accumulation_steps"]
+    device_list=args["device_list"] if "device_list" in args.keys() else []
+    if "max_steps" in args.keys():
+        from multitask_learning import train_by_steps
+
+        # Scheduler must be re-initialized because epochs is determined by max_steps.
+        scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=args["max_steps"])
+        trained_model, trained_optimizer = train_by_steps(dataloader, model, loss_fn, optimizer, scheduler, args["max_steps"], batch_size,
+            save_dir, 
+            device, 
+            training_counter, 
+            loss_strategy, 
+            grad_accumulation_steps, 
+            wandb, 
+            validation_dataloader, 
+            device_list)
+    else:
+        trained_model, trained_optimizer = train(
+            dataloader, 
+            model, 
+            loss_fn, 
+            optimizer, 
+            scheduler, 
+            batch_size=training_config["batch_size"], 
+            epoch_size=training_config["num_epochs"], 
+            log_file_path=log_file_path, 
+            device=args["device"], 
+            save_model_path=save_model_path, 
+            training_counter=args["training_counter"] if "training_counter" in args.keys() else 0, 
+            loss_strategy=training_config["loss_strategy"], 
+            grad_accumulation_steps=training_config["grad_accumulation_steps"], 
+            wandb=wandb,
+            eval_dataloader=validation_dataloader,
+            device_list=args["device_list"] if "device_list" in args.keys() else [],
+        )
     end_time = datetime.now()
     running_time = end_time - start_time
 

@@ -242,3 +242,4 @@ def train_by_genes(model, train_genes, num_epochs, device, device_list: list, ba
     training_log.close()
 
     return model, optimizer
+
