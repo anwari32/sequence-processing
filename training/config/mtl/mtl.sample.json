@@ -1,11 +1,9 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
     "train_data": "workspace\\mtl\\train.sample.csv",
-    "validation_data": "workspace\\mtl\\train.sample.csv",
-    "num_epochs": 2,
+    "validation_data": "workspace\\mtl\\validation.sample.csv",
+    "num_epochs": 3,
     "batch_size": 1,
-    "log": "logs\\mtl\\train.sample-b.16\\",
-    "result": "result\\mtl\\train.sample-b-16\\",
     "optimizer": {
         "name": "adamw",
         "learning_rate": 4e-4,

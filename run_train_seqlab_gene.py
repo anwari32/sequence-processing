@@ -1,16 +1,17 @@
+from ast import arg
 from genericpath import exists
 from getopt import getopt
 import json
 import sys
 import os
-from transformers import BertTokenizer, get_linear_schedule_with_warmup
-from sequential_labelling import preprocessing_kmer, train_by_genes
+from transformers import BertForMaskedLM, get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup
+from sequential_labelling import train_by_genes
 from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
 import torch
 from torch.cuda import device_count as cuda_device_count
 from utils.tokenizer import get_default_tokenizer
-from utils.utils import load_checkpoint, save_json_config
+from utils.utils import load_checkpoint, load_mtl_model, save_checkpoint, save_json_config
 import wandb
 import pandas as pd
 from pathlib import Path, PureWindowsPath
@@ -26,7 +27,8 @@ def _parse_argv(argvs):
         "resume-from-checkpoint=", 
         "resume-from-optimizer=", 
         "run-name=",
-        "device-list="
+        "device-list=",
+        "disable-wandb",
     ])
     output = {}
     for o, a in opts:
@@ -46,6 +48,8 @@ def _parse_argv(argvs):
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--run-name"]:
             output["run_name"] = a
+        elif o in ["--disable-wandb"]:
+            output["disable_wandb"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -77,18 +81,49 @@ if __name__ == "__main__":
         if cuda_device_count > 1 and args["device"] == "cuda":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
+    
+    # Run name is made required. If there is None then Error shall be there.
+    if not "run_name" in args.keys():
+        print("Run name is required.")
+        print("`--run-name=<runname>`")
+        sys.exit(2)
+    
+    # Run name may be the same. So append current datetime to differentiate.
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    args["run_name"] = f"{args['run_name']}-{cur_date}"
 
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
-    if training_config["result"] == "":
-        print(f"Key `result` not found in config.")
-        sys.exit(2)
+    # if training_config["result"] == "":
+    #    print(f"Key `result` not found in config.")
+    #    sys.exit(2)
     
-    result_path = str(Path(PureWindowsPath(training_config["result"])))
+    result_path = os.path.join("run", args["run_name"])
+    # result_path = str(Path(PureWindowsPath(training_config["result"])))
     if not os.path.exists(result_path):
         os.makedirs(result_path, exist_ok=True)
 
+    print("Initializing DNABERT-SL")
     model = init_seqlab_model(args["model_config"])
+    if not "mtl" in training_config.keys():
+        print(">> Initializing default DNABERT-SL.")
+    else:
+        if not training_config["mtl"] == "":
+            print(f">> Initializing DNABERT-SL with MTL {training_config['mtl']}")
+            # Load BERT layer from MTL-trained folder.
+            formatted_path = str(Path(PureWindowsPath(training_config["mtl"])))
+            saved_model = BertForMaskedLM.from_pretrained(formatted_path)
+            model.bert = saved_model.bert
+        else:
+            print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-SEL.")
+
+    if "freeze_bert" in training_config.keys():
+        if training_config["freeze_bert"] > 0:
+            print(">> Freeze BERT layer.", end="\r")
+            for param in model.bert.parameters():
+                param.requires_grad = False
+            print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
+
     model.to(args["device"])
     optimizer = init_optimizer(
         training_config["optimizer"]["name"], 
@@ -106,10 +141,6 @@ if __name__ == "__main__":
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         training_counter = int(checkpoint["epoch"]) + 1
-
-    if int(training_config["freeze_bert"]) > 0:
-        for param in model.bert.parameters():
-            param.requires_grad(False)
 
     loss_function = torch.nn.CrossEntropyLoss()
 
@@ -129,10 +160,19 @@ if __name__ == "__main__":
 
     print(f"# Genes: {len(train_genes)}")
     training_steps = len(train_genes) * training_config["num_epochs"]
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
 
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
+    
+    if "disable_wandb" not in args.keys():
+        args["disable_wandb"] = False
+    
+    if args["disable_wandb"]:
+        os.environ["WANDB_MODE"] = "offline"
+    else:
+        os.environ["WANDB_MODE"] = "online"
 
     wandb.init(project="thesis-mtl", entity="anwari32") 
     if "run_name" in args.keys():
@@ -143,41 +183,52 @@ if __name__ == "__main__":
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
-    wandb.define_metric("epoch")
-    wandb.define_metric("epoch_loss", step_metric="epoch")
-    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+        
+    # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
+    # log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
+    log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
 
-    log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
-    log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
-
-    save_model_path = str(Path(PureWindowsPath(training_config["result"])))
-    save_model_path = os.path.join(save_model_path, "by_genes", cur_date)
+    # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
+    # save_model_path = os.path.join(save_model_path, "by_genes", cur_date)
+    save_model_path = os.path.join("run", args["run_name"])
 
     for p in [log_file_path, save_model_path]:
         os.makedirs(os.path.dirname(p), exist_ok=True)
     
-    start_time = datetime.now()
+    # Save current model config in run folder.
+    model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
+    json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
 
-    model = train_by_genes(
-        model=model, 
-        tokenizer=get_default_tokenizer(),
-        optimizer=optimizer, 
-        scheduler=scheduler, 
-        train_genes=train_genes, 
-        loss_function=loss_function, 
-        num_epoch=training_config["num_epochs"], 
-        batch_size=training_config["batch_size"], 
-        grad_accumulation_steps=training_config["grad_accumulation_steps"],
-        device=args["device"],
-        wandb=wandb,
-        save_path=save_model_path,
-        log_file_path=log_file_path,
-        training_counter=training_counter,
-        eval_genes=eval_genes,
-        device_list=args["device_list"] if "device_list" in args.keys() else [])
+    start_time = datetime.now()
+    end_time = start_time
+    try:
+        model, optimizer = train_by_genes(
+            model=model, 
+            tokenizer=get_default_tokenizer(),
+            optimizer=optimizer, 
+            scheduler=scheduler, 
+            train_genes=train_genes, 
+            loss_function=loss_function, 
+            num_epoch=training_config["num_epochs"], 
+            batch_size=training_config["batch_size"], 
+            grad_accumulation_steps=training_config["grad_accumulation_steps"],
+            device=args["device"],
+            wandb=wandb,
+            save_path=save_model_path,
+            log_file_path=log_file_path,
+            training_counter=training_counter,
+            eval_genes=eval_genes,
+            device_list=args["device_list"] if "device_list" in args.keys() else [])
+    except Exception as ex:
+        print(ex)
+        end_time = datetime.now()
+        running_time = end_time - start_time
+        print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")    
 
     end_time = datetime.now()
     running_time = end_time - start_time
+
+    print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
 
     total_config = {
         "training": training_config,
@@ -185,11 +236,16 @@ if __name__ == "__main__":
         "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
         "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
         "running_time": str(running_time),
+        "runname": args["run_name"]
     }
 
     # Final config is saved in JSON format in the same folder as log file.
     # Final config is saved in `config.json` file.
-    save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+    # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+    save_json_config(total_config, os.path.join("run", args["run_name"], "config.json"))
+
+    # Save final model and optimizer.
+    save_checkpoint(model, optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))
     
     
 

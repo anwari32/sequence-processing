@@ -1,20 +1,18 @@
-from ast import Import
 import json
 import traceback
 import torch
-from torch import cuda
-from torch.nn import CrossEntropyLoss, BCELoss, DataParallel
+from torch.nn import DataParallel
 from torch import nn
-from torch.optim import AdamW
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 from transformers import BertForMaskedLM, BertTokenizer
 from tqdm import tqdm
-import numpy as np
 from datetime import datetime
 import pandas as pd
 import os
 import sys
+
+import wandb
 from utils.utils import save_checkpoint, save_model_state_dict
 from data_preparation import str_kmer
 from pathlib import Path, PureWindowsPath
@@ -106,7 +104,7 @@ def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, la
         ss_eval, predicted_ss, label_ss.item(), 
         polya_eval, predicted_polya, label_polya.item())
 
-def evaluate(model, dataloader, log_path, device, cur_epoch):
+def evaluate(model, dataloader, log_path, device, cur_epoch, wandb: wandb=None):
     log_dir = os.path.dirname(log_path)
     log = {}
     if not os.path.exists(log_dir):
@@ -158,9 +156,15 @@ def evaluate(model, dataloader, log_path, device, cur_epoch):
     prom_accuracy = count_prom_correct / len(prom_evals) * 100
     ss_accuracy = count_ss_correct / len(ss_evals) * 100
     polya_accuracy = count_polya_correct / len(polya_evals) * 100
+
+    if wandb:
+        wandb.log({"validation/prom_accuracy": prom_accuracy, "train/epoch": cur_epoch})
+        wandb.log({"validation/ss_accuracy": ss_accuracy, "train/epoch": cur_epoch})
+        wandb.log({"validation/polya_accuracy": polya_accuracy, "train/epoch": cur_epoch})
+
     return prom_accuracy, ss_accuracy, polya_accuracy
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, remove_old_model=False, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
+def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     """
     @param      dataloader:
     @param      model:
@@ -192,13 +196,21 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     start_time = datetime.now()
     len_dataloader = len(dataloader)
     try:
-        if wandb:
-            wandb.define_metrics("epoch")
-            wandb.define_metrics("epoch_loss", step_metric="epoch")
-            wandb.define_metrics("prom_loss")
-            wandb.define_metrics("ss_loss")
-            wandb.define_metrics("polya_loss")
-            wandb.watch(model)
+        # Last best accuracy.
+        best_accuracy = 0 
+        if wandb != None:
+            wandb.define_metric("train/epoch")
+            wandb.define_metric("train/prom_loss", step_metric="train/epoch")
+            wandb.define_metric("train/ss_loss", step_metric="train/epoch")
+            wandb.define_metric("train/polya_loss", step_metric="train/epoch")
+            wandb.define_metric("train/loss", step_metric="train/epoch")
+            wandb.define_metric("train/avg_loss", step_metric="train/epoch")
+            wandb.define_metric("validation/epoch")
+            wandb.define_metric("validation/prom_accuracy", step_metric="validation/epoch")
+            wandb.define_metric("validation/ss_accuracy", step_metric="validation/epoch")
+            wandb.define_metric("validation/polya_accuracy", step_metric="validation/epoch")
+            wandb.define_metric("validation/avg_accuracy", step_metric="validation/epoch")
+                    
         
         n_gpu = len(device_list)
         if n_gpu > 1:
@@ -213,17 +225,25 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
             model.train()
             model.zero_grad()
             epoch_loss = 0
+            avg_prom_loss = 0
+            avg_ss_loss = 0
+            avg_polya_loss = 0
             for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Training Epoch [{}/{}]".format(i + 1 + training_counter, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
                 with autocast():
                     loss_prom, loss_ss, loss_polya = __train__(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
+                    
+                    # Accumulate promoter, splice site, and poly-A loss.
+                    avg_prom_loss += loss_prom
+                    avg_ss_loss += loss_ss
+                    avg_polya_loss += loss_polya
 
                     # Following MTDNN (Liu et. al., 2019), loss is summed.
                     loss = (loss_prom + loss_ss + loss_polya) / (3 if loss_strategy == "average" else 1)
 
                     # Log loss values and learning rate.
                     lr = optimizer.param_groups[0]['lr']
-                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom, loss_ss, loss_polya, lr))
+                    log_file.write("{},{},{},{},{},{}\n".format(i+training_counter, step, loss_prom.item(), loss_ss.item(), loss_polya.item(), lr))
 
 
                 # Update parameters and learning rate for every batch.
@@ -234,17 +254,22 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                 epoch_loss += loss
 
                 # Wandb.
-                if wandb:
-                    wandb.log({"loss": loss.item()}, step=step)
-                    wandb.log({"prom_loss": loss_prom.item()}, step=step)
-                    wandb.log({"ss_loss": loss_ss.item()}, step=step)
-                    wandb.log({"polya_loss": loss_polya.item()}, step=step)
+                if wandb != None:
+                    wandb.log({"loss": loss.item()})
+                    wandb.log({"prom_loss": loss_prom.item()})
+                    wandb.log({"ss_loss": loss_ss.item()})
+                    wandb.log({"polya_loss": loss_polya.item()})
+                    wandb.log({"learning_rate": lr})
 
                 # Backpropagation.
                 # loss.backward(retain_graph=True)                
                 scaler.scale(loss).backward()
 
                 if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
+                    
+                    # Clip gradient.
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
                     # Update learning rate and scheduler.
                     # optimizer.step()
                     scaler.step(optimizer)
@@ -256,40 +281,70 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
                     optimizer.zero_grad()
             # endfor batch.
 
+            # Calculate average loss for promoter, splice site, and poly-A.
+            # Log losses with wandb.
+            avg_prom_loss = avg_prom_loss / len_dataloader
+            avg_ss_loss = avg_ss_loss / len_dataloader
+            avg_polya_loss = avg_polya_loss / len_dataloader
+            avg_epoch_loss = epoch_loss / len_dataloader
+
             epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
-            if wandb:
-                wandb.log({"epoch_loss": epoch_loss.item() / len_dataloader}, step=i)
-                wandb.log({"epoch_duration": str(epoch_duration)}, step=i)
+            if wandb != None:
+                log_entry = {
+                    "train/prom_loss": avg_prom_loss.item(),
+                    "train/ss_loss": avg_ss_loss.item(),
+                    "train/polya_loss": avg_polya_loss.item(),
+                    "train/avg_loss": avg_epoch_loss.item(),
+                    "train/loss": epoch_loss.item(),
+                    "train/epoch": i
+                }
+                wandb.log(log_entry)
                 wandb.watch(model)
 
             # After an epoch, eval model if eval_dataloader is given.
             prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
             if eval_dataloader:
                 eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
-                prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter)
-                if wandb:
-                    wandb.log({"prom_accuracy": prom_accuracy}, step=i)
-                    wandb.log({"ss_accuracy": ss_accuracy}, step=i)
-                    wandb.log({"polya_accuracy": polya_accuracy}, step=i)
-                    wandb.watch(model)
+                prom_accuracy, ss_accuracy, polya_accuracy = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, wandb=wandb)
+                avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
+                if wandb != None:
+                    wandb.log({
+                        "validation/prom_accuracy": prom_accuracy, 
+                        "validation/ss_accuracy": ss_accuracy, 
+                        "validation/polya_accuracy": polya_accuracy, 
+                        "validation/avg_accuracy": avg_accuracy,
+                        "validation/epoch": i
+                        })
 
             # Calculate epoch loss over len(dataloader)
             epoch_loss = epoch_loss / len(dataloader)
-            save_model_state_dict(model, save_model_path, f"epoch-{i + training_counter}.pth")
-            save_model_state_dict(optimizer, save_model_path, f"optimizer-{i + training_counter}.pth")
-            save_checkpoint(model, optimizer, {
-                "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-                "epoch": (i + training_counter),
-                "batch_size": batch_size,
-                "device": device,
-                "grad_accumulation_steps": grad_accumulation_steps,
-                "prom_accuracy": prom_accuracy,
-                "ss_accuracy": ss_accuracy,
-                "polya_accuracy": polya_accuracy
-            }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}"))
-            if remove_old_model:
-                old_model_path = os.path.join(save_model_path, os.path.basename("epoch-{}.pth".format(i+training_counter-1)))
+
+            # Save model with best validation score.
+            if avg_accuracy > best_accuracy:
+                best_accuracy = avg_accuracy
+
+                # Save checkpoint.
+                save_checkpoint(model, optimizer, {
+                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                    "epoch": (i + training_counter),
+                    "batch_size": batch_size,
+                    "device": device,
+                    "grad_accumulation_steps": grad_accumulation_steps,
+                    "prom_accuracy": prom_accuracy,
+                    "ss_accuracy": ss_accuracy,
+                    "polya_accuracy": polya_accuracy
+                }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
+
+                # Had to save BERT layer separately because unknown error miskey match.
+                _model = model
+                if isinstance(model, DataParallel):
+                    _model = model.module
+                current_bert_layer = _model.shared_layer
+                current_bert_layer.save_pretrained(save_model_path)
+
+                # Remove previous model.
+                old_model_path = os.path.join(save_model_path, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))
                 if os.path.exists(old_model_path):
                     os.remove(old_model_path)
         # endfor epoch.
@@ -304,7 +359,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn, optimizer, scheduler,
     end_time = datetime.now()
     elapsed_time = end_time - start_time
     print(f"Start Time: {start_time}, End Time: {end_time}, Training Duration {elapsed_time}")
-    return model
+    return model, optimizer
 
 def get_sequences(csv_path: str, n_sample=10, random_state=1337):
     r"""

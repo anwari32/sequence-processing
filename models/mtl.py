@@ -1,16 +1,7 @@
 from torch import cuda
-from torch.nn import CrossEntropyLoss, BCELoss
 from torch import nn
 from torch.optim import AdamW
-from torch import tensor
-from torch.utils.data import TensorDataset, DataLoader
-from transformers import BertForMaskedLM, BertTokenizer, BertPreTrainedModel
-from tqdm import tqdm
-import numpy as np
-from datetime import datetime
-import pandas as pd
 from models.lstm import LSTM_Block
-from utils.utils import save_model_state_dict
 
 _device = "cuda" if cuda.is_available() else "cpu"
 _device
@@ -110,7 +101,7 @@ class MTModel(nn.Module):
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
         x = x[0] # Last hidden state.
-        if self.lstm_layer:
+        if self.lstm_layer != None:
             x, (h_n, c_n) = self.lstm_layer(x)
         # print(x.shape)
         x1 = self.promoter_layer(x)

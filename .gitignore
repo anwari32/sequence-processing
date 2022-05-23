@@ -21,3 +21,5 @@ workspace
 logs
 remotes
 wandb
+/lstm.csv
+run
