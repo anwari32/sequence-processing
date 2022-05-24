@@ -12,7 +12,7 @@ import torch
 import os
 from utils.utils import save_checkpoint
 
-def train_by_sequence(model, optimizer, train_dataloader, num_epochs, device, device_list: list, batch_size, wandb, save_dir, eval_dataloader=None, **kwargs):
+def train_by_sequence(model, optimizer, train_dataloader, num_epochs, device, device_list: list, wandb, save_dir, eval_dataloader=None, **kwargs):
     # Log properties.
     if wandb != None:
         wandb.define_metric("train/epoch")
@@ -242,3 +242,4 @@ def train_by_genes(model, train_genes, num_epochs, device, device_list: list, ba
     training_log.close()
 
     return model, optimizer
+
