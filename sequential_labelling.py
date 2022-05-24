@@ -409,7 +409,7 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
             # Record log in the cloud.
             # Record gene loss in this epoch.
             # This will make a lot of charts.
-            #if wandb != None:
+            # if wandb != None:
             #    wandb.define_metric(f"{gene_chr}-{gene_name}/epoch_loss", step_metric="epoch/epoch")
             #    log_entry = {
             #        f"{gene_chr}-{gene_name}/epoch_loss": gene_loss.item(),
@@ -469,14 +469,20 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
 
             # Save trained model if this epoch produces better model.
             if avg_accuracy > best_accuracy:
-                save_checkpoint(model, optimizer, {
+                _model = model
+                if isinstance(model, torch.nn.DataParallel):
+                    _model = model.module
+
+                torch.save()
+                torch.save(optimizer.state_dict(), os.path.join(save_dir, f"optimizer.pth"))
+                save_checkpoint(_model, optimizer, {
                     "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
                     "epoch": (i + training_counter),
                     "batch_size": batch_size,
                 }, os.path.join(save_path, f"checkpoint-{epoch + training_counter}.pth"))
 
                 # Had to save BERT layer separately because unknown error miskey match.
-                current_bert_layer = model.bert
+                current_bert_layer = _model.bert
                 current_bert_layer.save_pretrained(save_path)
 
                 old_model_path = os.path.join(save_path, f"checkpoint-{epoch + training_counter - 1}.pth")
