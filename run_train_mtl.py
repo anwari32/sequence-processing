@@ -30,7 +30,8 @@ def parse_args(argv):
         "max-steps=",
         "fp16",
         "disable-wandb",
-        "batch-size="
+        "batch-size=",
+        "num-epochs="
         ])
     output = {}
     for o, a in opts:
@@ -62,6 +63,8 @@ def parse_args(argv):
             output["max_steps"] = int(a)
         elif o in ["--batch-size"]:
             output["batch_size"] = int(a)
+        elif o in ["--num-epochs"]:
+            output["num_epochs"] = int(a)
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     args["run_name"] = f"{args['run_name']}-{cur_date}"
 
-    epoch_size = training_config["num_epochs"]
+    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"] # Override num epochs if given in command.
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"] # Override batch size if given in command.
 
     print(f"Preparing Model & Optimizer")
