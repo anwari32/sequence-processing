@@ -397,12 +397,13 @@ def train_by_steps(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimi
 
     return trained_model, trained_optimizer
 
-def get_sequences(csv_path: str, n_sample=10, random_state=1337):
+def get_sequences(csv_path: str, n_sample=10, random_state=1337, do_kmer=False):
     r"""
     Get sequence from certain CSV. CSV has header such as 'sequence', 'label_prom', 'label_ss', 'label_polya'.
     @param      csv_path (string): path to csv file.
     @param      n_sample (int): how many instance are retrieved from CSV located in `csv_path`.
     @param      random_state (int): random seed for randomly retriving `n_sample` instances.
+    @param      do_kmer (bool): determine whether do kmer for sequences.
     @return     (list, list, list, list): sequence, label_prom, label_ss, label_polya.
     """
     if not os.path.exists(csv_path):
@@ -411,7 +412,7 @@ def get_sequences(csv_path: str, n_sample=10, random_state=1337):
     if (n_sample > 0):
         df = df.sample(n=n_sample, random_state=random_state)
     sequence = list(df['sequence'])
-    sequence = [str_kmer(s, 3) for s in sequence]
+    sequence = [str_kmer(s, 3) for s in sequence] if do_kmer == True else sequence
     label_prom = list(df['label_prom'])
     label_ss = list(df['label_ss'])
     label_polya = list(df['label_polya'])
