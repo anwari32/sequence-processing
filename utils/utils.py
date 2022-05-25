@@ -71,7 +71,7 @@ def save_model_state_dict(model, save_path, save_filename):
         os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
-def save_checkpoint(model, optimizer, config, path):
+def save_checkpoint(model, optimizer, scheduler, config, path):
     """
     Save model and optimizer internal state with other information (config).
     If file with same name exists, the file will be replaced.
@@ -80,11 +80,6 @@ def save_checkpoint(model, optimizer, config, path):
     @param  config (dictionary): a dictionary containing information about ``model`` and ``optimizer``.
     @param  path (str): File path to save checkpoint. 
     """
-    save_object = {
-        'config': config,
-        'model': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-    }
     dest_dir = os.path.dirname(path)
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
@@ -92,7 +87,15 @@ def save_checkpoint(model, optimizer, config, path):
     if os.path.exists(path):
         os.remove(path)
     
-    torch.save(save_object, path)
+    torch.save(model.state_dict, os.path.join(dest_dir, "model.pth"))
+    torch.save(optimizer.state_dict, os.path.join(dest_dir, "optimizer.pth"))
+    torch.save(scheduler.state_dict, os.path.join(dest_dir, "scheduler.pth"))
+    cfgpath = os.path.join(dest_dir, "configuration.json")
+    if os.path.exists(cfgpath):
+        os.remove(cfgpath)
+    cfg = open(cfgpath, "x")
+    json.dump(config, cfg, indent=4)
+
 
 def load_checkpoint(path):
     if not os.path.exists(path):

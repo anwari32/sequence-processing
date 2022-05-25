@@ -1,3 +1,4 @@
+import json
 import torch
 from torch.nn import NLLLoss
 from torch.utils.data import DataLoader
@@ -473,13 +474,12 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
                 if isinstance(model, torch.nn.DataParallel):
                     _model = model.module
 
-                torch.save()
-                torch.save(optimizer.state_dict(), os.path.join(save_dir, f"optimizer.pth"))
-                save_checkpoint(_model, optimizer, {
-                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-                    "epoch": (i + training_counter),
-                    "batch_size": batch_size,
-                }, os.path.join(save_path, f"checkpoint-{epoch + training_counter}.pth"))
+                cur_config = {
+                    "epoch": epoch + training_counter,
+                    "num_epochs": num_epoch,
+                    "batch_size": batch_size
+                }
+                save_checkpoint(_model, optimizer, cur_config, save_path)
 
                 # Had to save BERT layer separately because unknown error miskey match.
                 current_bert_layer = _model.bert
