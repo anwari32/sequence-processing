@@ -16,7 +16,17 @@ from utils.utils import save_json_config, save_checkpoint
 from torch.nn import CrossEntropyLoss
 
 def parse_args(argv):
-    opts, args = getopt(argv, "t:m:d:f", ["training-config=", "model-config=", "device=", "force-cpu", "training-counter=", "device-list=", "run-name=", "disable-wandb"])
+    opts, args = getopt(argv, "t:m:d:f", ["training-config=", 
+        "model-config=", 
+        "device=", 
+        "force-cpu", 
+        "training-counter=", 
+        "device-list=", 
+        "run-name=", 
+        "disable-wandb",
+        "batch-size=",
+        "num-epochs="
+        ])
     output = {}
     for o, a in opts:
         if o in ["-t", "--training-config"]:
@@ -33,6 +43,10 @@ def parse_args(argv):
             output["run_name"] = a
         elif o in ["--disable-wandb"]:
             output["disable_wandb"] = True
+        elif o in ["--num-epochs"]:
+            output["num_epochs"] = int(a)
+        elif o in ["--batch-size"]:
+            output["batch_size"] = int(a)
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -133,8 +147,10 @@ if __name__ == "__main__":
         for param in model.bert.parameters():
             param.requires_grad(False)
 
-    epoch_size = training_config["num_epochs"]
-    batch_size = training_config["batch_size"]
+    # Override batch size and epoch if given in command.
+
+    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
+    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
     
     training_steps = len(dataloader) * epoch_size
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
