@@ -189,7 +189,7 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, loss_fn: dict, wand
 
     return prom_accuracy, prom_loss, ss_accuracy, ss_loss, polya_accuracy, polya_loss
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, batch_size: int, epoch_size: int, log_file_path: str, device='cpu', save_model_path=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
+def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, batch_size: int, epoch_size: int, device='cpu', save_dir=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     """
     @param      dataloader:
     @param      model:
@@ -198,9 +198,8 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
     @param      scheduler:
     @param      batch_size:
     @param      epoch_size:
-    @param      log_file_path:
     @param      device:
-    @param      save_model_path (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
+    @param      save_dir (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
     @param      grad_accumulation_steps (int | None = 1): After how many step backward is computed.
     """
     # Assign model to device.
@@ -218,11 +217,10 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
         wandb.define_metric("validation/ss_accuracy", step_metric="validation/epoch")
         wandb.define_metric("validation/polya_accuracy", step_metric="validation/epoch")
 
-    if save_model_path != None:
-        if not os.path.exists(save_model_path):
-            os.makedirs(save_model_path, exist_ok=True)
-    if not os.path.exists(os.path.dirname(log_file_path)):
-        os.mkdir(os.path.dirname(log_file_path))
+    if save_dir != None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+    log_file_path = os.path.join(save_dir, "log.csv")
     if os.path.exists(log_file_path):
         os.remove(log_file_path)
     _cols = ['epoch','batch','loss_prom','loss_ss','loss_polya','lr']
@@ -330,7 +328,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
             # After an epoch, eval model if eval_dataloader is given.
             prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
             if eval_dataloader:
-                eval_log = os.path.join(os.path.dirname(log_file_path), "eval_log.csv")
+                eval_log = os.path.join(save_dir, "eval_log.csv")
                 prom_accuracy, prom_loss, ss_accuracy, ss_loss, polya_accuracy, polya_loss = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, loss_fn, wandb=wandb)
                 avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
                 avg_loss = (prom_loss + ss_loss + polya_loss) / 3
@@ -361,17 +359,17 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                     "prom_accuracy": prom_accuracy,
                     "ss_accuracy": ss_accuracy,
                     "polya_accuracy": polya_accuracy
-                }, os.path.join(save_model_path, f"checkpoint-{i + training_counter}.pth"))
+                }, os.path.join(save_dir, f"checkpoint-{i + training_counter}.pth"))
 
                 # Had to save BERT layer separately because unknown error miskey match.
                 _model = model
                 if isinstance(model, DataParallel):
                     _model = model.module
                 current_bert_layer = _model.shared_layer
-                current_bert_layer.save_pretrained(save_model_path)
+                current_bert_layer.save_pretrained(save_dir)
 
                 # Remove previous model.
-                old_model_path = os.path.join(save_model_path, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))
+                old_model_path = os.path.join(save_dir, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))
                 if os.path.exists(old_model_path):
                     os.remove(old_model_path)
         # endfor epoch.
