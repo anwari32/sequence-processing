@@ -230,5 +230,5 @@ if __name__ == "__main__":
     save_json_config(total_config, os.path.join("run", args["run_name"], "final_config.json"))
 
     # Save final trained model.
-    save_checkpoint(trained_model, trained_optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))
+    save_checkpoint(trained_model, trained_optimizer, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
     
