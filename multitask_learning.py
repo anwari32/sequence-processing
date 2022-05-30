@@ -1,7 +1,8 @@
+from itertools import accumulate
 import traceback
 import torch
 from torch.nn import DataParallel
-from torch import nn
+from torch import Tensor, nn
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 from transformers import BertTokenizer
@@ -19,45 +20,46 @@ from pathlib import Path, PureWindowsPath
 
 def forward(model: MTModel, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
     output = model(input_ids, attention_mask)
-    pred_prom = output["prom"]
-    pred_ss = output["ss"]
-    pred_polya = output["polya"]
+    pred_prom = output["prom"] # Tensor
+    pred_ss = output["ss"] # Tensor
+    pred_polya = output["polya"] # Tensor
 
     prom_loss, ss_loss, polya_loss = 0, 0, 0
     _model = model
     if isinstance(model, DataParallel):
         _model = model.module
+
     if _model.promoter_layer.num_labels == 1:
-        predicted_prom = torch.round(pred_prom).item() if len(pred_prom) == 1 else [torch.round(p) for p in pred_prom]
+        predicted_prom = torch.round(pred_prom).item() if len(pred_prom) == 1 else [torch.round(p).item() for p in pred_prom]
         pred_eval = (predicted_prom == label_prom.item()) if len(predicted_prom) == 1 else sum([1 for p, q in zip(predicted_prom, label_prom) if p == q])
-        prom_loss = loss_fn_prom(pred_prom, label_prom.float().reshape(-1, 1))
+        prom_loss = loss_fn_prom(pred_prom, label_prom.float().reshape(-1, 1)) # Tensor
     else:
         prom_val, predicted_prom_index = torch.max(pred_prom, 1)
         predicted_prom = predicted_prom_index.item() if len(predicted_prom_index) == 1 else [p.item() for p in predicted_prom_index]
         prom_eval = (predicted_prom == label_prom.item()) if len(label_prom) == 1 else sum([1 for p, q in zip(predicted_prom, label_prom) if p == q])
-        prom_loss = loss_fn_prom(pred_prom, label_prom)    
+        prom_loss = loss_fn_prom(pred_prom, label_prom) # Tensor   
     
     predicted_ss, ss_eval, ss_loss = 0, 0, 0
     if _model.splice_site_layer.num_labels == 1:
-        predicted_ss = torch.round(pred_ss).item() if len(pred_ss) == 1 else [torch.round(p) for p in pred_ss]
+        predicted_ss = torch.round(pred_ss).item() if len(pred_ss) == 1 else [torch.round(p).item() for p in pred_ss]
         ss_eval = (predicted_ss == label_ss.item()) if len(predicted_ss) == 1 else sum([1 for p, q in zip(predicted_ss, label_ss) if p == q])
-        ss_loss = loss_fn_ss(pred_ss, label_ss.float().reshape(-1, 1))
+        ss_loss = loss_fn_ss(pred_ss, label_ss.float().reshape(-1, 1)) # Tensor
     else:
         ss_val, predicted_ss_index = torch.max(pred_ss, 1)
         predicted_ss = predicted_ss_index.item() if len(predicted_ss_index) == 1 else [p.item() for p in predicted_ss_index]
         ss_eval = (predicted_ss == label_ss.item()) if len(label_ss) == 1 else sum([1 for p, q in zip(predicted_ss, label_ss) if p == q])
-        ss_loss = loss_fn_ss(pred_ss, label_ss)
+        ss_loss = loss_fn_ss(pred_ss, label_ss) # Tensor
 
     predicted_polya, polya_eval, polya_loss = 0, 0, 0
     if _model.polya_layer.num_labels == 1:
-        predicted_polya = torch.round(pred_prom).item() if len(pred_polya) == 1 else [torch.round(p) for p in pred_polya]
+        predicted_polya = torch.round(pred_prom).item() if len(pred_polya) == 1 else [torch.round(p).item() for p in pred_polya]
         polya_eval = (predicted_polya == label_prom.item()) if len(predicted_polya) == 1 else sum([1 for p, q in zip(predicted_polya, label_polya) if p == q])
-        polya_loss = loss_fn_polya(pred_polya, label_polya.float().reshape(-1, 1))
+        polya_loss = loss_fn_polya(pred_polya, label_polya.float().reshape(-1, 1)) # Tensor
     else:
         polya_val, predicted_polya_index = torch.max(pred_polya, 1)
         predicted_polya = predicted_polya_index.item() if len(predicted_polya_index) == 1 else [p.item() for p in predicted_polya_index]
         polya_eval = (predicted_polya == label_polya.item()) if len(label_polya) == 1 else sum([1 for p, q in zip(predicted_polya, label_polya) if p == q])
-        polya_loss = loss_fn_polya(pred_polya, label_polya)
+        polya_loss = loss_fn_polya(pred_polya, label_polya) # Tensor
     
     # return prom_loss, ss_loss, polya_loss
     return (
@@ -176,17 +178,6 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, loss_fn: dict, wand
     avg_ss_loss = sum(ss_losses)/ len(ss_losses)
     avg_polya_loss = sum(polya_losses) / len(polya_losses)
 
-    if wandb:
-        wandb.log({
-            "validation/prom_accuracy": prom_accuracy,
-            "validation/ss_accuracy": ss_accuracy, 
-            "validation/polya_accuracy": polya_accuracy, 
-            "validation/prom_loss": prom_loss, 
-            "validation/ss_loss": ss_loss,
-            "validation/polya_loss": polya_loss,
-            "validation/epoch": cur_epoch
-        })
-
     return prom_accuracy, prom_loss, ss_accuracy, ss_loss, polya_accuracy, polya_loss
 
 def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, batch_size: int, epoch_size: int, device='cpu', save_dir=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
@@ -210,12 +201,29 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
     if wandb != None:
         for t in ["train", "validation"]:
             wandb.define_metric(f"{t}/epoch")
-            for m in ["avg_prom_loss", "avg_ss_loss", "avg_polya_loss", "prom_loss", "ss_loss", "polya_loss", "loss", "avg_loss"]:
-                wandb.define_metric(f"{t}/{m}", step_metric=f"{t}/epoch")            
-    
-        wandb.define_metric("validation/prom_accuracy", step_metric="validation/epoch")
-        wandb.define_metric("validation/ss_accuracy", step_metric="validation/epoch")
-        wandb.define_metric("validation/polya_accuracy", step_metric="validation/epoch")
+
+        training_metrics = ["prom_loss", "ss_loss", "polya_loss", "avg_prom_loss", "avg_ss_loss", "avg_polya_loss"]
+        for t in training_metrics:
+            wandb.define_metric(f"train/{t}", step_metric="train/epoch")
+
+        validation_metrics = [
+            "avg_prom_loss", 
+            "avg_ss_loss", 
+            "avg_polya_loss", 
+            "avg_loss",
+            "prom_loss", 
+            "ss_loss", 
+            "polya_loss", 
+            "loss", 
+            "avg_loss",
+            "prom_accuracy",
+            "ss_accuracy",
+            "polya_accuracy", 
+            "prom_error_rate", 
+            "ss_error_rate", 
+            "polya_error_rate"]
+        for v in validation_metrics:
+            wandb.define_metric(f"validation/{v}", step_metric="validation/epoch")
 
     if save_dir != None:
         if not os.path.exists(save_dir):
@@ -245,9 +253,13 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
             model.train()
             model.zero_grad()
             epoch_loss = 0
+            accumulate_prom_loss = 0
+            accumulate_ss_loss = 0
+            accumulate_polya_loss = 0
             avg_prom_loss = 0
             avg_ss_loss = 0
             avg_polya_loss = 0
+            avg_loss = 0
             for step, batch in tqdm(enumerate(dataloader), total=len_dataloader, desc="Training Epoch [{}/{}]".format(i + 1 + training_counter, epoch_size)):
                 in_ids, attn_mask, label_prom, label_ss, label_polya = tuple(t.to(device) for t in batch)
                 with autocast():
@@ -257,9 +269,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                     # loss_prom, loss_ss, loss_polya = forward(model, in_ids, attn_mask, label_prom, label_ss, label_polya, loss_fn_prom=loss_fn["prom"], loss_fn_ss=loss_fn["ss"], loss_fn_polya=loss_fn["polya"])
                     
                     # Accumulate promoter, splice site, and poly-A loss.
-                    avg_prom_loss += prom_loss
-                    avg_ss_loss += ss_loss
-                    avg_polya_loss += polya_loss
+                    accumulate_prom_loss += prom_loss
+                    accumulate_ss_loss += ss_loss
+                    accumulate_polya_loss += polya_loss
 
                     # Following MTDNN (Liu et. al., 2019), loss is summed.
                     loss = (prom_loss + ss_loss + polya_loss) / (3 if loss_strategy == "average" else 1)
@@ -275,14 +287,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
 
                 # Accumulate loss in this batch.
                 epoch_loss += loss
-
-                # Wandb.
-                if wandb != None:
-                    wandb.log({"loss": loss.item()})
-                    wandb.log({"prom_loss": prom_loss.item()})
-                    wandb.log({"ss_loss": ss_loss.item()})
-                    wandb.log({"polya_loss": polya_loss.item()})
-                    wandb.log({"learning_rate": lr})
 
                 # Backpropagation.
                 # loss.backward(retain_graph=True)                
@@ -306,9 +310,9 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
 
             # Calculate average loss for promoter, splice site, and poly-A.
             # Log losses with wandb.
-            avg_prom_loss = avg_prom_loss / len_dataloader
-            avg_ss_loss = avg_ss_loss / len_dataloader
-            avg_polya_loss = avg_polya_loss / len_dataloader
+            avg_prom_loss = accumulate_prom_loss / len_dataloader
+            avg_ss_loss = accumulate_ss_loss / len_dataloader
+            avg_polya_loss = accumulate_polya_loss / len_dataloader
             avg_epoch_loss = epoch_loss / len_dataloader
 
             epoch_duration = datetime.now() - epoch_start_time
@@ -319,8 +323,11 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                     "train/avg_ss_loss": avg_ss_loss.item(),
                     "train/avg_polya_loss": avg_polya_loss.item(),
                     "train/avg_loss": avg_epoch_loss.item(),
+                    "train/prom_loss": accumulate_prom_loss.item(),
+                    "train/ss_loss": accumulate_ss_loss.item(),
+                    "train/polya_loss": accumulate_polya_loss.item(),
                     "train/loss": epoch_loss.item(),
-                    "train/epoch": i
+                    "train/epoch": i + training_counter
                 }
                 wandb.log(log_entry)
                 wandb.watch(model)
@@ -330,27 +337,28 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
             if eval_dataloader:
                 eval_log = os.path.join(save_dir, "eval_log.csv")
                 prom_accuracy, prom_loss, ss_accuracy, ss_loss, polya_accuracy, polya_loss = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, loss_fn, wandb=wandb)
-                avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
-                avg_loss = (prom_loss + ss_loss + polya_loss) / 3
+                val_avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
+                val_avg_loss = (prom_loss + ss_loss + polya_loss) / 3
                 if wandb != None:
                     wandb.log({
                         "validation/prom_accuracy": prom_accuracy, 
                         "validation/ss_accuracy": ss_accuracy, 
                         "validation/polya_accuracy": polya_accuracy, 
-                        "validation/avg_accuracy": avg_accuracy,
-                        "validation/prom_loss": prom_loss,
-                        "validation/ss_loss": ss_loss,
-                        "validation/polya_loss": polya_loss,
-                        "validation/avg_loss": avg_loss,
+                        "validation/avg_accuracy": val_avg_accuracy,
+                        "validation/prom_loss": prom_loss.item(),
+                        "validation/ss_loss": ss_loss.item(),
+                        "validation/polya_loss": polya_loss.item(),
+                        "validation/avg_loss": val_avg_loss.item(),
                         "validation/epoch": i + training_counter
                         })
 
             # Save model with best validation score.
-            if avg_accuracy > best_accuracy:
-                best_accuracy = avg_accuracy
+            if val_avg_accuracy > best_accuracy:
+                best_accuracy = val_avg_accuracy
 
                 # Save checkpoint.
-                save_checkpoint(model, optimizer, {
+                checkpoint_path = os.path.join(save_dir, f"checkpoint-{i + training_counter}.pth")
+                info = {
                     "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
                     "epoch": (i + training_counter),
                     "batch_size": batch_size,
@@ -358,8 +366,12 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                     "grad_accumulation_steps": grad_accumulation_steps,
                     "prom_accuracy": prom_accuracy,
                     "ss_accuracy": ss_accuracy,
-                    "polya_accuracy": polya_accuracy
-                }, os.path.join(save_dir, f"checkpoint-{i + training_counter}.pth"))
+                    "polya_accuracy": polya_accuracy,
+                    "prom_loss": prom_loss.item(),
+                    "ss_loss": ss_loss.item(),
+                    "polya_loss": polya_loss.item(),
+                }
+                save_checkpoint(model, optimizer, scheduler, info, checkpoint_path)
 
                 # Had to save BERT layer separately because unknown error miskey match.
                 _model = model
@@ -384,7 +396,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
     end_time = datetime.now()
     elapsed_time = end_time - start_time
     print(f"Start Time: {start_time}, End Time: {end_time}, Training Duration {elapsed_time}")
-    return model, optimizer
+    return model, optimizer, scheduler
 
 def train_by_steps(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, max_steps: int, batch_size: int, save_dir: str, device: str='cpu', training_counter: int=0, loss_strategy: str="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     num_epochs = max_steps // len(dataloader) + (1 if max_steps % len(dataloader) > 0 else 0)

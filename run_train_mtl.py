@@ -1,6 +1,7 @@
 from getopt import getopt
 import sys
 import json
+from torch.optim import lr_scheduler
 from torch.cuda import device_count as cuda_device_count
 from torch.nn import BCELoss, CrossEntropyLoss
 from multitask_learning import train, preprocessing
@@ -135,7 +136,8 @@ if __name__ == "__main__":
     
     training_steps = len(dataloader) * epoch_size
     # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
     # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     # log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
@@ -184,7 +186,7 @@ if __name__ == "__main__":
         from multitask_learning import train_by_steps
 
         # Scheduler must be re-initialized because epochs is determined by max_steps.
-        scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=args["max_steps"])
+        # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=args["max_steps"])
         trained_model, trained_optimizer = train_by_steps(dataloader, model, loss_fn, optimizer, scheduler, args["max_steps"], batch_size,
             save_dir, 
             device, 
@@ -195,7 +197,7 @@ if __name__ == "__main__":
             validation_dataloader, 
             device_list)
     else:
-        trained_model, trained_optimizer = train(
+        trained_model, trained_optimizer, trained_scheduler = train(
             dataloader, 
             model, 
             loss_fn, 
@@ -230,5 +232,5 @@ if __name__ == "__main__":
     save_json_config(total_config, os.path.join("run", args["run_name"], "final_config.json"))
 
     # Save final trained model.
-    save_checkpoint(trained_model, trained_optimizer, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
+    save_checkpoint(trained_model, trained_optimizer, trained_scheduler, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
     
