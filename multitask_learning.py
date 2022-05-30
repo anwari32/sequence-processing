@@ -463,7 +463,7 @@ def prepare_data(data, tokenizer: BertTokenizer):
     attention_masks = torch.tensor(attention_masks)
     return input_ids, attention_masks
 
-def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000, n_sample=0, random_state=1337):
+def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000, n_sample=0, random_state=1337, do_kmer=False):
     """
     @return dataloader (torch.utils.data.DataLoader)
     """
@@ -478,7 +478,7 @@ def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000
     bert_path = str(Path(bert_path))
     # tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
     tokenizer = BertTokenizer.from_pretrained(bert_path)
-    sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state)
+    sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state, do_kmer=do_kmer)
     arr_input_ids, arr_attn_mask = prepare_data(sequences, tokenizer)
     prom_labels_tensor = tensor(prom_labels)
     ss_labels_tensor = tensor(ss_labels)

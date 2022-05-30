@@ -32,7 +32,8 @@ def parse_args(argv):
         "fp16",
         "disable-wandb",
         "batch-size=",
-        "num-epochs="
+        "num-epochs=",
+        "do-kmer"
         ])
     output = {}
     for o, a in opts:
@@ -66,6 +67,8 @@ def parse_args(argv):
             output["batch_size"] = int(a)
         elif o in ["--num-epochs"]:
             output["num_epochs"] = int(a)
+        elif o in ["--do-kmer"]:
+            output["do_kmer"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -116,17 +119,20 @@ if __name__ == "__main__":
 
     # print(model)
     print(f"Preparing Training Data")
+    if "do_kmer" not in args.keys():
+        args["do_kmer"] = False
     dataloader = preprocessing(
         training_config["train_data"],# csv_file, 
         training_config["pretrained"], #pretrained_path, 
-        batch_size #batch_size
+        batch_size, #batch_size
+        do_kmer=args["do_kmer"]
         )
     
     print(f"Preparing Validation Data")
     validation_dataloader = None
     if "validation_data" in training_config.keys():
         eval_data_path = str(Path(PureWindowsPath(training_config["validation_data"])))
-        validation_dataloader = preprocessing(eval_data_path, training_config["pretrained"], 1)
+        validation_dataloader = preprocessing(eval_data_path, training_config["pretrained"], 1, do_kmer=args["do_kmer"])
 
     loss_fn = {
         "prom": BCELoss() if training_config["prom_loss_fn"] == "bce" else CrossEntropyLoss(),
