@@ -160,11 +160,11 @@ if __name__ == "__main__":
 
         # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
         # log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
-        log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
+        log_file_path = os.path.join("run", run_name, "logs", "log.csv")
 
         # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
         # save_model_path = os.path.join(save_model_path, cur_date)
-        save_model_path = os.path.join("run", args["run_name"])
+        save_model_path = os.path.join("run", run_name)
 
         for p in [log_file_path, save_model_path]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
         # Save current model config in run folder.
         model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
-        json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
+        json.dump(model_config, open(os.path.join("run", run_name, "model_config.json"), "x"), indent=4)
 
         start_time = datetime.now()
 
@@ -248,7 +248,7 @@ if __name__ == "__main__":
         }
 
         # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
-        save_json_config(total_config, os.path.join("run", args["run_name"], "final_config.json"))
+        save_json_config(total_config, os.path.join("run", run_name, "final_config.json"))
 
         # Save final trained model.
         save_checkpoint(trained_model, trained_optimizer, trained_scheduler, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
