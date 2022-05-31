@@ -196,7 +196,7 @@ if __name__ == "__main__":
         start_time = datetime.now()
 
         trained_model, trained_optimizer = None, None
-        save_dir = os.path.join("run", args["run_name"])
+        save_dir = os.path.join("run", run_name)
         device = args["device"]
         training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
         loss_strategy=training_config["loss_strategy"]
