@@ -89,6 +89,12 @@ def precision(tp, fp):
     """
     return tp / (tp + fp) * 100
 
+def recall(tp, fn):
+    """
+    Calculates recall in percent
+    """
+    return tp / (tp + fn) * 100
+
 def mcc(tp, tn, fp, fn):
     """
     Calculates MCC score.

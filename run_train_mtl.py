@@ -1,10 +1,11 @@
 from getopt import getopt
+from multiprocessing.sharedctypes import Value
 import sys
 import json
 from torch.optim import lr_scheduler
 from torch.cuda import device_count as cuda_device_count
 from torch.nn import BCELoss, CrossEntropyLoss
-from multitask_learning import train, preprocessing
+from multitask_learning import preprocessing_batches, train, preprocessing
 from utils.optimizer import init_optimizer
 from transformers import get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup
 import os
@@ -31,7 +32,7 @@ def parse_args(argv):
         "max-steps=",
         "fp16",
         "disable-wandb",
-        "batch-size=",
+        "batch-sizes=",
         "num-epochs=",
         "do-kmer"
         ])
@@ -54,7 +55,7 @@ def parse_args(argv):
         elif o in ["--cuda-garbage-collection-mode"]:
             output["cuda_garbage_collection_mode"] = a
         elif o in ["--run-name"]:
-            output["run_name"] = a
+            output["run_name"] = [x for x in a.split(',')]
         elif o in ["--device-list"]:
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--fp16"]:
@@ -63,8 +64,8 @@ def parse_args(argv):
             output["disable_wandb"] = True
         elif o in ["--max-steps"]:
             output["max_steps"] = int(a)
-        elif o in ["--batch-size"]:
-            output["batch_size"] = int(a)
+        elif o in ["--batch-sizes"]:
+            output["batch_sizes"] = [int(x) for x in a.split(',')]
         elif o in ["--num-epochs"]:
             output["num_epochs"] = int(a)
         elif o in ["--do-kmer"]:
@@ -96,37 +97,34 @@ if __name__ == "__main__":
         print("Please specify runname.")
         print("`--run-name=<runname>`")
         sys.exit(2)
-    
-    # Run name may be the same. So append current datetime to differentiate.
-    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
-    args["run_name"] = f"{args['run_name']}-{cur_date}"
 
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"] # Override num epochs if given in command.
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"] # Override batch size if given in command.
 
-    print(f"Preparing Model & Optimizer")
-    model = init_mtl_model(args["model_config"])
-    model.to(args["device"])
-    optimizer = init_optimizer(
-        training_config["optimizer"]["name"], 
-        model.parameters(), 
-        training_config["optimizer"]["learning_rate"], 
-        training_config["optimizer"]["epsilon"], 
-        training_config["optimizer"]["beta1"], 
-        training_config["optimizer"]["beta2"], 
-        training_config["optimizer"]["weight_decay"]
-    )
+    # Since we have opened possible multiple batch sizes, each of run names must be correlated with each of batch sizes.
+    run_names = args["run_name"].split(',')
+    if len(run_names) != len(batch_size):
+        raise ValueError(f"`run names` do not correspond to `batch sizes`.")
+    
+    # Run name may be the same. So append current datetime to differentiate.
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # args["run_name"] = f"{args['run_name']}-{cur_date}"
+    run_names = [f"{n}-{cur_date}" for n in run_names]
 
     # print(model)
     print(f"Preparing Training Data")
     if "do_kmer" not in args.keys():
         args["do_kmer"] = False
-    dataloader = preprocessing(
-        training_config["train_data"],# csv_file, 
-        training_config["pretrained"], #pretrained_path, 
-        batch_size, #batch_size
-        do_kmer=args["do_kmer"]
-        )
+    
+    dataloaders = None
+    if len(batch_size) == 0:
+        raise ValueError(f"Length batch size must not be 0.")
+    dataloaders = preprocessing_batches(
+        training_config["train_data"],  # CSV file,
+        training_config["pretrained"],  # Pretrained_path,
+        batch_sizes=batch_size,         # Batch size,
+        do_kmer=args["do_kmer"]   
+    )
     
     print(f"Preparing Validation Data")
     validation_dataloader = None
@@ -140,103 +138,118 @@ if __name__ == "__main__":
         "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
     }
     
-    training_steps = len(dataloader) * epoch_size
-    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+    for run_name, dataloader in zip(run_names, dataloaders):
 
-    # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
-    # log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
-    log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
-
-    # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
-    # save_model_path = os.path.join(save_model_path, cur_date)
-    save_model_path = os.path.join("run", args["run_name"])
-
-    for p in [log_file_path, save_model_path]:
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-
-    if "disable_wandb" not in args.keys():
-        args["disable_wandb"] = False
-
-    if args["disable_wandb"]:
-        os.environ["WANDB_MODE"] = "offline"
-    else:
-        os.environ["WANDB_MODE"] = "online"
-
-    wandb.init(project="thesis-mtl", entity="anwari32") 
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
-    wandb.config = {
-        "learning_rate": training_config["optimizer"]["learning_rate"],
-        "epochs": epoch_size,
-        "batch_size": batch_size
-    }
-    wandb.watch(model)
-
-    # Save current model config in run folder.
-    model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
-    json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
-
-    start_time = datetime.now()
-
-    trained_model, trained_optimizer = None, None
-    save_dir = os.path.join("run", args["run_name"])
-    device = args["device"]
-    training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
-    loss_strategy=training_config["loss_strategy"]
-    grad_accumulation_steps=training_config["grad_accumulation_steps"]
-    device_list=args["device_list"] if "device_list" in args.keys() else []
-    if "max_steps" in args.keys():
-        from multitask_learning import train_by_steps
-
-        # Scheduler must be re-initialized because epochs is determined by max_steps.
-        # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=args["max_steps"])
-        trained_model, trained_optimizer = train_by_steps(dataloader, model, loss_fn, optimizer, scheduler, args["max_steps"], batch_size,
-            save_dir, 
-            device, 
-            training_counter, 
-            loss_strategy, 
-            grad_accumulation_steps, 
-            wandb, 
-            validation_dataloader, 
-            device_list)
-    else:
-        trained_model, trained_optimizer, trained_scheduler = train(
-            dataloader, 
-            model, 
-            loss_fn, 
-            optimizer, 
-            scheduler, 
-            batch_size=batch_size, 
-            epoch_size=epoch_size, 
-            device=args["device"], 
-            save_dir=save_model_path, 
-            training_counter=args["training_counter"] if "training_counter" in args.keys() else 0, 
-            loss_strategy=training_config["loss_strategy"], 
-            grad_accumulation_steps=training_config["grad_accumulation_steps"], 
-            wandb=wandb,
-            eval_dataloader=validation_dataloader,
-            device_list=args["device_list"] if "device_list" in args.keys() else [],
+        print(f"Preparing Model & Optimizer")
+        model = init_mtl_model(args["model_config"])
+        model.to(args["device"])
+        optimizer = init_optimizer(
+            training_config["optimizer"]["name"], 
+            model.parameters(), 
+            training_config["optimizer"]["learning_rate"], 
+            training_config["optimizer"]["epsilon"], 
+            training_config["optimizer"]["beta1"], 
+            training_config["optimizer"]["beta2"], 
+            training_config["optimizer"]["weight_decay"]
         )
-    end_time = datetime.now()
-    running_time = end_time - start_time
 
-    print(f"Training Duration {running_time}")
+        training_steps = len(dataloader) * epoch_size
+        # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+        # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+        scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
-    total_config = {
-        "training_config": training_config,
-        "model_config": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
-        "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
-        "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
-        "running_time": str(running_time),
-        "runname": args["run_name"]
-    }
+        # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
+        # log_file_path = os.path.join(log_dir_path, cur_date, "log.csv")
+        log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
 
-    # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
-    save_json_config(total_config, os.path.join("run", args["run_name"], "final_config.json"))
+        # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
+        # save_model_path = os.path.join(save_model_path, cur_date)
+        save_model_path = os.path.join("run", args["run_name"])
 
-    # Save final trained model.
-    save_checkpoint(trained_model, trained_optimizer, trained_scheduler, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
+        for p in [log_file_path, save_model_path]:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+
+        if "disable_wandb" not in args.keys():
+            args["disable_wandb"] = False
+
+        if args["disable_wandb"]:
+            os.environ["WANDB_MODE"] = "offline"
+        else:
+            os.environ["WANDB_MODE"] = "online"
+
+        wandb.init(project="thesis-mtl", entity="anwari32") 
+        if "run_name" in args.keys():
+            wandb.run.name = f'{run_name}-{wandb.run.id}'
+            wandb.run.save()
+        wandb.config = {
+            "learning_rate": training_config["optimizer"]["learning_rate"],
+            "epochs": epoch_size,
+            "batch_size": batch_size
+        }
+        wandb.watch(model)
+
+        # Save current model config in run folder.
+        model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
+        json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
+
+        start_time = datetime.now()
+
+        trained_model, trained_optimizer = None, None
+        save_dir = os.path.join("run", args["run_name"])
+        device = args["device"]
+        training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
+        loss_strategy=training_config["loss_strategy"]
+        grad_accumulation_steps=training_config["grad_accumulation_steps"]
+        device_list=args["device_list"] if "device_list" in args.keys() else []
+        if "max_steps" in args.keys():
+            from multitask_learning import train_by_steps
+
+            # Scheduler must be re-initialized because epochs is determined by max_steps.
+            # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=args["max_steps"])
+            trained_model, trained_optimizer = train_by_steps(dataloader, model, loss_fn, optimizer, scheduler, args["max_steps"], batch_size,
+                save_dir, 
+                device, 
+                training_counter, 
+                loss_strategy, 
+                grad_accumulation_steps, 
+                wandb, 
+                validation_dataloader, 
+                device_list)
+        else:
+            trained_model, trained_optimizer, trained_scheduler = train(
+                dataloader, 
+                model, 
+                loss_fn, 
+                optimizer, 
+                scheduler, 
+                batch_size=batch_size, 
+                epoch_size=epoch_size, 
+                device=args["device"], 
+                save_dir=save_model_path, 
+                training_counter=args["training_counter"] if "training_counter" in args.keys() else 0, 
+                loss_strategy=training_config["loss_strategy"], 
+                grad_accumulation_steps=training_config["grad_accumulation_steps"], 
+                wandb=wandb,
+                eval_dataloader=validation_dataloader,
+                device_list=args["device_list"] if "device_list" in args.keys() else [],
+            )
+        end_time = datetime.now()
+        running_time = end_time - start_time
+
+        print(f"Training Duration {running_time}")
+
+        total_config = {
+            "training_config": training_config,
+            "model_config": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
+            "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
+            "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
+            "running_time": str(running_time),
+            "runname": args["run_name"]
+        }
+
+        # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
+        save_json_config(total_config, os.path.join("run", args["run_name"], "final_config.json"))
+
+        # Save final trained model.
+        save_checkpoint(trained_model, trained_optimizer, trained_scheduler, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
     

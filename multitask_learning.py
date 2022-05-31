@@ -471,7 +471,6 @@ def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000
     csv_file = str(Path(csv_file))
     if not os.path.exists(csv_file):
         raise FileNotFoundError("File {} not found.".format(csv_file))
-        sys.exit(2)
     _start_time = datetime.now()
 
     bert_path = PureWindowsPath(pretrained_tokenizer_path)
@@ -490,3 +489,33 @@ def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000
     _elapsed_time = _end_time - _start_time
     print("Preparing Dataloader duration {}".format(_elapsed_time))
     return dataloader
+
+def preprocessing_batches(csv_file: str, pretrained_tokenizer_path: str, batch_sizes=[], n_sample=0, random_state=1337, do_kmer=False):
+    if len(batch_sizes) == 0:
+        raise ValueError(f"Batch sizes cannot be {batch_sizes}")
+    csv_file = PureWindowsPath(csv_file)
+    csv_file = str(Path(csv_file))
+    if not os.path.exists(csv_file):
+        raise FileNotFoundError("File {} not found.".format(csv_file))
+    _start_time = datetime.now()
+
+    bert_path = PureWindowsPath(pretrained_tokenizer_path)
+    bert_path = str(Path(bert_path))
+    # tokenizer = BertTokenizer.from_pretrained(pretrained_tokenizer_path)
+    tokenizer = BertTokenizer.from_pretrained(bert_path)
+    sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state, do_kmer=do_kmer)
+    arr_input_ids, arr_attn_mask = prepare_data(sequences, tokenizer)
+    prom_labels_tensor = tensor(prom_labels)
+    ss_labels_tensor = tensor(ss_labels)
+    polya_labels_tensor = tensor(polya_labels)
+
+    dataset = TensorDataset(arr_input_ids, arr_attn_mask, prom_labels_tensor, ss_labels_tensor, polya_labels_tensor)
+    dataloaders = []
+    for batch_size in batch_sizes:
+        dataloaders.append(DataLoader(dataset, batch_size=batch_size, shuffle=True))
+    
+    _end_time = datetime.now()
+    _elapsed_time = _end_time - _start_time
+    print(f"Preparing Dataloaders duration {_elapsed_time}")
+    return dataloaders
+    
