@@ -99,11 +99,11 @@ if __name__ == "__main__":
         sys.exit(2)
 
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"] # Override num epochs if given in command.
-    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"] # Override batch size if given in command.
+    batch_sizes = training_config["batch_size"] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
 
     # Since we have opened possible multiple batch sizes, each of run names must be correlated with each of batch sizes.
     run_names = args["run_name"].split(',')
-    if len(run_names) != len(batch_size):
+    if len(run_names) != len(batch_sizes):
         raise ValueError(f"`run names` do not correspond to `batch sizes`.")
     
     # Run name may be the same. So append current datetime to differentiate.
@@ -117,12 +117,12 @@ if __name__ == "__main__":
         args["do_kmer"] = False
     
     dataloaders = None
-    if len(batch_size) == 0:
+    if len(batch_sizes) == 0:
         raise ValueError(f"Length batch size must not be 0.")
     dataloaders = preprocessing_batches(
         training_config["train_data"],  # CSV file,
         training_config["pretrained"],  # Pretrained_path,
-        batch_sizes=batch_size,         # Batch size,
+        batch_sizes=batch_sizes,         # Batch size,
         do_kmer=args["do_kmer"]   
     )
     
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
     }
     
-    for run_name, dataloader in zip(run_names, dataloaders):
+    for run_name, batch_size, dataloader in zip(run_names, batch_size, dataloaders):
 
         print(f"Preparing Model & Optimizer")
         model = init_mtl_model(args["model_config"])
