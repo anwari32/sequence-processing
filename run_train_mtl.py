@@ -138,7 +138,7 @@ if __name__ == "__main__":
         "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
     }
     
-    for run_name, batch_size, dataloader in zip(run_names, batch_size, dataloaders):
+    for run_name, batch_size, dataloader in zip(run_names, batch_sizes, dataloaders):
 
         print(f"Preparing Model & Optimizer")
         model = init_mtl_model(args["model_config"])
