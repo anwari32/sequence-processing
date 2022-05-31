@@ -139,6 +139,7 @@ if __name__ == "__main__":
     }
     
     for run_name, batch_size, dataloader in zip(run_names, batch_sizes, dataloaders):
+        print(f"Runname {run_name}, Batch size {batch_size}")
 
         print(f"Preparing Model & Optimizer")
         model = init_mtl_model(args["model_config"])
