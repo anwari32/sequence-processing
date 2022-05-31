@@ -102,7 +102,7 @@ if __name__ == "__main__":
     batch_sizes = training_config["batch_size"] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
 
     # Since we have opened possible multiple batch sizes, each of run names must be correlated with each of batch sizes.
-    run_names = args["run_name"].split(',')
+    run_names = args["run_name"]
     if len(run_names) != len(batch_sizes):
         raise ValueError(f"`run names` do not correspond to `batch sizes`.")
     
