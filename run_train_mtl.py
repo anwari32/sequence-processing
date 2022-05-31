@@ -99,7 +99,7 @@ if __name__ == "__main__":
         sys.exit(2)
 
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"] # Override num epochs if given in command.
-    batch_sizes = training_config["batch_size"] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
+    batch_sizes = [training_config["batch_size"]] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
 
     # Since we have opened possible multiple batch sizes, each of run names must be correlated with each of batch sizes.
     run_names = args["run_name"]
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     dataloaders = preprocessing_batches(
         training_config["train_data"],  # CSV file,
         training_config["pretrained"],  # Pretrained_path,
-        batch_sizes=batch_sizes,         # Batch size,
+        batch_sizes=batch_sizes,        # Batch size,
         do_kmer=args["do_kmer"]   
     )
     
