@@ -55,8 +55,8 @@ def train(model, optimizer, scheduler, train_dataloader, num_epoch, loss_functio
         model = torch.nn.DataParallel(model, device_list)
     else:
         print(f"Device {device}")
-        model.to(device)
-
+    
+    model.to(device)
     scaler = GradScaler()
 
     for epoch in range(num_epoch):
