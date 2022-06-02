@@ -2,18 +2,19 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count
-from sequential_labelling import train_by_sequences
+from sequential_labelling import train
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
 from utils.optimizer import init_optimizer
 from utils.utils import load_checkpoint
-from transformers import get_linear_schedule_with_warmup, BertTokenizer
+from transformers import BertTokenizer
 import os
 import wandb
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from utils.utils import save_json_config, save_checkpoint
 from torch.nn import CrossEntropyLoss
+from torch.optim import lr_scheduler
 
 def parse_args(argv):
     opts, args = getopt(argv, "t:m:d:f", ["training-config=", 
@@ -148,20 +149,14 @@ if __name__ == "__main__":
             param.requires_grad(False)
 
     # Override batch size and epoch if given in command.
-
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
     
     training_steps = len(dataloader) * epoch_size
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    
-    log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
-    save_model_path = os.path.join("run", args["run_name"])
-    for p in [log_file_path, save_model_path]:
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-
-    print(f"Log File {log_file_path}")
-    print(f"Save Model Path {save_model_path}")
+    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+    save_dir = os.path.join("run", args["run_name"])
+    print(f"Save Directory {save_dir}")
 
     # Save current model config in run folder.
     model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
@@ -170,31 +165,20 @@ if __name__ == "__main__":
     loss_function = CrossEntropyLoss()
 
     start_time = datetime.now()
-    end_time = start_time
-    #try:
-    trained_model, optimizer = train_by_sequences(
+    trained_model, optimizer, scheduler = train(
         model, 
         optimizer, 
         scheduler, 
         dataloader, 
         epoch_size, 
-        log_path=log_file_path, 
-        save_model_path=save_model_path, 
+        loss_function,
+        save_dir,
+        eval_dataloader,
         device=args["device"], 
-        training_counter=training_counter,
-        grad_accumulation_steps=training_config["grad_accumulation_steps"], 
-        loss_function=loss_function,
-        loss_strategy=training_config["loss_strategy"],
+        device_list=(args["device_list"] if "device_list" in args.keys() else []),
         wandb=wandb,
-        eval_dataloader=eval_dataloader,
-        device_list=(args["device_list"] if "device_list" in args.keys() else [])
+        loss_strategy="sum"
     )
-    #except Exception as ex:
-    #    print(f"Error message: {ex}")
-    end_time = datetime.now()
-    running_time = end_time - start_time
-    print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")    
-
     end_time = datetime.now()
     running_time = end_time - start_time
 
@@ -209,10 +193,4 @@ if __name__ == "__main__":
         "runname": args["run_name"]
     }
 
-    # Final config is saved in JSON format in the same folder as log file.
-    # Final config is saved in `config.json` file.
-    # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
-    save_json_config(total_config, os.path.join("run", args["run_name"], "config.json"))
-
-    # Save final model and optimizer.
-    save_checkpoint(model, optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))
+    save_checkpoint(model, optimizer, scheduler, total_config, save_dir)

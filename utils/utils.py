@@ -77,21 +77,18 @@ def save_model_state_dict(model, save_path, save_filename):
         os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
-def save_checkpoint(model, optimizer, scheduler, config, path):
+def save_checkpoint(model, optimizer, scheduler, config, dirpath):
     """
     Save model and optimizer internal state with other information (config).
     If file with same name exists, the file will be replaced.
     @param  model: model
     @param  optimizer: optimizer
     @param  config (dictionary): a dictionary containing information about ``model`` and ``optimizer``.
-    @param  path (str): File path to save checkpoint. 
+    @param  dirpath (str): dirpath to save checkpoint. 
     """
-    dest_dir = os.path.dirname(path)
+    dest_dir = dirpath
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
-    
-    if os.path.exists(path):
-        os.remove(path)
     
     torch.save(model.state_dict, os.path.join(dest_dir, "model.pth"))
     torch.save(optimizer.state_dict, os.path.join(dest_dir, "optimizer.pth"))

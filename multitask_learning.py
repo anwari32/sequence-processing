@@ -373,7 +373,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                 best_accuracy = val_avg_accuracy
 
                 # Save checkpoint.
-                checkpoint_path = os.path.join(save_dir, f"checkpoint-{i + training_counter}.pth")
                 info = {
                     "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
                     "epoch": (i + training_counter),
@@ -387,7 +386,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                     "ss_loss": ss_loss.item(),
                     "polya_loss": polya_loss.item(),
                 }
-                save_checkpoint(model, optimizer, scheduler, info, checkpoint_path)
+                save_checkpoint(model, optimizer, scheduler, info, save_dir)
 
                 # Had to save BERT layer separately because unknown error miskey match.
                 _model = model
@@ -396,10 +395,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                 current_bert_layer = _model.shared_layer
                 current_bert_layer.save_pretrained(save_dir)
 
-                # Remove previous model.
-                old_model_path = os.path.join(save_dir, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))
-                if os.path.exists(old_model_path):
-                    os.remove(old_model_path)
         # endfor epoch.
     except ImportError: 
         raise ImportError("Error importing autocase or GradScaler")

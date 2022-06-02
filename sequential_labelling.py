@@ -13,6 +13,234 @@ from utils.seqlab import preprocessing_kmer, convert_ids_to_tokens
 from utils.tokenizer import get_default_tokenizer
 from torch.cuda.amp import autocast, GradScaler
 
+def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, loss_strategy="sum"):
+    batch_loss = 0
+    batch_accuracy = 0
+    with autocast(enabled=True, cache_enabled=True):
+        prediction = model(batch_input_ids, batch_attn_mask)
+
+        for pred, labels in zip(prediction, batch_labels):
+
+            # Calculate loss.
+            loss = loss_function(pred, labels)
+            batch_loss += loss
+
+            # Calculate accuracy.
+            pscores, pindices = torch.max(pred, 1)
+            accuracy = 0
+            for idx, lab in zip(pindices, labels):
+                accuracy = accuracy + 1 if idx == lab else 0
+            batch_accuracy += (accuracy / pred.shape[0] * 100) # Accuracy in percentage.
+        
+        batch_accuracy = batch_accuracy / prediction.shape[0]
+
+    batch_loss = batch_loss / (prediction.shape[0] if loss_strategy == "average" else 1)
+
+    return batch_accuracy, batch_loss, prediction, batch_labels
+
+def train(model, optimizer, scheduler, train_dataloader, num_epoch, loss_function, save_dir, validation_dataloader, device, device_list=[], wandb=None, loss_strategy="sum"):
+
+    wandb.define_metric("train/epoch")
+    for t in ["loss"]:
+        wandb.define_metric(f"train/{t}", step_metric="train/epoch")
+
+    wandb.define_metric("validation/epoch")        
+    for t in ["accuracy, loss"]:
+        wandb.define_metric(f"validation/{t}", step_metric="validation/epoch")
+    
+    log = os.path.join(save_dir, "log.csv")
+    eval_log = os.path.join(save_dir, "eval_log.csv")
+
+    if len(device_list) > 1:
+        model = torch.nn.DataParallel(model, device_list)
+    else:
+        print(f"Device {device}")
+        model.to(device)
+
+    scaler = GradScaler()
+
+    for epoch in range(num_epoch):
+
+        # Training
+        if os.path.exists(log):
+            log_file = open(log, "a")
+        else:
+            log_file = open(log, "x")
+            log_file.write("epoch,step,loss\n")
+
+        model.train()
+        train_loss = 0
+        for step, batch in tqdm(enumerate(train_dataloader), desc=f"Training Epoch [{epoch + 1}/{num_epoch}]", total=len(train_dataloader)):
+            batch_input_ids, batch_attention_mask, batch_input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
+            batch_accuracy, batch_loss, prediction, target_label = forward(model, batch_input_ids, batch_attention_mask, batch_labels, loss_function, loss_strategy)
+            
+            train_loss += batch_loss
+            wandb.log({
+                "train_loss": batch_loss,
+            })
+            log_file.write(f"{epoch},{step},{batch_loss.item()}\n")
+
+            if scaler:
+                scaler.scale(batch_loss).backward()
+            else:
+                batch_loss.backward()
+
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+            optimizer.zero_grad()
+
+        wandb.log({
+            "train/loss": train_loss,
+            "train/epoch": epoch
+        })
+
+        # Validation
+        if os.path.exists(eval_log):
+            eval_log_file = open(eval_log, "a")
+        else:
+            eval_log_file = open(eval_log, "x")
+            eval_log_file.write("epoch,step,accuracy,loss,prediction,target\n")
+
+
+        model.eval()
+        validation_loss = 0
+        validation_accuracy = 0
+        with torch.no_grad():
+            for step, batch in tqdm(enumerate(validation_dataloader), desc=f"Validating Epoch [{epoch + 1}/{num_epoch}]", total=len(validation_dataloader)):
+                batch_input_ids, batch_attention_mask, batch_input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
+                batch_accuracy, batch_loss, prediction, target_label = forward(model, batch_input_ids, batch_attention_mask, batch_labels, loss_function, loss_strategy)
+
+                wandb.log({
+                    "validation_loss": batch_loss,
+                    "validation_accuracy": batch_accuracy
+                })
+                pred_scores, pred_indices = torch.max(prediction[0], 1)
+                pred_indices = pred_indices.tolist()
+                pred_indices = [str(i) for i in pred_indices]
+                pred_indices = " ".join(pred_indices)
+                target_indices = batch_labels[0].tolist()
+                target_indices = [str(i) for i in target_indices]
+                target_indices = " ".join(target_indices)
+
+                eval_log_file.write(f"{epoch},{step},{batch_accuracy},{batch_loss},{pred_indices},{target_indices}\n")
+
+                validation_loss += batch_loss
+                validation_accuracy += batch_accuracy
+
+            wandb.log({
+                "validation/accuracy": validation_accuracy,
+                "validation/loss": validation_loss.item(),
+                "validation/epoch": epoch
+            })
+        
+        # Saving model.
+        save_checkpoint(model, optimizer, scheduler, {
+            "epoch": epoch,
+            "train_loss":train_loss.item(),
+            "validation_accuracy": validation_accuracy,
+            "validation_loss": validation_loss.item(),
+        }, save_dir)
+
+    log_file.close()
+    eval_log_file.close()
+    return model, optimizer, scheduler
+
+def train_by_sequences(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None):
+    
+    # Writing training log.
+    log_path = os.path.join(save_dir, "log.csv")
+    log_file = open(log_path, 'x')
+    log_file.write('epoch,step,batch_loss,epoch_loss,learning_rate\n')
+
+    n_gpu = len(device_list)
+    if n_gpu > 1:
+        model = torch.nn.DataParallel(model, device_list)
+    else:
+        print(f"Device {device}")
+
+    scaler = GradScaler()
+
+    if wandb != None:
+        TRAINING_EPOCH = "train/epoch"
+        TRAINING_LOSS = "train/loss"
+
+        wandb.define_metric(TRAINING_EPOCH)
+        wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
+
+        VALIDATION_ACCURACY = "validation/accuracy"
+        VALIDATION_LOSS = "validation/loss"
+        VALIDATION_EPOCH = "validation/epoch"
+
+        wandb.define_metric(VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
+        wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
+
+    # Do training.
+    model.to(device)
+    model.train()
+    best_accuracy = 0
+    for epoch in range(epoch_size):
+        epoch_loss = 0
+        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1 + training_counter}/{epoch_size}]"):
+            input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
+            # batch_loss = __forward_sequence__(model, input_ids, attention_mask, label, loss_function, device, loss_strategy)
+            batch_accuracy, batch_loss = forward(model, input_ids, attention_mask, label, loss_function)
+            lr = optimizer.param_groups[0]['lr']
+            batch_loss = (batch_loss / grad_accumulation_steps)
+            epoch_loss += batch_loss
+
+            if scaler:
+                scaler.scale(batch_loss).backward()
+            else:
+                batch_loss.backward()                
+
+            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
+                scaler.step(optimizer)
+                scaler.update()
+                scheduler.step()
+                optimizer.zero_grad()
+
+            if wandb != None:
+                wandb.log({"epoch_loss": epoch_loss})
+                wandb.log({"batch_loss": batch_loss})
+
+                # Optional
+                wandb.watch(model)
+
+            log_file.write(f"{epoch + training_counter},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
+        
+        # After an epoch, evaluate.
+        if eval_dataloader != None:
+            model.eval()
+            with torch.no_grad():
+                eval_log = os.path.join(save_dir, "eval_log.csv")
+                # avg_accuracy, avg_inaccuracy, avg_gene_loss = evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_function, wandb)
+                avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, epoch_size, loss_function, wandb)
+
+                if wandb != None:
+                    validation_log = {
+                        VALIDATION_ACCURACY: avg_accuracy,
+                        VALIDATION_LOSS: avg_loss,
+                        VALIDATION_EPOCH: epoch
+                    }
+                    wandb.log(validation_log)
+
+                # Save trained model if this epoch produces better model.
+                if avg_accuracy > best_accuracy:
+                    save_checkpoint(model, optimizer, None, {
+                        "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                        "epoch": (epoch + training_counter),
+                    }, os.path.join(save_dir, f"checkpoint-{epoch + training_counter}.pth"))
+
+                    # Had to save BERT layer separately because unknown error miskey match.
+                    current_bert_layer = model.bert
+                    current_bert_layer.save_pretrained(save_dir)
+
+        torch.cuda.empty_cache()
+    #endfor epoch
+    log_file.close()
+    return model, optimizer
 
 def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
@@ -246,106 +474,16 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
 
+            if wandb != None:
+                wandb.log({
+                    "validation_loss": avg_loss,
+                    "validation_accuracy": avg_accuracy
+                })
+
     if eval_log_file != None:
         eval_log_file.close()
         
     return avg_accuracy, avg_loss
-
-def train_by_sequences(model, optimizer, scheduler, train_dataloader, epoch_size, log_path, save_model_path, device='cpu', training_counter=0, grad_accumulation_steps=1, loss_function=NLLLoss(), loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None):
-    
-    # Writing training log.
-    log_file = open(log_path, 'x')
-    log_file.write('epoch,step,batch_loss,epoch_loss,learning_rate\n')
-
-    n_gpu = len(device_list)
-    if n_gpu > 1:
-        model = torch.nn.DataParallel(model, device_list)
-    else:
-        print(f"Device {device}")
-
-    scaler = GradScaler()
-
-    if wandb != None:
-        TRAINING_EPOCH = "train/epoch"
-        TRAINING_LOSS = "train/loss"
-
-        wandb.define_metric(TRAINING_EPOCH)
-        wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
-
-        VALIDATION_ACCURACY = "validation/accuracy"
-        VALIDATION_LOSS = "validation/loss"
-        VALIDATION_EPOCH = "validation/epoch"
-
-        wandb.define_metric(VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
-
-    # Do training.
-    model.to(device)
-    model.train()
-    best_accuracy = 0
-    for epoch in range(epoch_size):
-        epoch_loss = 0
-        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1 + training_counter}/{epoch_size}]"):
-            input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
-            batch_loss = __forward_sequence__(model, input_ids, attention_mask, label, loss_function, device, loss_strategy)
-            lr = optimizer.param_groups[0]['lr']
-            batch_loss = (batch_loss / grad_accumulation_steps)
-            epoch_loss += batch_loss
-
-            if scaler:
-                scaler.scale(batch_loss).backward()
-            else:
-                batch_loss.backward()                
-
-            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
-                scaler.step(optimizer)
-                scaler.update()
-                scheduler.step()
-                optimizer.zero_grad()
-
-            if wandb != None:
-                wandb.log({"epoch_loss": epoch_loss})
-                wandb.log({"batch_loss": batch_loss})
-
-                # Optional
-                wandb.watch(model)
-
-            log_file.write(f"{epoch + training_counter},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
-        
-        # After an epoch, evaluate.
-        if eval_dataloader != None:
-            eval_log = os.path.join(os.path.dirname(log_path), "eval_log.csv")
-            # avg_accuracy, avg_inaccuracy, avg_gene_loss = evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_function, wandb)
-            avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, epoch_size, loss_function, wandb)
-
-            if wandb != None:
-                validation_log = {
-                    VALIDATION_ACCURACY: avg_accuracy,
-                    VALIDATION_LOSS: avg_loss,
-                    VALIDATION_EPOCH: epoch
-                }
-                wandb.log(validation_log)
-
-            # Save trained model if this epoch produces better model.
-            if avg_accuracy > best_accuracy:
-                save_checkpoint(model, optimizer, {
-                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-                    "epoch": (epoch + training_counter),
-                }, os.path.join(save_model_path, f"checkpoint-{epoch + training_counter}.pth"))
-
-                # Had to save BERT layer separately because unknown error miskey match.
-                current_bert_layer = model.bert
-                current_bert_layer.save_pretrained(save_model_path)
-
-                old_model_path = os.path.join(save_model_path, f"checkpoint-{epoch + training_counter - 1}.pth")
-                if os.path.exists(old_model_path):
-                    os.remove(old_model_path)
-        
-        torch.cuda.empty_cache()
-    #endfor epoch
-    log_file.close()
-    return model, optimizer
 
 def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, grad_accumulation_steps=1, device="cpu", save_path=None, log_file_path=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
     n_gpu = len(device_list)
