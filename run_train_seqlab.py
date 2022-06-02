@@ -82,9 +82,10 @@ if __name__ == "__main__":
         sys.exit(2)
 
     # Run name may be the same. So append current datetime to differentiate.
+    # Create this folder if not exist.
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     args["run_name"] = f"{args['run_name']}-{cur_date}"
-    
+
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
     training_filepath = str(Path(PureWindowsPath(training_config["train_data"])))
@@ -155,9 +156,13 @@ if __name__ == "__main__":
     training_steps = len(dataloader) * epoch_size
     # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+
+    # Prepare save directory for this work.
     save_dir = os.path.join("run", args["run_name"])
     print(f"Save Directory {save_dir}")
-
+    if os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+    
     # Save current model config in run folder.
     model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
     json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
