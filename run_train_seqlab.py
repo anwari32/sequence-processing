@@ -160,12 +160,13 @@ if __name__ == "__main__":
     # Prepare save directory for this work.
     save_dir = os.path.join("run", args["run_name"])
     print(f"Save Directory {save_dir}")
-    if os.path.exists(save_dir):
+    if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
     
     # Save current model config in run folder.
     model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
-    json.dump(model_config, open(os.path.join("run", args["run_name"], "model_config.json"), "x"), indent=4)
+    model_config_path = os.path.join("run", args["run_name"], "model_config.json")
+    json.dump(model_config, open(model_config_path, "x"), indent=4)
     
     loss_function = CrossEntropyLoss()
 
