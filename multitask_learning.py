@@ -164,6 +164,13 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, loss_fn: dict, wand
             polya_predicts.append(polya_predict)
             polya_actuals.append(polya_label.item())
             polya_losses.append(polya_loss.item())
+            if wandb != None:
+                wandb.log({
+                    "validation_prom_loss": prom_loss.item(),
+                    "validation_ss_loss": ss_loss.item(),
+                    "validation_polya_loss": polya_loss.item(),
+                    "validation_loss":(prom_loss + ss_loss + polya_loss).item()
+                })
             log.write(f"{cur_epoch}, {step},{1 if prom_eval else 0},{prom_predict},{prom_label.item()},{prom_loss.item()},{1 if ss_eval else 0},{ss_predict},{ss_label.item()},{ss_loss.item()},{1 if polya_eval else 0},{polya_predict},{polya_label.item()},{polya_loss.item()}\n")
     #endfor
     log.close()
@@ -287,6 +294,15 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
 
                 # Accumulate loss in this batch.
                 epoch_loss += loss
+
+                # Log losses.
+                if wandb != None:
+                    wandb.log({
+                        "train_prom_loss": prom_loss.item(),
+                        "train_ss_loss": ss_loss.item(),
+                        "train_polya_loss": polya_loss.item(),
+                        "train_loss": epoch_loss.item()
+                    })
 
                 # Backpropagation.
                 # loss.backward(retain_graph=True)                
