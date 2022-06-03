@@ -136,14 +136,14 @@ if __name__ == "__main__":
         os.environ["WANDB_MODE"] = "online"
 
     wandb.init(project="thesis-mtl", entity="anwari32") 
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
     wandb.config = {
         "learning_rate": training_config["optimizer"]["learning_rate"],
         "epochs": training_config["num_epochs"],
         "batch_size": training_config["batch_size"]
     }
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
 
     if int(training_config["freeze_bert"]) > 0:
         for param in model.bert.parameters():
