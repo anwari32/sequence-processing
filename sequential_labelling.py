@@ -1,18 +1,10 @@
-import json
 import torch
-from torch.nn import NLLLoss
-from torch.utils.data import DataLoader
-from transformers import BertTokenizer
 import os
 from tqdm import tqdm
-from utils.utils import save_model_state_dict, save_checkpoint
-from models.seqlab import DNABERTSeqLab
-from datetime import datetime
-import wandb
-from utils.seqlab import preprocessing_kmer, convert_ids_to_tokens
-from utils.tokenizer import get_default_tokenizer
+from utils.utils import save_checkpoint
 from torch.cuda.amp import autocast, GradScaler
 
+<<<<<<< Updated upstream
 
 def __forward_sequence__(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
@@ -493,3 +485,137 @@ def train_by_genes(model: DNABERTSeqLab, tokenizer: BertTokenizer, optimizer, sc
     #endfor
     logfile.close()
     return model, optimizer
+=======
+def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, loss_strategy="sum"):
+    batch_loss = 0
+    batch_accuracy = 0
+    with autocast(enabled=True, cache_enabled=True):
+        prediction = model(batch_input_ids, batch_attn_mask)
+
+        for pred, labels in zip(prediction, batch_labels):
+
+            # Calculate loss.
+            loss = loss_function(pred, labels)
+            batch_loss += loss
+
+            # Calculate accuracy.
+            pscores, pindices = torch.max(pred, 1)
+            accuracy = 0
+            for idx, lab in zip(pindices, labels):
+                accuracy = accuracy + 1 if idx == lab else 0
+            batch_accuracy += (accuracy / pred.shape[0] * 100) # Accuracy in percentage.
+        
+        batch_accuracy = batch_accuracy / prediction.shape[0]
+
+    batch_loss = batch_loss / (prediction.shape[0] if loss_strategy == "average" else 1)
+
+    return batch_accuracy, batch_loss, prediction, batch_labels
+
+def train(model, optimizer, scheduler, train_dataloader, num_epoch, loss_function, save_dir, validation_dataloader, device, device_list=[], wandb=None, loss_strategy="sum"):
+
+    wandb.define_metric("train/epoch")
+    for t in ["loss"]:
+        wandb.define_metric(f"train/{t}", step_metric="train/epoch")
+
+    wandb.define_metric("validation/epoch")        
+    for t in ["accuracy, loss"]:
+        wandb.define_metric(f"validation/{t}", step_metric="validation/epoch")
+    
+    log = os.path.join(save_dir, "log.csv")
+    eval_log = os.path.join(save_dir, "eval_log.csv")
+
+    if len(device_list) > 1:
+        model = torch.nn.DataParallel(model, device_list)
+    else:
+        print(f"Device {device}")
+    
+    model.to(device)
+    scaler = GradScaler()
+
+    for epoch in range(num_epoch):
+
+        # Training
+        if os.path.exists(log):
+            log_file = open(log, "a")
+        else:
+            log_file = open(log, "x")
+            log_file.write("epoch,step,loss\n")
+
+        model.train()
+        train_loss = 0
+        for step, batch in tqdm(enumerate(train_dataloader), desc=f"Training Epoch [{epoch + 1}/{num_epoch}]", total=len(train_dataloader)):
+            batch_input_ids, batch_attention_mask, batch_input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
+            batch_accuracy, batch_loss, prediction, target_label = forward(model, batch_input_ids, batch_attention_mask, batch_labels, loss_function, loss_strategy)
+            
+            train_loss += batch_loss
+            wandb.log({
+                "train_loss": batch_loss,
+            })
+            log_file.write(f"{epoch},{step},{batch_loss.item()}\n")
+
+            if scaler:
+                scaler.scale(batch_loss).backward()
+            else:
+                batch_loss.backward()
+
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+            optimizer.zero_grad()
+
+        wandb.log({
+            "train/loss": train_loss,
+            "train/epoch": epoch
+        })
+
+        # Validation
+        if os.path.exists(eval_log):
+            eval_log_file = open(eval_log, "a")
+        else:
+            eval_log_file = open(eval_log, "x")
+            eval_log_file.write("epoch,step,accuracy,loss,prediction,target\n")
+
+
+        model.eval()
+        validation_loss = 0
+        validation_accuracy = 0
+        with torch.no_grad():
+            for step, batch in tqdm(enumerate(validation_dataloader), desc=f"Validating Epoch [{epoch + 1}/{num_epoch}]", total=len(validation_dataloader)):
+                batch_input_ids, batch_attention_mask, batch_input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
+                batch_accuracy, batch_loss, prediction, target_label = forward(model, batch_input_ids, batch_attention_mask, batch_labels, loss_function, loss_strategy)
+
+                wandb.log({
+                    "validation_loss": batch_loss,
+                    "validation_accuracy": batch_accuracy
+                })
+                pred_scores, pred_indices = torch.max(prediction[0], 1)
+                pred_indices = pred_indices.tolist()
+                pred_indices = [str(i) for i in pred_indices]
+                pred_indices = " ".join(pred_indices)
+                target_indices = batch_labels[0].tolist()
+                target_indices = [str(i) for i in target_indices]
+                target_indices = " ".join(target_indices)
+
+                eval_log_file.write(f"{epoch},{step},{batch_accuracy},{batch_loss},{pred_indices},{target_indices}\n")
+
+                validation_loss += batch_loss
+                validation_accuracy += batch_accuracy
+
+            wandb.log({
+                "validation/accuracy": validation_accuracy,
+                "validation/loss": validation_loss.item(),
+                "validation/epoch": epoch
+            })
+        
+        # Saving model.
+        save_checkpoint(model, optimizer, scheduler, {
+            "epoch": epoch,
+            "train_loss":train_loss.item(),
+            "validation_accuracy": validation_accuracy,
+            "validation_loss": validation_loss.item(),
+        }, save_dir)
+
+    log_file.close()
+    eval_log_file.close()
+    return model, optimizer, scheduler
+>>>>>>> Stashed changes

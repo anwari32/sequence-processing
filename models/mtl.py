@@ -84,7 +84,7 @@ class PolyAHead(nn.Module):
         x = self.activation(x)
         return x
 
-class MTModel(nn.Module):
+class DNABERT_MTL(nn.Module):
     """
     Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
     """

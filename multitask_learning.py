@@ -1,24 +1,22 @@
-from itertools import accumulate
 import traceback
 import torch
 from torch.nn import DataParallel
-from torch import Tensor, nn
-from torch import tensor
+from torch import nn
 from torch.utils.data import TensorDataset, DataLoader
 from transformers import BertTokenizer
 from tqdm import tqdm
 from datetime import datetime
 import pandas as pd
 import os
-import sys
+from torch.cuda.amp import autocast, GradScaler                
 
 import wandb
-from models.mtl import MTModel
+from models.mtl import DNABERT_MTL
 from utils.utils import save_checkpoint
 from data_preparation import str_kmer
 from pathlib import Path, PureWindowsPath
 
-def forward(model: MTModel, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
+def forward(model: DNABERT_MTL, input_ids, attention_mask, label_prom, label_ss, label_polya, loss_fn_prom=nn.BCELoss(), loss_fn_ss=nn.CrossEntropyLoss(), loss_fn_polya=nn.CrossEntropyLoss()):
     output = model(input_ids, attention_mask)
     pred_prom = output["prom"] # Tensor
     pred_ss = output["ss"] # Tensor
@@ -68,7 +66,7 @@ def forward(model: MTModel, input_ids, attention_mask, label_prom, label_ss, lab
         polya_eval, predicted_polya, label_polya, polya_loss
     )
 
-def __eval__(model: MTModel, input_ids, attention_mask, label_prom, label_ss, label_polya, device, loss_fn):
+def __eval__(model: DNABERT_MTL, input_ids, attention_mask, label_prom, label_ss, label_polya, device, loss_fn):
     model.to(device)
     input_ids.to(device)
     attention_mask.to(device)
@@ -180,7 +178,7 @@ def evaluate(model, dataloader, log_path, device, cur_epoch, loss_fn: dict, wand
 
     return prom_accuracy, prom_loss, ss_accuracy, ss_loss, polya_accuracy, polya_loss
 
-def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, batch_size: int, epoch_size: int, device='cpu', save_dir=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
+def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, scheduler, batch_size: int, epoch_size: int, device='cpu', save_dir=None, training_counter=0, loss_strategy="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     """
     @param      dataloader:
     @param      model:
@@ -198,32 +196,33 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
 
     # Setup logging.
     log_file = None
-    if wandb != None:
-        for t in ["train", "validation"]:
-            wandb.define_metric(f"{t}/epoch")
 
-        training_metrics = ["prom_loss", "ss_loss", "polya_loss", "avg_prom_loss", "avg_ss_loss", "avg_polya_loss"]
-        for t in training_metrics:
-            wandb.define_metric(f"train/{t}", step_metric="train/epoch")
+    assert wandb != None, f"wandb not initialized."
+    for t in ["train", "validation"]:
+        wandb.define_metric(f"{t}/epoch")
 
-        validation_metrics = [
-            "avg_prom_loss", 
-            "avg_ss_loss", 
-            "avg_polya_loss", 
-            "avg_loss",
-            "prom_loss", 
-            "ss_loss", 
-            "polya_loss", 
-            "loss", 
-            "avg_loss",
-            "prom_accuracy",
-            "ss_accuracy",
-            "polya_accuracy", 
-            "prom_error_rate", 
-            "ss_error_rate", 
-            "polya_error_rate"]
-        for v in validation_metrics:
-            wandb.define_metric(f"validation/{v}", step_metric="validation/epoch")
+    training_metrics = ["prom_loss", "ss_loss", "polya_loss", "avg_prom_loss", "avg_ss_loss", "avg_polya_loss"]
+    for t in training_metrics:
+        wandb.define_metric(f"train/{t}", step_metric="train/epoch")
+
+    validation_metrics = [
+        "avg_prom_loss", 
+        "avg_ss_loss", 
+        "avg_polya_loss", 
+        "avg_loss",
+        "prom_loss", 
+        "ss_loss", 
+        "polya_loss", 
+        "loss", 
+        "avg_loss",
+        "prom_accuracy",
+        "ss_accuracy",
+        "polya_accuracy", 
+        "prom_error_rate", 
+        "ss_error_rate", 
+        "polya_error_rate"]
+    for v in validation_metrics:
+        wandb.define_metric(f"validation/{v}", step_metric="validation/epoch")
 
     if save_dir != None:
         if not os.path.exists(save_dir):
@@ -245,7 +244,6 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
             print(f"Enabling DataParallel")
             model = torch.nn.DataParallel(model, device_list)
         
-        from torch.cuda.amp import autocast, GradScaler                
         scaler = GradScaler()
         
         for i in range(epoch_size):
@@ -288,8 +286,18 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                 # Accumulate loss in this batch.
                 epoch_loss += loss
 
+<<<<<<< Updated upstream
+=======
+                # Log losses.
+                wandb.log({
+                    "train_prom_loss": prom_loss.item(),
+                    "train_ss_loss": ss_loss.item(),
+                    "train_polya_loss": polya_loss.item(),
+                    "train_loss": epoch_loss.item()
+                })
+
+>>>>>>> Stashed changes
                 # Backpropagation.
-                # loss.backward(retain_graph=True)                
                 scaler.scale(loss).backward()
 
                 if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(dataloader):
@@ -301,12 +309,14 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                     # optimizer.step()
                     scaler.step(optimizer)
                     scaler.update()
-                    scheduler.step()
-
+                    
                     # Reset model gradients.
                     # model.zero_grad()
                     optimizer.zero_grad()
             # endfor batch.
+
+            # Call scheduler in epoch loop.
+            scheduler.step()
 
             # Calculate average loss for promoter, splice site, and poly-A.
             # Log losses with wandb.
@@ -317,20 +327,19 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
 
             epoch_duration = datetime.now() - epoch_start_time
             # Log epoch loss. Epoch loss equals to average of epoch loss over steps.
-            if wandb != None:
-                log_entry = {
-                    "train/avg_prom_loss": avg_prom_loss.item(),
-                    "train/avg_ss_loss": avg_ss_loss.item(),
-                    "train/avg_polya_loss": avg_polya_loss.item(),
-                    "train/avg_loss": avg_epoch_loss.item(),
-                    "train/prom_loss": accumulate_prom_loss.item(),
-                    "train/ss_loss": accumulate_ss_loss.item(),
-                    "train/polya_loss": accumulate_polya_loss.item(),
-                    "train/loss": epoch_loss.item(),
-                    "train/epoch": i + training_counter
-                }
-                wandb.log(log_entry)
-                wandb.watch(model)
+            log_entry = {
+                "train/avg_prom_loss": avg_prom_loss.item(),
+                "train/avg_ss_loss": avg_ss_loss.item(),
+                "train/avg_polya_loss": avg_polya_loss.item(),
+                "train/avg_loss": avg_epoch_loss.item(),
+                "train/prom_loss": accumulate_prom_loss.item(),
+                "train/ss_loss": accumulate_ss_loss.item(),
+                "train/polya_loss": accumulate_polya_loss.item(),
+                "train/loss": epoch_loss.item(),
+                "train/epoch": i + training_counter
+            }
+            wandb.log(log_entry)
+            wandb.watch(model)
 
             # After an epoch, eval model if eval_dataloader is given.
             prom_accuracy, ss_accuracy, polya_accuracy = 0, 0, 0
@@ -339,18 +348,17 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
                 prom_accuracy, prom_loss, ss_accuracy, ss_loss, polya_accuracy, polya_loss = evaluate(model, eval_dataloader, eval_log, device, i + training_counter, loss_fn, wandb=wandb)
                 val_avg_accuracy = (prom_accuracy + ss_accuracy + prom_accuracy) / 3
                 val_avg_loss = (prom_loss + ss_loss + polya_loss) / 3
-                if wandb != None:
-                    wandb.log({
-                        "validation/prom_accuracy": prom_accuracy, 
-                        "validation/ss_accuracy": ss_accuracy, 
-                        "validation/polya_accuracy": polya_accuracy, 
-                        "validation/avg_accuracy": val_avg_accuracy,
-                        "validation/prom_loss": prom_loss.item(),
-                        "validation/ss_loss": ss_loss.item(),
-                        "validation/polya_loss": polya_loss.item(),
-                        "validation/avg_loss": val_avg_loss.item(),
-                        "validation/epoch": i + training_counter
-                        })
+                wandb.log({
+                    "validation/prom_accuracy": prom_accuracy, 
+                    "validation/ss_accuracy": ss_accuracy, 
+                    "validation/polya_accuracy": polya_accuracy, 
+                    "validation/avg_accuracy": val_avg_accuracy,
+                    "validation/prom_loss": prom_loss.item(),
+                    "validation/ss_loss": ss_loss.item(),
+                    "validation/polya_loss": polya_loss.item(),
+                    "validation/avg_loss": val_avg_loss.item(),
+                    "validation/epoch": i + training_counter
+                    })
 
             # Save model with best validation score.
             if val_avg_accuracy > best_accuracy:
@@ -398,7 +406,7 @@ def train(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, sche
     print(f"Start Time: {start_time}, End Time: {end_time}, Training Duration {elapsed_time}")
     return model, optimizer, scheduler
 
-def train_by_steps(dataloader: DataLoader, model: MTModel, loss_fn: dict, optimizer, scheduler, max_steps: int, batch_size: int, save_dir: str, device: str='cpu', training_counter: int=0, loss_strategy: str="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
+def train_by_steps(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, scheduler, max_steps: int, batch_size: int, save_dir: str, device: str='cpu', training_counter: int=0, loss_strategy: str="sum", grad_accumulation_steps=1, wandb=None, eval_dataloader=None, device_list=[]):
     num_epochs = max_steps // len(dataloader) + (1 if max_steps % len(dataloader) > 0 else 0)
 
     log_file_path = os.path.join(save_dir, "log.csv")

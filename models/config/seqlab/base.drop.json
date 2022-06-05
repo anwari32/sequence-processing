@@ -14,10 +14,6 @@
         "input_dim": 768,
         "hidden_dim": 768,
         "norm_layer": 0,
-<<<<<<< Updated upstream
-        "dropout_prob": 0.1
-=======
-        "dropout": 0
->>>>>>> Stashed changes
+        "dropout": 0.1
     }
 }

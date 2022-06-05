@@ -1,34 +1,34 @@
-from ast import arg
-from genericpath import exists
 from getopt import getopt
 import json
+from sched import scheduler
 import sys
 import os
-from transformers import BertForMaskedLM, get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup
-from sequential_labelling import train_by_genes
+from transformers import BertForMaskedLM
+from sequential_gene_labeling import train
 from utils.model import init_seqlab_model
-from utils.optimizer import init_optimizer
 import torch
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.cuda import device_count as cuda_device_count
 from utils.tokenizer import get_default_tokenizer
-from utils.utils import load_checkpoint, load_mtl_model, save_checkpoint, save_json_config
 import wandb
 import pandas as pd
 from pathlib import Path, PureWindowsPath
 from datetime import datetime
 
+from utils.utils import save_checkpoint
+
 def _parse_argv(argvs):
-    opts, args = getopt(argvs, "t:m:d:f", [
+    opts, args = getopt(argvs, "t:m:d:f:r", [
         "training-config=", 
         "model-config=", 
         "device=", 
         "force-cpu", 
-        "training-counter=", 
-        "resume-from-checkpoint=", 
-        "resume-from-optimizer=", 
+        "resume=",
         "run-name=",
         "device-list=",
         "disable-wandb",
+        "num-epochs=",
     ])
     output = {}
     for o, a in opts:
@@ -40,16 +40,16 @@ def _parse_argv(argvs):
             output["device"] = a
         elif o in ["-f", "--force-cpu"]:
             output["force-cpu"] = True
-        elif o in ["--training-counter"]:
-            output["training_counter"] = a
-        elif o in ["--resume-from-checkpoint"]:
-            output["resume_from_checkpoint"] = a
+        elif o in ["r", "--resume"]:
+            output["resume"] = a
         elif o in ["--device-list"]:
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--run-name"]:
             output["run_name"] = a
         elif o in ["--disable-wandb"]:
             output["disable_wandb"] = True
+        elif o in ["--num-epochs"]:
+            output["num_epochs"] = int(a)
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -83,10 +83,7 @@ if __name__ == "__main__":
             sys.exit(2)
     
     # Run name is made required. If there is None then Error shall be there.
-    if not "run_name" in args.keys():
-        print("Run name is required.")
-        print("`--run-name=<runname>`")
-        sys.exit(2)
+    assert "run_name" in args.keys(), f"run_name must be stated."
     
     # Run name may be the same. So append current datetime to differentiate.
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -125,22 +122,11 @@ if __name__ == "__main__":
             print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
 
     model.to(args["device"])
-    optimizer = init_optimizer(
-        training_config["optimizer"]["name"], 
-        model.parameters(), 
-        training_config["optimizer"]["learning_rate"], 
-        training_config["optimizer"]["epsilon"], 
-        training_config["optimizer"]["beta1"], 
-        training_config["optimizer"]["beta2"], 
-        training_config["optimizer"]["weight_decay"]
-    )
+    
+    # Simplify optimizer, just use default parameters if necessary.
+    optimizer = AdamW(model.parameters())
 
-    training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
-    if "resume_checkpoint" in args.keys():
-        checkpoint = load_checkpoint(args["resume_from_checkpoint"])
-        model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        training_counter = int(checkpoint["epoch"]) + 1
+    # TODO: develop resume training feature here.
 
     loss_function = torch.nn.CrossEntropyLoss()
 
@@ -161,7 +147,9 @@ if __name__ == "__main__":
     print(f"# Genes: {len(train_genes)}")
     training_steps = len(train_genes) * training_config["num_epochs"]
     # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
+    # Use scheduler from torch implementation.
+    scheduler = ExponentialLR(optimizer, gamma=0.1)
 
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
@@ -173,6 +161,9 @@ if __name__ == "__main__":
         os.environ["WANDB_MODE"] = "offline"
     else:
         os.environ["WANDB_MODE"] = "online"
+
+    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
+    num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
 
     wandb.init(project="thesis-mtl", entity="anwari32") 
     if "run_name" in args.keys():
@@ -186,14 +177,8 @@ if __name__ == "__main__":
         
     # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
     # log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
-    log_file_path = os.path.join("run", args["run_name"], "logs", "log.csv")
-
-    # save_model_path = str(Path(PureWindowsPath(training_config["result"])))
-    # save_model_path = os.path.join(save_model_path, "by_genes", cur_date)
-    save_model_path = os.path.join("run", args["run_name"])
-
-    for p in [log_file_path, save_model_path]:
-        os.makedirs(os.path.dirname(p), exist_ok=True)
+    save_dir = os.path.join("run", args["run_name"])
+    os.makedirs(save_dir, exist_ok=True)
     
     # Save current model config in run folder.
     model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
@@ -202,21 +187,18 @@ if __name__ == "__main__":
     start_time = datetime.now()
     end_time = start_time
     try:
-        model, optimizer = train_by_genes(
+        model, optimizer = train(
             model=model, 
             tokenizer=get_default_tokenizer(),
             optimizer=optimizer, 
             scheduler=scheduler, 
             train_genes=train_genes, 
             loss_function=loss_function, 
-            num_epoch=training_config["num_epochs"], 
-            batch_size=training_config["batch_size"], 
-            grad_accumulation_steps=training_config["grad_accumulation_steps"],
+            num_epoch=num_epochs, 
+            batch_size=batch_size, 
             device=args["device"],
             wandb=wandb,
-            save_path=save_model_path,
-            log_file_path=log_file_path,
-            training_counter=training_counter,
+            save_dir=save_dir,
             eval_genes=eval_genes,
             device_list=args["device_list"] if "device_list" in args.keys() else [])
     except Exception as ex:
@@ -239,13 +221,8 @@ if __name__ == "__main__":
         "runname": args["run_name"]
     }
 
-    # Final config is saved in JSON format in the same folder as log file.
-    # Final config is saved in `config.json` file.
-    # save_json_config(total_config, os.path.join(os.path.dirname(str(Path(PureWindowsPath(training_config["log"])))), "config.json"))
-    save_json_config(total_config, os.path.join("run", args["run_name"], "config.json"))
-
     # Save final model and optimizer.
-    save_checkpoint(model, optimizer, total_config, os.path.join(save_model_path, "final-checkpoint.pth"))
+    save_checkpoint(model, optimizer, scheduler, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
     
     
 

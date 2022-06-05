@@ -1,7 +1,4 @@
-from multiprocessing.sharedctypes import Value
 from torch import nn
-from transformers import BertForMaskedLM
-import os
 from models.lstm import LSTM_Block
 
 class SeqLabBlock(nn.Module):
@@ -28,7 +25,7 @@ class SeqLabHead(nn.Module):
         num_labels = config["linear"]["num_labels"]
         input_dim = config["linear"]["input_dim"]
         dim = config["linear"]["hidden_dim"] 
-        norm_layer =  (config["linear"]["norm_layer"] > 0) 
+        norm_layer = (config["linear"]["norm_layer"] > 0) 
         dropout_prob= config["linear"]["dropout"] if "linear" in config["linear"] else 0.1
         self.linear = nn.Sequential()
         for i in range(num_blocks):
@@ -62,7 +59,7 @@ class SeqLabHead(nn.Module):
         x = self.classifier(x)
         return x
 
-class DNABERTSeqLab(nn.Module):
+class DNABERT_SL(nn.Module):
     """
     Core architecture of sequential labelling.
     """

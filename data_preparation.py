@@ -497,7 +497,7 @@ def str_kmer(seq: str, length: int, window_size=1):
     Convert string `seq` into array of fixed `length` token (kmer) and convert the array into string.
     @param      seq : string
     @param      length : int
-    @param      window_size : int | None -> 3
+    @param      window_size : int | None -> 1
     @return     str
     """
     kmer_sequences = kmer(seq, length, window_size=window_size)

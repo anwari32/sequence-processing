@@ -7,7 +7,7 @@ import pandas as pd
 import random
 
 from transformers import BertForMaskedLM
-from models.mtl import MTModel
+from models.mtl import DNABERT_MTL
 
 from pathlib import Path, PureWindowsPath
 
@@ -121,7 +121,7 @@ def load_mtl_model(path):
         os.path.join(dirpath, "model_config.json")
     ))
     bert = BertForMaskedLM.from_pretrained(model_config["pretrained"])
-    mtl_model = MTModel(bert, model_config)
+    mtl_model = DNABERT_MTL(bert, model_config)
     mtl_model.load_state_dict(saved_model_state_dict)
 
     return mtl_model
