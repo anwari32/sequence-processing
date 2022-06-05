@@ -26,7 +26,7 @@ class PromoterHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(config["input_dim"], out_features=config["hidden_size"]), # Adapt 768 unit from BERT to 128 unit for DeePromoter's fully connected layer.
             nn.ReLU(), 
-            # nn.Dropout(p=config["dropout_prob"]),
+            nn.Dropout(p=config["dropout"]),
             nn.Linear(config["hidden_size"], config["num_labels"]),
         )
         self.activation = nn.Softmax(dim=1) if config["num_labels"] > 1 else nn.Sigmoid()
@@ -41,7 +41,7 @@ class PromoterHead(nn.Module):
 class SpliceSiteHead(nn.Module):
     """
     Network configuration can be found in Splice2Deep (Albaradei et. al., 2020).
-    Classification layer is using Softmax function and loss is calculated by ???.
+    Classification layer is using Softmax function and loss is calculated by CrossEntropyLoss.
     """
     def __init__(self, config):
         super().__init__()
@@ -49,7 +49,7 @@ class SpliceSiteHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(config["input_dim"], out_features=config["hidden_size"]),
             nn.ReLU(),
-            # nn.Dropout(p=config["dropout_prob"]),
+            nn.Dropout(p=config["dropout"]),
             nn.Linear(config["hidden_size"], config["num_labels"])
         )
         self.activation = nn.Softmax(dim=1) if config["num_labels"] > 1 else nn.Sigmoid()
@@ -72,7 +72,7 @@ class PolyAHead(nn.Module):
         self.stack = nn.Sequential(
             nn.Linear(config["input_dim"], config["hidden_size"]), # Adapt from BERT layer which provide 768 outputs.
             nn.ReLU(), # Assume using ReLU.
-            # nn.Dropout(p=config["dropout_prob"]),
+            nn.Dropout(p=config["dropout"]),
             nn.Linear(config["hidden_size"], config["num_labels"]),
         )
         self.activation = nn.Softmax(dim=1) if config["num_labels"] > 1 else nn.Sigmoid()

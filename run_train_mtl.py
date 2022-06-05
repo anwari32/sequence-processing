@@ -99,7 +99,7 @@ if __name__ == "__main__":
         sys.exit(2)
 
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"] # Override num epochs if given in command.
-    batch_sizes = training_config["batch_size"] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
+    batch_sizes = [training_config["batch_size"]] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
 
     # Since we have opened possible multiple batch sizes, each of run names must be correlated with each of batch sizes.
     run_names = args["run_name"]
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     dataloaders = preprocessing_batches(
         training_config["train_data"],  # CSV file,
         training_config["pretrained"],  # Pretrained_path,
-        batch_sizes=batch_sizes,         # Batch size,
+        batch_sizes=batch_sizes,        # Batch size,
         do_kmer=args["do_kmer"]   
     )
     
@@ -137,7 +137,17 @@ if __name__ == "__main__":
         "ss": BCELoss() if training_config["ss_loss_fn"] == "bce" else CrossEntropyLoss(),
         "polya": BCELoss() if training_config["polya_loss_fn"] == "bce" else CrossEntropyLoss()
     }
-    
+
+    # Enable or disable wandb real time sync.
+    if "disable_wandb" not in args.keys():
+        args["disable_wandb"] = False
+
+    if args["disable_wandb"]:
+        os.environ["WANDB_MODE"] = "offline"
+    else:
+        os.environ["WANDB_MODE"] = "online"
+
+
     for run_name, batch_size, dataloader in zip(run_names, batch_sizes, dataloaders):
         print(f"Runname {run_name}, Batch size {batch_size}")
 
@@ -170,14 +180,6 @@ if __name__ == "__main__":
         for p in [log_file_path, save_model_path]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
-        if "disable_wandb" not in args.keys():
-            args["disable_wandb"] = False
-
-        if args["disable_wandb"]:
-            os.environ["WANDB_MODE"] = "offline"
-        else:
-            os.environ["WANDB_MODE"] = "online"
-
         wandb.init(project="thesis-mtl", entity="anwari32") 
         if "run_name" in args.keys():
             wandb.run.name = f'{run_name}-{wandb.run.id}'
@@ -194,9 +196,8 @@ if __name__ == "__main__":
         json.dump(model_config, open(os.path.join("run", run_name, "model_config.json"), "x"), indent=4)
 
         start_time = datetime.now()
-
         trained_model, trained_optimizer = None, None
-        save_dir = os.path.join("run", args["run_name"])
+        save_dir = os.path.join("run", run_name)
         device = args["device"]
         training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
         loss_strategy=training_config["loss_strategy"]

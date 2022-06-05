@@ -40,6 +40,12 @@ def shuffle_sequence(sequence, chunk_size=16, shuffle_options="odd"):
             new_chunks.append(odd_chunks.pop())
     return ''.join(new_chunks)
 
+def shuffle_sequence_in_csv(src, dest, chunk_size=16, shuffle_options="odd"):
+    src_df = pd.read_csv(src)
+    dest_df = src_df.copy(deep=True)
+    dest_df['sequence'] = dest_df["sequence"].apply(lambda x: shuffle_sequence(x, chunk_size, shuffle_options))
+    dest_df.to_csv(dest, index=False)
+        
 from Bio import SeqIO
 # Read sequence from file. Returns array of sequence.
 # @param source_file : Fasta file read for its sequences.
@@ -71,21 +77,18 @@ def save_model_state_dict(model, save_path, save_filename):
         os.makedirs(os.path.dirname(save_model_path), exist_ok=True)
     torch.save(model.state_dict(), save_model_path)
 
-def save_checkpoint(model, optimizer, scheduler, config, path):
+def save_checkpoint(model, optimizer, scheduler, config, dirpath):
     """
     Save model and optimizer internal state with other information (config).
     If file with same name exists, the file will be replaced.
     @param  model: model
     @param  optimizer: optimizer
     @param  config (dictionary): a dictionary containing information about ``model`` and ``optimizer``.
-    @param  path (str): File path to save checkpoint. 
+    @param  dirpath (str): dirpath to save checkpoint. 
     """
-    dest_dir = os.path.dirname(path)
+    dest_dir = dirpath
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
-    
-    if os.path.exists(path):
-        os.remove(path)
     
     torch.save(model.state_dict, os.path.join(dest_dir, "model.pth"))
     torch.save(optimizer.state_dict, os.path.join(dest_dir, "optimizer.pth"))
