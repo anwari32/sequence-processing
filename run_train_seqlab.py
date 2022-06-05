@@ -177,13 +177,13 @@ if __name__ == "__main__":
         scheduler, 
         dataloader, 
         epoch_size, 
-        loss_function,
         save_dir,
-        eval_dataloader,
+        loss_function,
         device=args["device"], 
-        device_list=(args["device_list"] if "device_list" in args.keys() else []),
+        loss_strategy="sum",
         wandb=wandb,
-        loss_strategy="sum"
+        device_list=(args["device_list"] if "device_list" in args.keys() else []),
+        eval_dataloader=eval_dataloader,        
     )
     end_time = datetime.now()
     running_time = end_time - start_time

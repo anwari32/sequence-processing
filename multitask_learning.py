@@ -1,7 +1,7 @@
 import traceback
 import torch
 from torch.nn import DataParallel
-from torch import nn
+from torch import nn, Tensor
 from torch.utils.data import TensorDataset, DataLoader
 from transformers import BertTokenizer
 from tqdm import tqdm
@@ -286,17 +286,6 @@ def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, 
                 # Accumulate loss in this batch.
                 epoch_loss += loss
 
-<<<<<<< Updated upstream
-=======
-                # Log losses.
-                wandb.log({
-                    "train_prom_loss": prom_loss.item(),
-                    "train_ss_loss": ss_loss.item(),
-                    "train_polya_loss": polya_loss.item(),
-                    "train_loss": epoch_loss.item()
-                })
-
->>>>>>> Stashed changes
                 # Backpropagation.
                 scaler.scale(loss).backward()
 
@@ -487,9 +476,9 @@ def preprocessing(csv_file: str, pretrained_tokenizer_path: str, batch_size=2000
     tokenizer = BertTokenizer.from_pretrained(bert_path)
     sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state, do_kmer=do_kmer)
     arr_input_ids, arr_attn_mask = prepare_data(sequences, tokenizer)
-    prom_labels_tensor = tensor(prom_labels)
-    ss_labels_tensor = tensor(ss_labels)
-    polya_labels_tensor = tensor(polya_labels)
+    prom_labels_tensor = torch.tensor(prom_labels)
+    ss_labels_tensor = torch.tensor(ss_labels)
+    polya_labels_tensor = torch.tensor(polya_labels)
 
     dataset = TensorDataset(arr_input_ids, arr_attn_mask, prom_labels_tensor, ss_labels_tensor, polya_labels_tensor)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -513,9 +502,9 @@ def preprocessing_batches(csv_file: str, pretrained_tokenizer_path: str, batch_s
     tokenizer = BertTokenizer.from_pretrained(bert_path)
     sequences, prom_labels, ss_labels, polya_labels = get_sequences(csv_file, n_sample=n_sample, random_state=random_state, do_kmer=do_kmer)
     arr_input_ids, arr_attn_mask = prepare_data(sequences, tokenizer)
-    prom_labels_tensor = tensor(prom_labels)
-    ss_labels_tensor = tensor(ss_labels)
-    polya_labels_tensor = tensor(polya_labels)
+    prom_labels_tensor = torch.tensor(prom_labels)
+    ss_labels_tensor = torch.tensor(ss_labels)
+    polya_labels_tensor = torch.tensor(polya_labels)
 
     dataset = TensorDataset(arr_input_ids, arr_attn_mask, prom_labels_tensor, ss_labels_tensor, polya_labels_tensor)
     dataloaders = []
