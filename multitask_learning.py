@@ -191,17 +191,25 @@ def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, 
     @param      save_dir (string | None = None): dir path to save model per epoch. Inside this dir will be generated a dir for each epoch. If this path is None then model will not be saved.
     @param      grad_accumulation_steps (int | None = 1): After how many step backward is computed.
     """
+
+    assert wandb != None, f"wandb not initialized."
+
     # Assign model to device.
     model.to(device)
 
     # Setup logging.
     log_file = None
 
-    assert wandb != None, f"wandb not initialized."
     for t in ["train", "validation"]:
         wandb.define_metric(f"{t}/epoch")
 
-    training_metrics = ["prom_loss", "ss_loss", "polya_loss", "avg_prom_loss", "avg_ss_loss", "avg_polya_loss"]
+    training_metrics = [
+        "prom_loss", 
+        "ss_loss", 
+        "polya_loss", 
+        "avg_prom_loss", 
+        "avg_ss_loss", 
+        "avg_polya_loss"]
     for t in training_metrics:
         wandb.define_metric(f"train/{t}", step_metric="train/epoch")
 

@@ -2,22 +2,22 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count
+from torch.optim import AdamW
 from sequential_labelling import train
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
-from utils.optimizer import init_optimizer
 from utils.utils import load_checkpoint
 from transformers import BertTokenizer
 import os
 import wandb
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
-from utils.utils import save_json_config, save_checkpoint
+from utils.utils import save_checkpoint
 from torch.nn import CrossEntropyLoss
 from torch.optim import lr_scheduler
 
 def parse_args(argv):
-    opts, args = getopt(argv, "t:m:d:f", ["training-config=", 
+    opts, args = getopt(argv, "t:m:d:f:r", ["training-config=", 
         "model-config=", 
         "device=", 
         "force-cpu", 
@@ -26,7 +26,8 @@ def parse_args(argv):
         "run-name=", 
         "disable-wandb",
         "batch-size=",
-        "num-epochs="
+        "num-epochs=",
+        "resume="
         ])
     output = {}
     for o, a in opts:
@@ -48,6 +49,8 @@ def parse_args(argv):
             output["num_epochs"] = int(a)
         elif o in ["--batch-size"]:
             output["batch_size"] = int(a)
+        elif o in ["-r", "--resume"]:
+            output["resume"] = a
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -104,20 +107,10 @@ if __name__ == "__main__":
         1,
         do_kmer=False
     )
-
+    lr = training_config["optimizer"]["learning_rate"]
     model = init_seqlab_model(args["model_config"])
+    optimizer = AdamW(model.parameters(), lr=lr)
 
-    optimizer = init_optimizer(
-        training_config["optimizer"]["name"], 
-        model.parameters(), 
-        training_config["optimizer"]["learning_rate"], 
-        training_config["optimizer"]["epsilon"], 
-        training_config["optimizer"]["beta1"], 
-        training_config["optimizer"]["beta2"], 
-        training_config["optimizer"]["weight_decay"]
-    )
-
-    training_counter = args["training_counter"] if "training_counter" in args.keys() else 0
     if "resume_checkpoint" in args.keys():
         checkpoint = load_checkpoint(args["resume_from_checkpoint"])
         model.load_state_dict(checkpoint["model"])
@@ -127,24 +120,6 @@ if __name__ == "__main__":
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
     
-    if "disable_wandb" not in args.keys():
-        args["disable_wandb"] = False
-    
-    if args["disable_wandb"]:
-        os.environ["WANDB_MODE"] = "offline"
-    else:
-        os.environ["WANDB_MODE"] = "online"
-
-    wandb.init(project="thesis-mtl", entity="anwari32") 
-    wandb.config = {
-        "learning_rate": training_config["optimizer"]["learning_rate"],
-        "epochs": training_config["num_epochs"],
-        "batch_size": training_config["batch_size"]
-    }
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
-
     if int(training_config["freeze_bert"]) > 0:
         for param in model.bert.parameters():
             param.requires_grad(False)
@@ -152,7 +127,19 @@ if __name__ == "__main__":
     # Override batch size and epoch if given in command.
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
-    
+
+    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
+    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
+    wandb.init(project="thesis-mtl", entity="anwari32", config={
+        "learning_rate": lr,
+        "epochs": epoch_size,
+        "batch_size": batch_size,
+    }) 
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
+    wandb.watch(model)
+
     training_steps = len(dataloader) * epoch_size
     # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)

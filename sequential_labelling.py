@@ -109,7 +109,6 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
             batch_loss = forward(model, input_ids, attention_mask, label, loss_function, device, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
-            batch_loss = (batch_loss / grad_accumulation_steps)
             epoch_loss += batch_loss
 
             if scaler:

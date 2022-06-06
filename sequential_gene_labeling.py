@@ -183,6 +183,8 @@ def eval_gene(model, dataloader, device, loss_fn, gene_name: str = None, wandb: 
     return accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss
 
 def train(model: DNABERT_SL, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
+    assert wandb != None, f"wandb not initialized."
+    
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = nn.DataParallel(model, device_list)
@@ -207,16 +209,16 @@ def train(model: DNABERT_SL, tokenizer: BertTokenizer, optimizer, scheduler, tra
     VALIDATION_AVG_INACC = "validation/average_inaccuracy"
     VALIDATION_AVG_LOSS = "validation/average_loss"
 
-    if wandb != None:
-        wandb.define_metric(TRAINING_EPOCH)
-        wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
-        wandb.define_metric(TRAINING_AVG_LOSS, step_metric=TRAINING_EPOCH)
-        wandb.define_metric(TRAINING_LR, step_metric=TRAINING_LOSS)
+    
+    wandb.define_metric(TRAINING_EPOCH)
+    wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
+    wandb.define_metric(TRAINING_AVG_LOSS, step_metric=TRAINING_EPOCH)
+    wandb.define_metric(TRAINING_LR, step_metric=TRAINING_LOSS)
 
-        wandb.define_metric(VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_AVG_ACC, step_metric=VALIDATION_EPOCH) # Avaerage accuracy.
-        wandb.define_metric(VALIDATION_AVG_INACC, step_metric=VALIDATION_EPOCH) # Average inaccuracy.
-        wandb.define_metric(VALIDATION_AVG_LOSS, step_metric=VALIDATION_EPOCH) # Average gene loss.
+    wandb.define_metric(VALIDATION_EPOCH)
+    wandb.define_metric(VALIDATION_AVG_ACC, step_metric=VALIDATION_EPOCH) # Avaerage accuracy.
+    wandb.define_metric(VALIDATION_AVG_INACC, step_metric=VALIDATION_EPOCH) # Average inaccuracy.
+    wandb.define_metric(VALIDATION_AVG_LOSS, step_metric=VALIDATION_EPOCH) # Average gene loss.
 
     for epoch in range(num_epoch):
         model.train()

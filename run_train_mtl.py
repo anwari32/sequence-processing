@@ -1,15 +1,12 @@
 from getopt import getopt
-from multiprocessing.sharedctypes import Value
 import sys
 import json
 from torch.optim import lr_scheduler
 from torch.cuda import device_count as cuda_device_count
 from torch.nn import BCELoss, CrossEntropyLoss
 from multitask_learning import preprocessing_batches, train, preprocessing
-from utils.optimizer import init_optimizer
-from transformers import get_linear_schedule_with_warmup, get_polynomial_decay_schedule_with_warmup
+from torch.optim import AdamW
 import os
-from data_dir import pretrained_3kmer_dir
 from utils.model import init_mtl_model
 from utils.utils import save_checkpoint, save_json_config
 from pathlib import Path, PureWindowsPath
@@ -93,10 +90,7 @@ if __name__ == "__main__":
             sys.exit(2)
     
     # Run name is made required. If there is None then Error shall be there.
-    if not "run_name" in args.keys():
-        print("Please specify runname.")
-        print("`--run-name=<runname>`")
-        sys.exit(2)
+    assert "run_name" in args.keys(), f"Please specify runname. `--run-name=<runname>`"
 
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"] # Override num epochs if given in command.
     batch_sizes = [training_config["batch_size"]] if "batch_sizes" not in args.keys() else args["batch_sizes"] # Override batch size if given in command.
@@ -139,14 +133,8 @@ if __name__ == "__main__":
     }
 
     # Enable or disable wandb real time sync.
-    if "disable_wandb" not in args.keys():
-        args["disable_wandb"] = False
-
-    if args["disable_wandb"]:
-        os.environ["WANDB_MODE"] = "offline"
-    else:
-        os.environ["WANDB_MODE"] = "online"
-
+    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
+    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
 
     for run_name, batch_size, dataloader in zip(run_names, batch_sizes, dataloaders):
         print(f"Runname {run_name}, Batch size {batch_size}")
@@ -154,15 +142,7 @@ if __name__ == "__main__":
         print(f"Preparing Model & Optimizer")
         model = init_mtl_model(args["model_config"])
         model.to(args["device"])
-        optimizer = init_optimizer(
-            training_config["optimizer"]["name"], 
-            model.parameters(), 
-            training_config["optimizer"]["learning_rate"], 
-            training_config["optimizer"]["epsilon"], 
-            training_config["optimizer"]["beta1"], 
-            training_config["optimizer"]["beta2"], 
-            training_config["optimizer"]["weight_decay"]
-        )
+        optimizer = AdamW(model.parameters(), lr=training_config["optimizer"]["learning_rate"])
 
         training_steps = len(dataloader) * epoch_size
         # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
@@ -180,15 +160,14 @@ if __name__ == "__main__":
         for p in [log_file_path, save_model_path]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
-        wandb.init(project="thesis-mtl", entity="anwari32") 
-        if "run_name" in args.keys():
-            wandb.run.name = f'{run_name}-{wandb.run.id}'
-            wandb.run.save()
-        wandb.config = {
+        wandb.init(project="thesis-mtl", entity="anwari32", config={
             "learning_rate": training_config["optimizer"]["learning_rate"],
             "epochs": epoch_size,
             "batch_size": batch_size
-        }
+        }) 
+        if "run_name" in args.keys():
+            wandb.run.name = f'{run_name}-{wandb.run.id}'
+            wandb.run.save()
         wandb.watch(model)
 
         # Save current model config in run folder.
@@ -208,7 +187,14 @@ if __name__ == "__main__":
 
             # Scheduler must be re-initialized because epochs is determined by max_steps.
             # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=args["max_steps"])
-            trained_model, trained_optimizer = train_by_steps(dataloader, model, loss_fn, optimizer, scheduler, args["max_steps"], batch_size,
+            trained_model, trained_optimizer = train_by_steps(
+                dataloader, 
+                model, 
+                loss_fn, 
+                optimizer, 
+                scheduler, 
+                args["max_steps"], 
+                batch_size,
                 save_dir, 
                 device, 
                 training_counter, 

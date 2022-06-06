@@ -91,9 +91,6 @@ if __name__ == "__main__":
 
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
-    # if training_config["result"] == "":
-    #    print(f"Key `result` not found in config.")
-    #    sys.exit(2)
     
     result_path = os.path.join("run", args["run_name"])
     # result_path = str(Path(PureWindowsPath(training_config["result"])))
@@ -114,22 +111,17 @@ if __name__ == "__main__":
         else:
             print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-SEL.")
 
-    if "freeze_bert" in training_config.keys():
-        if training_config["freeze_bert"] > 0:
-            print(">> Freeze BERT layer.", end="\r")
-            for param in model.bert.parameters():
-                param.requires_grad = False
-            print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
-
-    model.to(args["device"])
+    # TODO: develop resume training feature here.
+    load_from_dirpath = os.path.join(args["resume"])
     
     # Simplify optimizer, just use default parameters if necessary.
-    optimizer = AdamW(model.parameters())
+    lr = training_config["optimizer"]["learning_rate"]
+    optimizer = AdamW(model.parameters(), lr=lr)
 
-    # TODO: develop resume training feature here.
-
+    # Define loss function.
     loss_function = torch.nn.CrossEntropyLoss()
 
+    # Define training and evaluation data.
     train_df = pd.read_csv(str(Path(PureWindowsPath(training_config["gene_train_index"]))))
     validation_df = pd.read_csv(str(Path(PureWindowsPath(training_config["gene_validation_index"]))))
     train_genes = []
@@ -137,46 +129,45 @@ if __name__ == "__main__":
         train_genes.append(
             str(Path(PureWindowsPath(os.path.join(training_config["gene_dir"], r["chr"], r["gene"]))))
         )    
-
     eval_genes = []
     for i, r in validation_df.iterrows():
         eval_genes.append(
             str(Path(PureWindowsPath(os.path.join(training_config["gene_dir"], r["chr"], r["gene"]))))
         )
-
-    print(f"# Genes: {len(train_genes)}")
+    print(f"# Training Genes: {len(train_genes)}")
+    print(f"# Validation Genes: {len(eval_genes)}")
     training_steps = len(train_genes) * training_config["num_epochs"]
-    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    # scheduler = get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
-    # Use scheduler from torch implementation.
+
+    # Use scheduler from torch implementation for the sake of simplicity.
     scheduler = ExponentialLR(optimizer, gamma=0.1)
+
+    # Freeze BERT layer if necessary.    
+    if "freeze_bert" in training_config.keys():
+        if training_config["freeze_bert"] > 0:
+            print(">> Freeze BERT layer.", end="\r")
+            for param in model.bert.parameters():
+                param.requires_grad = False
+            print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
 
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
     
-    if "disable_wandb" not in args.keys():
-        args["disable_wandb"] = False
-    
-    if args["disable_wandb"]:
-        os.environ["WANDB_MODE"] = "offline"
-    else:
-        os.environ["WANDB_MODE"] = "online"
-
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
     num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
 
-    wandb.init(project="thesis-mtl", entity="anwari32") 
+    # Prepare wandb.
+    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
+    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
+    wandb.init(project="thesis-mtl", entity="anwari32", config={
+        "learning_rate": lr,
+        "epochs": num_epochs,
+        "batch_size": batch_size
+    }) 
     if "run_name" in args.keys():
         wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
         wandb.run.save()
-    wandb.config = {
-        "learning_rate": training_config["optimizer"]["learning_rate"],
-        "epochs": training_config["num_epochs"],
-        "batch_size": training_config["batch_size"]
-    }
-        
-    # log_dir_path = str(Path(PureWindowsPath(training_config["log"])))
-    # log_file_path = os.path.join(log_dir_path, "by_genes", cur_date, "log.csv")
+    wandb.watch(model)
+
     save_dir = os.path.join("run", args["run_name"])
     os.makedirs(save_dir, exist_ok=True)
     
