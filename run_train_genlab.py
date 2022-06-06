@@ -116,7 +116,12 @@ if __name__ == "__main__":
     
     # Simplify optimizer, just use default parameters if necessary.
     lr = training_config["optimizer"]["learning_rate"]
-    optimizer = AdamW(model.parameters(), lr=lr)
+    optimizer = AdamW(model.parameters(), 
+        lr=training_config["optimizer"]["learning_rate"], 
+        betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
+        eps=training_config["optimizer"]["epsilon"],
+        weight_decay=training_config["optimizer"]["weight_decay"]
+    )
 
     # Define loss function.
     loss_function = torch.nn.CrossEntropyLoss()

@@ -109,7 +109,12 @@ if __name__ == "__main__":
     )
     lr = training_config["optimizer"]["learning_rate"]
     model = init_seqlab_model(args["model_config"])
-    optimizer = AdamW(model.parameters(), lr=lr)
+    optimizer = AdamW(model.parameters(), 
+        lr=training_config["optimizer"]["learning_rate"], 
+        betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
+        eps=training_config["optimizer"]["epsilon"],
+        weight_decay=training_config["optimizer"]["weight_decay"]
+    )
 
     if "resume_checkpoint" in args.keys():
         checkpoint = load_checkpoint(args["resume_from_checkpoint"])
