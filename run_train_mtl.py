@@ -142,7 +142,12 @@ if __name__ == "__main__":
         print(f"Preparing Model & Optimizer")
         model = init_mtl_model(args["model_config"])
         model.to(args["device"])
-        optimizer = AdamW(model.parameters(), lr=training_config["optimizer"]["learning_rate"])
+        optimizer = AdamW(model.parameters(), 
+            lr=training_config["optimizer"]["learning_rate"], 
+            betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
+            eps=training_config["optimizer"]["epsilon"],
+            weight_decay=training_config["optimizer"]["weight_decay"]
+        )
 
         training_steps = len(dataloader) * epoch_size
         # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
