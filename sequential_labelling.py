@@ -28,14 +28,6 @@ def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function
     return batch_loss
 
 def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, loss_strategy, wandb=None):
-    if wandb != None:
-        VALIDATION_EPOCH = "validation/epoch"
-        VALIDATION_LOSS = "validation/loss"
-        VALIDATION_ACCURACY = "validation/accuracy"
-
-        wandb.define_metric(VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
 
     model.eval()
     avg_accuracy = 0
@@ -61,6 +53,7 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
                     accuracy = accuracy + 1 if idx == lab else 0
                 accuracy = accuracy / predictions.shape[1]
                 batch_accuracy += accuracy
+                eval_log.write(f"{epoch},{step},{accuracy, loss.item()},{' '.join(pindices)},{' '.join(label)}")
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
 
@@ -76,6 +69,8 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
     log_file = open(log_path, 'x')
     log_file.write('epoch,step,batch_loss,epoch_loss,learning_rate\n')
 
+    model.to(device)
+
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = torch.nn.DataParallel(model, device_list)
@@ -84,28 +79,25 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
 
     scaler = GradScaler()
 
-    if wandb != None:
-        TRAINING_EPOCH = "train/epoch"
-        TRAINING_LOSS = "train/loss"
+    TRAINING_EPOCH = "train/epoch"
+    TRAINING_LOSS = "train/loss"
+    wandb.define_metric(TRAINING_EPOCH)
+    wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
 
-        wandb.define_metric(TRAINING_EPOCH)
-        wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
+    VALIDATION_ACCURACY = "validation/accuracy"
+    VALIDATION_LOSS = "validation/loss"
+    VALIDATION_EPOCH = "validation/epoch"
+    wandb.define_metric(VALIDATION_EPOCH)
+    wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
+    wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
 
-        VALIDATION_ACCURACY = "validation/accuracy"
-        VALIDATION_LOSS = "validation/loss"
-        VALIDATION_EPOCH = "validation/epoch"
-
-        wandb.define_metric(VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
-        wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
 
     # Do training.
-    model.to(device)
-    model.train()
     best_accuracy = 0
     for epoch in range(epoch_size):
         epoch_loss = 0
-        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1 + training_counter}/{epoch_size}]"):
+        model.train()
+        for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1}/{epoch_size}]"):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
             batch_loss = forward(model, input_ids, attention_mask, label, loss_function, device, loss_strategy)
             lr = optimizer.param_groups[0]['lr']
@@ -116,27 +108,23 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
             else:
                 batch_loss.backward()                
 
-            if (step + 1) % grad_accumulation_steps == 0 or (step + 1) == len(train_dataloader):
-                scaler.step(optimizer)
-                scaler.update()
-                scheduler.step()
-                optimizer.zero_grad()
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
-            if wandb != None:
-                wandb.log({"epoch_loss": epoch_loss})
-                wandb.log({"batch_loss": batch_loss})
-
-                # Optional
-                wandb.watch(model)
-
-            log_file.write(f"{epoch + training_counter},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
+            wandb.log({"epoch_loss": epoch_loss, "batch_loss": batch_loss})
+            log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
         
+        # Move scheduler to epoch loop.
+        scheduler.step()
+
         # After an epoch, evaluate.
         if eval_dataloader != None:
+            model.eval()
             eval_log = os.path.join(os.path.dirname(log_path), "eval_log.csv")
-            # avg_accuracy, avg_inaccuracy, avg_gene_loss = evaluate_genes(model, eval_genes, device, eval_log, epoch, num_epoch, loss_function, wandb)
             avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, epoch_size, loss_function, wandb)
 
+            best_accuracy = best_accuracy if best_accuracy > avg_accuracy else avg_accuracy
             validation_log = {
                 VALIDATION_ACCURACY: avg_accuracy,
                 VALIDATION_LOSS: avg_loss,
@@ -145,19 +133,15 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
             wandb.log(validation_log)
 
             # Save trained model if this epoch produces better model.
-            if avg_accuracy > best_accuracy:
-                save_checkpoint(model, optimizer, {
-                    "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-                    "epoch": (epoch + training_counter),
-                }, os.path.join(save_model_path, f"checkpoint-{epoch + training_counter}.pth"))
-
-                # Had to save BERT layer separately because unknown error miskey match.
-                current_bert_layer = model.bert
-                current_bert_layer.save_pretrained(save_model_path)
-
-                old_model_path = os.path.join(save_model_path, f"checkpoint-{epoch + training_counter - 1}.pth")
-                if os.path.exists(old_model_path):
-                    os.remove(old_model_path)
+            # EDIT 6 June 2022: Save for each epoch. 
+            _model = model.module if isinstance(model, torch.nn.DataParallel) else model
+            save_checkpoint(_model, optimizer, scheduler, {
+                "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
+                "epoch": epoch,
+                "avg_accuracy": avg_accuracy,
+                "avg_loss": avg_loss,
+                "best_accuracy": best_accuracy,
+            }, os.path.join(save_dir, f"checkpoint-{epoch}.pth"))
         
         torch.cuda.empty_cache()
     #endfor epoch
