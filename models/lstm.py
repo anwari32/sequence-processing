@@ -13,21 +13,10 @@ class LSTM_Block(nn.Module):
             dropout = config["dropout"],
             bidirectional = False if config["bidirectional"] <= 0 else True
         )
-
         self.last_hn_cn = None
 
     def forward(self, input):
         if self.last_hn_cn != None:
-
-            # Logging for debugging only.
-            #import os
-            #_path = os.path.join("lstm.csv")
-            #file = None
-            #if not os.path.exists(_path):
-            #    file = open(_path, "x")
-            #    file.write("input_shape,hn_shape,cn_shape\n")
-            #else:
-            #    file = open(_path, "a")
 
             # Somehow I need to match hidden state (h) and cell state (c) dimension to input dimension.
             # Case: input dimension (1, 512, 768), h dimension (4, 4, 768) and c dimension (4, 4, 768).
@@ -41,9 +30,6 @@ class LSTM_Block(nn.Module):
             if batch_size < hn_cn_second_dim:
                 hn = hn[:,0:batch_size,:].contiguous()
                 cn = cn[:,0:batch_size,:].contiguous()
-
-            #file.write(f"{input.shape},{self.last_hn_cn[0].shape},{hn.shape},{self.last_hn_cn[1].shape},{cn.shape}\n")
-            #file.close()
 
             # self.last_hn_cn = (self.last_hn_cn[0].detach(), self.last_hn_cn[1].detach())
             self.last_hn_cn = (hn.detach(), cn.detach())
