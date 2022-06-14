@@ -4,6 +4,7 @@ from sched import scheduler
 import sys
 import os
 from transformers import BertForMaskedLM
+from models.genlab import DNABERT_GSL
 from sequential_gene_labeling import train
 from utils.model import init_seqlab_model
 import torch
@@ -97,13 +98,18 @@ if __name__ == "__main__":
     if not os.path.exists(result_path):
         os.makedirs(result_path, exist_ok=True)
 
-    print("Initializing DNABERT-SL")
+    print("Initializing DNABERT-GSL")
+    
+    # Change model from DNABERT-SL to DNABERT-GSL with built in RNN.
     model = init_seqlab_model(args["model_config"])
+    # model = DNABERT_GSL(bert, config)
+
+    
     if not "mtl" in training_config.keys():
-        print(">> Initializing default DNABERT-SL.")
+        print(">> Initializing default DNABERT-GSL.")
     else:
         if not training_config["mtl"] == "":
-            print(f">> Initializing DNABERT-SL with MTL {training_config['mtl']}")
+            print(f">> Initializing DNABERT-GSL with MTL {training_config['mtl']}")
             # Load BERT layer from MTL-trained folder.
             formatted_path = str(Path(PureWindowsPath(training_config["mtl"])))
             saved_model = BertForMaskedLM.from_pretrained(formatted_path)

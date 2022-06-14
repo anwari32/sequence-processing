@@ -12,7 +12,7 @@
         "epsilon": 1e-6,
         "beta1": 0.98,
         "beta2": 0.9,
-        "weight_decay": 0.01
+        "weight_decay": 0.010
     },
     "warmup": 0,
     "loss_strategy": "sum",
