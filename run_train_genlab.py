@@ -147,7 +147,6 @@ if __name__ == "__main__":
         )
     print(f"# Training Genes: {len(train_genes)}")
     print(f"# Validation Genes: {len(eval_genes)}")
-    training_steps = len(train_genes) * training_config["num_epochs"]
 
     # Use scheduler from torch implementation for the sake of simplicity.
     scheduler = ExponentialLR(optimizer, gamma=0.1)

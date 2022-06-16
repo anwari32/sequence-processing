@@ -1,9 +1,7 @@
 from datetime import datetime
 import json
-
 from transformers import BertTokenizer
 from models.seqlab import DNABERT_SL
-from torch.optim import AdamW
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
@@ -16,61 +14,38 @@ def init_seqlab_model(config: json):
     model = DNABERT_SL(config)
     return model
 
-def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, betas=(0.9, 0.98), weight_decay=0.01):
-    """
-    Initialize AdamW optimizer.
-    @param  model_parameters:
-    @param  learning_rate: Default is 1e-5 so it's small. 
-            Change to 2e-4 for fine-tuning purpose (Ji et. al., 2021) or 4e-4 for pretraining (Ji et. al., 2021).
-    @param  epsilon: adam epsilon, default is 1e-6 as in DNABERT pretraining (Ji et. al., 2021).
-    @param  betas: a tuple consists of beta 1 and beta 2.
-    @param  weight_decay: weight_decay
-    @return (AdamW object)
-    """
-    optimizer = AdamW(model_parameters, lr=learning_rate, eps=epsilon, betas=betas, weight_decay=weight_decay)
-    return optimizer
-
-Labels = [
-    '...',
-    '..E',
-    '.E.',
-    'E..',
-    '.EE',
-    'EE.',
-    'E.E',
-    'EEE',
-]
-
-
-def _create_one_hot_encoding(index, n_classes):
-    return [1 if i == index else 0 for i in range(n_classes)]
 
 Label_Begin = '[CLS]'
 Label_End = '[SEP]'
-Label_Pad = '[PAD]'
+# Label_Pad = '[PAD]'
+Label_Pad = 'III'
 Label_Dictionary = {
     '[CLS]': 0, #_create_one_hot_encoding(0, 10),
     '[SEP]': 1,
-    '[PAD]': 2, #_create_one_hot_encoding(9, 10)
-    'iii': 3, #_create_one_hot_encoding(1, 10),
-    'iiE': 4, #_create_one_hot_encoding(2, 10),
-    'iEi': 5, #_create_one_hot_encoding(3, 10),
-    'Eii': 6, #_create_one_hot_encoding(4, 10),
-    'iEE': 7, #_create_one_hot_encoding(5, 10),
-    'EEi': 8, #_create_one_hot_encoding(6, 10),
-    'EiE': 9, #_create_one_hot_encoding(7, 10),
-    'EEE': 10, #_create_one_hot_encoding(8, 10),
+    # '[PAD]': 2, #_create_one_hot_encoding(9, 10)
+    'III': 2,   # Created III instead of iii for PAD special token. 
+                # This is for enabling reading contigs if token is predicted as padding. 
+                # #_create_one_hot_encoding(9, 10)
+    'iii': 3,   #_create_one_hot_encoding(1, 10),
+    'iiE': 4,   #_create_one_hot_encoding(2, 10),
+    'iEi': 5,   #_create_one_hot_encoding(3, 10),
+    'Eii': 6,   #_create_one_hot_encoding(4, 10),
+    'iEE': 7,   #_create_one_hot_encoding(5, 10),
+    'EEi': 8,   #_create_one_hot_encoding(6, 10),
+    'EiE': 9,   #_create_one_hot_encoding(7, 10),
+    'EEE': 10,  #_create_one_hot_encoding(8, 10),
 }
 Index_Dictionary = {
     0: "[CLS]",
     1: "[SEP]",
-    2: "[PAD]",
+    # 2: "[PAD]",
+    2: "III",       # Use `III` as padding symbol.
     3: "iii",
     4: "iiE",
     5: "iEi",
     6: "Eii",
     7: "iEE",
-    8: "EEi",
+    8: "EE",
     9: "EiE",
     10: "EEE"
 }
@@ -114,11 +89,20 @@ def _process_label(label_sequences, label_dict=Label_Dictionary):
     label_kmers = [label_dict[k] for k in label]
     return label_kmers
 
-def _process_sequence_and_label(sequence, label, tokenizer):
+def _process_sequence(sequence, tokenizer):
+    """
+    @param  sequence (string)
+    @param  tokenizer (BertTokenizer)
+    return input_ids, attention_mask, token_type_ids
+    """
     encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length")
     input_ids = encoded.get('input_ids')
     attention_mask = encoded.get('attention_mask')
     token_type_ids = encoded.get('token_type_ids')
+    return input_ids, attention_mask, token_type_ids
+
+def _process_sequence_and_label(sequence, label, tokenizer):
+    input_ids, attention_mask, token_type_ids = _process_sequence(sequence, tokenizer)
     label_repr = _process_label(label)
     return input_ids, attention_mask, token_type_ids, label_repr
 
@@ -158,12 +142,12 @@ def preprocessing(csv_file: str, tokenizer, batch_size, do_kmer=True, kmer_size=
 
     tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_labels, batch_size)
     end = datetime.now()
-    # print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
+    print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
     return tensor_dataloader
 
 def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> DataLoader:
     """
-    Process sequence and label from ``csv_file`` which are already in kmer format.
+    Process sequence and label from ``csv_file`` which are already in kmer format. \n
     e.q.    sequence    -> `AAG AGG GGC GCG CGA ...` (kmer format)
             label       -> `iii iiE EEE EEi Eii ...` (kmer format)
 

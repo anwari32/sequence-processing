@@ -4,7 +4,8 @@ import json
 from torch.optim import lr_scheduler
 from torch.cuda import device_count as cuda_device_count
 from torch.nn import BCELoss, CrossEntropyLoss
-from multitask_learning import preprocessing_batches, train, preprocessing
+# from multitask_learning import preprocessing_batches, train, preprocessing
+from utils.mtl import preprocessing_batches, preprocessing
 from torch.optim import AdamW
 import os
 from utils.model import init_mtl_model

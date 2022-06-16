@@ -1,3 +1,4 @@
+from models.genlab import DNABERT_GSL
 from models.seqlab import DNABERT_SL
 from transformers import BertTokenizer
 from torch import nn
@@ -182,7 +183,7 @@ def eval_gene(model, dataloader, device, loss_fn, gene_name: str = None, wandb: 
 
     return accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss
 
-def train(model: DNABERT_SL, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
+def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
     assert wandb != None, f"wandb not initialized."
     
     n_gpu = len(device_list)
@@ -245,12 +246,12 @@ def train(model: DNABERT_SL, tokenizer: BertTokenizer, optimizer, scheduler, tra
             # Write gene training log.
             logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()},{lr}\n")            
 
-            # If model uses LSTM, reset hidden state and cell state if a gene has been processed.
-            _model = model
+            # If model uses RNN, reset hidden state and cell state if a gene has been processed.
+            
             if isinstance(model, torch.nn.DataParallel):
-                _model = model.module
-            if _model.seqlab_head.lstm:
-                _model.seqlab_head.lstm.reset_hidden()
+                model.module.reset_hidden()
+            else:
+                model.reset_hidden()
 
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.
