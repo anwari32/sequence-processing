@@ -53,7 +53,7 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
                     accuracy = accuracy + 1 if idx == lab else 0
                 accuracy = accuracy / predictions.shape[1]
                 batch_accuracy += accuracy
-                eval_log.write(f"{epoch},{step},{accuracy, loss.item()},{' '.join(pindices)},{' '.join(label)}")
+                eval_log_file.write(f"{epoch},{step},{accuracy},{loss.item()},{' '.join([str(a) for a in pindices.tolist()])},{' '.join([str(a) for a in label.tolist()])}")
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
 
@@ -139,7 +139,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
                 "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
                 "epoch": epoch,
                 "avg_accuracy": avg_accuracy,
-                "avg_loss": avg_loss,
+                "avg_loss": avg_loss.item(),
                 "best_accuracy": best_accuracy,
             }, os.path.join(save_dir, f"checkpoint-{epoch}.pth"))
         

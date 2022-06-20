@@ -64,9 +64,11 @@ if __name__ == "__main__":
     # Make sure input parameters are valid.
     if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
         print(f"Training config not found at {args['training_config']}")
+        sys.exit(2)
     
     if not os.path.exists(args["model_config"]) or not os.path.isfile(args["model_config"]):
         print(f"Model config not found at {args['model_config']}")
+        sys.exit(2)
 
     # Make sure input parameters are valid.
     if not "force-cpu" in args.keys():
@@ -153,12 +155,12 @@ if __name__ == "__main__":
         "learning_rate": lr,
         "epochs": epoch_size,
         "batch_size": batch_size,
-        "device_name": device_name,
-        "device_names": device_names
+        "device": device_name,
+        "device_list": device_names
     }
     print("Final Training Configuration")
     for k in tcfg.keys():
-        print(f"{k}-{tcfg[k]}")
+        print(f"{k} {tcfg[k]}")
 
     # Prepare wandb.
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False

@@ -178,13 +178,18 @@ if __name__ == "__main__":
     # Prepare wandb.
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    wandb.init(project="thesis-mtl", entity="anwari32", config={
+    wandb_cfg = {
         "learning_rate": lr,
         "epochs": num_epochs,
         "batch_size": batch_size,
         "device": device_name,
         "device_list": device_names
-    }) 
+    }
+    print("Final Training Configuration")
+    for key in wandb_cfg.keys():
+        print(f"{key} {wandb_cfg[key]}")
+    
+    wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg) 
     if "run_name" in args.keys():
         wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
         wandb.run.save()

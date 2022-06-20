@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from pathlib import Path, PureWindowsPath
 import torch
 from torch.utils.data import TensorDataset, DataLoader

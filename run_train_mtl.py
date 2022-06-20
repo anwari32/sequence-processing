@@ -181,13 +181,18 @@ if __name__ == "__main__":
         # Prepare wandb.
         device_name = get_device_name(device)
         device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
-        wandb.init(project="thesis-mtl", entity="anwari32", config={
+        wandb_cfg = {
             "learning_rate": training_config["optimizer"]["learning_rate"],
             "epochs": epoch_size,
             "batch_size": batch_size,
-            "device_name": device_name,
-            "device_names": device_names,
-        }) 
+            "device": device_name,
+            "device_list": device_names,
+        }
+        print("Final Training Configuration")
+        for key in wandb_cfg.keys():
+            print(f"{key} {wandb_cfg[key]}")
+
+        wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg) 
         if "run_name" in args.keys():
             wandb.run.name = f'{run_name}-{wandb.run.id}'
             wandb.run.save()
@@ -216,7 +221,7 @@ if __name__ == "__main__":
                 device_list)
         else:
             from multitask_learning import train
-            
+
             trained_model, trained_optimizer, trained_scheduler = train(
                 dataloader, 
                 model, 
