@@ -146,8 +146,7 @@ def evaluate(model, eval_genes, device, eval_log, epoch, num_epoch, loss_fn, wan
         eval_logfile.write(f"{epoch},{gene_chr}-{gene_name},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
 
         # After each gene is passed, hidden state and cell state are reset.
-        if model.seqlab_head.lstm:
-            model.seqlab_head.lstm.reset_hidden()
+        model.reset_hidden()
 
     #endfor
     eval_logfile.close()

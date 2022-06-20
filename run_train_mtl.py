@@ -2,9 +2,8 @@ from getopt import getopt
 import sys
 import json
 from torch.optim import lr_scheduler
-from torch.cuda import device_count as cuda_device_count
+from torch.cuda import device_count as cuda_device_count, get_device_name
 from torch.nn import BCELoss, CrossEntropyLoss
-# from multitask_learning import preprocessing_batches, train, preprocessing
 from utils.mtl import preprocessing_batches, preprocessing
 from torch.optim import AdamW
 import os
@@ -166,16 +165,6 @@ if __name__ == "__main__":
         for p in [log_file_path, save_model_path]:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
-        wandb.init(project="thesis-mtl", entity="anwari32", config={
-            "learning_rate": training_config["optimizer"]["learning_rate"],
-            "epochs": epoch_size,
-            "batch_size": batch_size
-        }) 
-        if "run_name" in args.keys():
-            wandb.run.name = f'{run_name}-{wandb.run.id}'
-            wandb.run.save()
-        wandb.watch(model)
-
         # Save current model config in run folder.
         model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
         json.dump(model_config, open(os.path.join("run", run_name, "model_config.json"), "x"), indent=4)
@@ -188,6 +177,22 @@ if __name__ == "__main__":
         loss_strategy=training_config["loss_strategy"]
         grad_accumulation_steps=training_config["grad_accumulation_steps"]
         device_list=args["device_list"] if "device_list" in args.keys() else []
+
+        # Prepare wandb.
+        device_name = get_device_name(device)
+        device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
+        wandb.init(project="thesis-mtl", entity="anwari32", config={
+            "learning_rate": training_config["optimizer"]["learning_rate"],
+            "epochs": epoch_size,
+            "batch_size": batch_size,
+            "device_name": device_name,
+            "device_names": device_names,
+        }) 
+        if "run_name" in args.keys():
+            wandb.run.name = f'{run_name}-{wandb.run.id}'
+            wandb.run.save()
+        wandb.watch(model)
+
         if "max_steps" in args.keys():
             from multitask_learning import train_by_steps
 
@@ -210,6 +215,8 @@ if __name__ == "__main__":
                 validation_dataloader, 
                 device_list)
         else:
+            from multitask_learning import train
+            
             trained_model, trained_optimizer, trained_scheduler = train(
                 dataloader, 
                 model, 

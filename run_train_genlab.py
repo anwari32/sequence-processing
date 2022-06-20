@@ -14,7 +14,7 @@ from torch.cuda import device_count as cuda_device_count
 from utils.tokenizer import get_default_tokenizer
 import wandb
 import pandas as pd
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePath, PureWindowsPath
 from datetime import datetime
 
 from utils.utils import save_checkpoint
@@ -101,9 +101,11 @@ if __name__ == "__main__":
     print("Initializing DNABERT-GSL")
     
     # Change model from DNABERT-SL to DNABERT-GSL with built in RNN.
-    model = init_seqlab_model(args["model_config"])
-    # model = DNABERT_GSL(bert, config)
-
+    # model = init_seqlab_model(args["model_config"])
+    model_config = json.load(open(args["model_config"], "r"))
+    bert = BertForMaskedLM.from_pretrained(str(PurePath(PureWindowsPath(model_config["pretrained"]))))
+    bert = bert.bert
+    model = DNABERT_GSL(bert, model_config)
     
     if not "mtl" in training_config.keys():
         print(">> Initializing default DNABERT-GSL.")
@@ -115,10 +117,11 @@ if __name__ == "__main__":
             saved_model = BertForMaskedLM.from_pretrained(formatted_path)
             model.bert = saved_model.bert
         else:
-            print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-SEL.")
+            print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-GSL.")
 
     # TODO: develop resume training feature here.
-    load_from_dirpath = os.path.join(args["resume"])
+    if "resume" in args.keys():
+        load_from_dirpath = os.path.join(args["resume"])
     
     # Simplify optimizer, just use default parameters if necessary.
     lr = training_config["optimizer"]["learning_rate"]
@@ -159,8 +162,15 @@ if __name__ == "__main__":
                 param.requires_grad = False
             print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
 
+    # All training devices are CUDA GPUs.
+    device_name = ""
+    if "device" in args.keys():
+        device_name = torch.cuda.get_device_name(args["device"])
+
+    device_names = ""
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
+        device_names = ", ".join([torch.cuda.get_device_name(f"cuda:{a}") for a in args["device_list"]])
     
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
     num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
@@ -171,7 +181,9 @@ if __name__ == "__main__":
     wandb.init(project="thesis-mtl", entity="anwari32", config={
         "learning_rate": lr,
         "epochs": num_epochs,
-        "batch_size": batch_size
+        "batch_size": batch_size,
+        "device": device_name,
+        "device_list": device_names
     }) 
     if "run_name" in args.keys():
         wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'

@@ -1,12 +1,11 @@
 from getopt import getopt
 import sys
 import json
-from torch.cuda import device_count as cuda_device_count
+from torch.cuda import device_count as cuda_device_count, get_device_name
 from torch.optim import AdamW
 from sequential_labelling import train
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
-from utils.utils import load_checkpoint
 from transformers import BertTokenizer
 import os
 import wandb
@@ -57,6 +56,7 @@ def parse_args(argv):
     return output
 
 if __name__ == "__main__":
+    print("Command Parameters.")
     args = parse_args(sys.argv[1:])
     for key in args.keys():
         print(key, args[key])
@@ -116,37 +116,22 @@ if __name__ == "__main__":
         weight_decay=training_config["optimizer"]["weight_decay"]
     )
 
-    if "resume_checkpoint" in args.keys():
-        checkpoint = load_checkpoint(args["resume_from_checkpoint"])
-        model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        training_counter = int(checkpoint["epoch"]) + 1
-
-    if "device_list" in args.keys():
-        print(f"# GPU: {len(args['device_list'])}")
-    
     if int(training_config["freeze_bert"]) > 0:
         for param in model.bert.parameters():
             param.requires_grad(False)
 
+    # All training devices are CUDA GPUs.
+    device_name = get_device_name(args["device"])
+    device_names = ""
+    if "device_list" in args.keys():
+        print(f"# GPU: {len(args['device_list'])}")
+        device_names = ", ".join([get_device_name(f"cuda:{a}") for a in args["device_list"]])
+    
     # Override batch size and epoch if given in command.
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
 
-    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
-    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    wandb.init(project="thesis-mtl", entity="anwari32", config={
-        "learning_rate": lr,
-        "epochs": epoch_size,
-        "batch_size": batch_size,
-    }) 
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
-    wandb.watch(model)
-
     training_steps = len(dataloader) * epoch_size
-    # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=training_config["warmup"], num_training_steps=training_steps)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
     # Prepare save directory for this work.
@@ -160,7 +145,29 @@ if __name__ == "__main__":
     model_config_path = os.path.join("run", args["run_name"], "model_config.json")
     json.dump(model_config, open(model_config_path, "x"), indent=4)
     
+    # Loss function.
     loss_function = CrossEntropyLoss()
+
+    # Final training configuration.
+    tcfg = {
+        "learning_rate": lr,
+        "epochs": epoch_size,
+        "batch_size": batch_size,
+        "device_name": device_name,
+        "device_names": device_names
+    }
+    print("Final Training Configuration")
+    for k in tcfg.keys():
+        print(f"{k}-{tcfg[k]}")
+
+    # Prepare wandb.
+    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
+    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
+    wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg) 
+    if "run_name" in args.keys():
+        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
+        wandb.run.save()
+    wandb.watch(model)
 
     start_time = datetime.now()
     trained_model, optimizer, scheduler = train(

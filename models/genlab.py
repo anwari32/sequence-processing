@@ -1,4 +1,4 @@
-from turtle import forward
+from pathlib import Path, PureWindowsPath
 from torch import nn
 
 class LinearBlock(nn.Module):
@@ -141,7 +141,7 @@ class DNABERT_GSL(nn.Module):
             self.rnn_dropout = rnn_cfg.get("dropout", 0)
 
             lin_cfg = config["linear"]
-            self.lin_num_layers = lin_cfg["num_layers"]
+            self.lin_num_layers = lin_cfg.get("num_layers", 1)
 
         self.rnn = RNNBlock(self.rnn_name, self.rnn_num_layers, self.rnn_dropout)
         self.linear = LinearBlock(self.lin_num_layers)
@@ -167,7 +167,9 @@ if __name__ == "__main__":
     from transformers import BertForMaskedLM
     import json
 
-    bert = BertForMaskedLM.from_pretrained("../pretrained/3-new-12w-0").bert
+    pretrained_bert_path = str(Path(PureWindowsPath("dnabert-3")))
+    print(f"bert path {pretrained_bert_path}")
+    bert = BertForMaskedLM.from_pretrained(pretrained_bert_path).bert
     model_base = DNABERT_GSL(bert, None)
     model_gru = DNABERT_GSL(bert, json.load(open("config/genlab/gru.json", "r")))
     model_multi_lstm = DNABERT_GSL(bert, json.load(open("config/genlab/multi-lstm.json", "r")))
