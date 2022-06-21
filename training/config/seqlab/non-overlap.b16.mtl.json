@@ -1,8 +1,8 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "train_data": "workspace\\seqlab\\by_sequence\\seqlab.strand-positive.kmer.stride-510\\train_bundle.csv",
-    "validation_data": "workspace\\seqlab\\by_sequence\\seqlab.strand-positive.kmer.stride-510\\val_bundle.csv",
-    "test": "workspace\\seqlab\\by_sequence\\seqlab.strand-positive.kmer.stride-510\\test_bundle.csv",
+    "train_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\train_bundle.csv",
+    "validation_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\val_bundle.csv",
+    "test_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\test_bundle.csv",
     "freeze_bert": 0,
     "mtl": "run\\mtl-b128-base-20220515-154530",
     "num_epochs": 10,
