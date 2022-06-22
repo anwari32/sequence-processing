@@ -1,0 +1,20 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "train_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\train_bundle.25.csv",
+    "validation_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\val_bundle.25.csv",
+    "test_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\test_bundle.25.csv",
+    "freeze_bert": 0,
+    "num_epochs": 10,
+    "batch_size": 64,
+    "optimizer": {
+        "name": "adamw",
+        "learning_rate": 4e-4,
+        "epsilon": 1e-6,
+        "beta1": 0.98,
+        "beta2": 0.9,
+        "weight_decay": 0.010
+    },
+    "warmup": 0,
+    "loss_strategy": "sum",
+    "grad_accumulation_steps": 1
+}
