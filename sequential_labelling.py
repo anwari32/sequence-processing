@@ -4,6 +4,7 @@ from tqdm import tqdm
 from utils.utils import save_checkpoint
 from torch.cuda.amp import autocast, GradScaler
 import wandb
+from models.seqlab import DNABERT_SL
 
 def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device, loss_strategy="sum"):
     # Make sure model and data are in the same device.
@@ -37,7 +38,7 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
         eval_log_file = open(eval_log, "a")
     else:
         eval_log_file = open(eval_log, "x")
-        eval_log_file.write("epoch,step,accuracy,loss,prediction,target")
+        eval_log_file.write("epoch,step,accuracy,loss,prediction,target\n")
     with torch.no_grad():
         for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc=f"Evaluating {epoch + 1}/{num_epoch}"):
             input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
@@ -49,11 +50,14 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
                 batch_loss += loss
                 accuracy = 0
                 pscores, pindices = torch.max(pred, 1)
+                #print(pscores)
+                #print(pindices)
+                #print(label)
                 for idx, lab in zip(pindices, label):
                     accuracy = accuracy + 1 if idx == lab else 0
-                accuracy = accuracy / predictions.shape[1]
+                accuracy = accuracy / predictions.shape[1] * 100
                 batch_accuracy += accuracy
-                eval_log_file.write(f"{epoch},{step},{accuracy},{loss.item()},{' '.join([str(a) for a in pindices.tolist()])},{' '.join([str(a) for a in label.tolist()])}")
+                eval_log_file.write(f"{epoch},{step},{accuracy},{loss.item()},{' '.join([str(a) for a in pindices.tolist()])},{' '.join([str(a) for a in label.tolist()])}\n")
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
 
@@ -62,8 +66,10 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
         
     return avg_accuracy, avg_loss
 
-def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None):
-    
+def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None):
+    assert model != None, f"Model must not be NoneType."
+    assert isinstance(model, DNABERT_SL), f"Model must be DNABERT_SL instance."
+
     # Writing training log.
     log_path = os.path.join(save_dir, "log.csv")
     log_file = open(log_path, 'x')
@@ -127,7 +133,7 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
             best_accuracy = best_accuracy if best_accuracy > avg_accuracy else avg_accuracy
             validation_log = {
                 VALIDATION_ACCURACY: avg_accuracy,
-                VALIDATION_LOSS: avg_loss,
+                VALIDATION_LOSS: avg_loss.item(),
                 VALIDATION_EPOCH: epoch
             }
             wandb.log(validation_log)
@@ -141,9 +147,47 @@ def train(model, optimizer, scheduler, train_dataloader, epoch_size, save_dir, l
                 "avg_accuracy": avg_accuracy,
                 "avg_loss": avg_loss.item(),
                 "best_accuracy": best_accuracy,
-            }, os.path.join(save_dir, f"checkpoint-{epoch}.pth"))
+            }, os.path.join(save_dir, f"checkpoint-{epoch}"))
         
         torch.cuda.empty_cache()
     #endfor epoch
     log_file.close()
     return model, optimizer
+
+if __name__ == "__main__":
+    import getopt
+    import sys
+    from pathlib import Path, PureWindowsPath
+    from transformers import BertForMaskedLM, BertTokenizer
+    from utils.seqlab import preprocessing
+    from torch.nn import CrossEntropyLoss
+
+    opts, args = getopt.getopt(sys.argv[1:], "m:", ["mode="])
+    outputs = {}
+    for o, a in opts:
+        if o in ["-m", "--mode"]:
+            outputs["mode"] = str(a)
+
+    if outputs["mode"] == "eval":        
+        path = str(Path(PureWindowsPath("pretrained\\3-new-12w-0")))
+        bert = BertForMaskedLM.from_pretrained(path).bert
+        model = DNABERT_SL(bert, None)
+
+        dataloader = preprocessing(
+            str(Path(PureWindowsPath("workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510.from-index\\sample.csv"))), 
+            BertTokenizer.from_pretrained(path), 
+            1,
+            do_kmer=False)
+        avg_acc, avg_loss = evaluate_sequences(
+            model, 
+            dataloader, 
+            "cpu", 
+            "seqlab_eval_log.csv", 
+            0, 
+            1, 
+            CrossEntropyLoss(), 
+            "sum")
+        print(avg_acc, avg_loss)
+        
+
+

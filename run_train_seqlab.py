@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for key in args.keys():
         print(key, args[key])
 
-    # Make sure input parameters are valid.
+    # Make sure input config parameters are valid.
     if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
         print(f"Training config not found at {args['training_config']}")
         sys.exit(2)

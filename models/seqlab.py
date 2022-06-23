@@ -20,26 +20,36 @@ class SeqLabBlock(nn.Module):
 class SeqLabHead(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.lstm = LSTM_Block(config["lstm"]) if config["use_lstm"] > 0 else None
-        num_blocks = config["linear"]["num_layers"] 
-        num_labels = config["linear"]["num_labels"]
-        input_dim = config["linear"]["input_dim"]
-        dim = config["linear"]["hidden_dim"] 
-        norm_layer = (config["linear"]["norm_layer"] > 0) 
-        dropout_prob= config["linear"]["dropout"] if "linear" in config["linear"] else 0.1
+        self.dim = 768
+        self.input_dim = 768
+        self.lstm = 0
+        self.norm_layer = False
+        self.dropout = 0
+        self.num_blocks = 1
+        self.num_labels = 11
+
+        if config:
+            self.lstm = LSTM_Block(config["lstm"]) if config["use_lstm"] > 0 else None
+            self.num_blocks = config["linear"]["num_layers"] 
+            self.num_labels = config["linear"]["num_labels"]
+            self.input_dim = config["linear"]["input_dim"]
+            self.dim = config["linear"]["hidden_dim"] 
+            self.norm_layer = (config["linear"]["norm_layer"] > 0) 
+            self.dropout= config["linear"]["dropout"] if "linear" in config["linear"] else 0.1
+        
         self.linear = nn.Sequential()
-        for i in range(num_blocks):
+        for i in range(self.num_blocks):
             if i > 0:
                 self.linear.add_module(
-                    "seq2seq_block-{}".format(i), SeqLabBlock(dim, dim, norm_layer=norm_layer, prob=dropout_prob)
+                    "seq2seq_block-{}".format(i), SeqLabBlock(self.dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
                 )
             else:
                 self.linear.add_module(
-                    "seq2seq_block-{}".format(i), SeqLabBlock(input_dim, dim, norm_layer=norm_layer, prob=dropout_prob)
+                    "seq2seq_block-{}".format(i), SeqLabBlock(self.input_dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
                 )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
-        self.classifier = nn.Linear(in_features=dim, out_features=num_labels)
+        self.classifier = nn.Linear(in_features=self.dim, out_features=self.num_labels)
         #for i in range(0, len(self.hidden_layers)):
         #    linear_layer = self.hidden_layers[i]
         #    self.stack.add_module("hidden-{}".format(i+1), linear_layer)

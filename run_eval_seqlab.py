@@ -2,28 +2,24 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count
-from sequential_labelling import do_evaluate
+from sequential_labelling import evaluate_sequences
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
 from utils.utils import load_checkpoint, save_json_config
-from transformers import BertTokenizer
+from transformers import BertTokenizer, BertForMaskedLM
 import os
 import wandb
 
 def parse_args(argv):
-    opts, args = getopt(argv, "e:d:m:v:f", ["eval-config=", "device=", "model-config=", "model-version="])
+    opts, args = getopt(argv, "w:e:d:", ["work-dir=", "eval-data=", "device="])
     output = {}
     for o, a in opts:
-        if o in ["-e", "--eval-config"]:
-            output["eval_config"] = a
+        if o in ["-w", "--work-dir"]:
+            output["workdir"] = a
+        elif o in ["-e", "--eval-data"]:
+            output["eval_data"] = a
         elif o in ["-d", "--device"]:
-            output["device"] = a
-        elif o in ["-f", "--force-cpu"]:
-            output["force-cpu"] = True
-        elif o in ["-m", "--model-config"]:
-            output["model_config"]= a
-        elif o in ["-v", "--model-version"]:
-            output["model_version"] = a
+            output["device"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -34,47 +30,47 @@ if __name__ == "__main__":
     for key in args.keys():
         print(key, args[key])
 
-    # Make sure input parameters are valid.
-    # Make sure input parameters are valid.
-    if not "force-cpu" in args.keys():
-        if args["device"] == "cpu":
-            print(f"Don't use CPU for training")
-            sys.exit(2)
-        cuda_device_count = cuda_device_count()
-        if cuda_device_count > 1 and args["device"] == "cuda":
-            print(f"There are more than one CUDA devices. Please choose one.")
-            sys.exit(2)
-    
-    config = json.load(open(args["eval_config"], 'r'))
     dataloader = preprocessing(
-        config["eval_data"],# csv_file, 
+        args["eval_data"],  # csv_file, 
         BertTokenizer.from_pretrained(config["pretrained"]), #pretrained_path, 
-        config["batch_size"], #batch_size,
-        do_kmer=True
+        1, #batch_size,
+        do_kmer=False
     )
 
-    model = init_seqlab_model(args["model_config"])
-    if "model_version" in args.keys():
-        checkpoint = load_checkpoint(args["model_version"])
-        model.load_state_dict(checkpoint["model"])
-    else:
-        print("Evaluating default model.")
-    model.to(args["device"])
-    model.eval()
-    
-    if os.path.exists(config["log"]):
-        os.remove(config["log"])
-    else:
-        os.makedirs(os.path.dirname(config["log"]), exist_ok=True)
+    device = args["device"]
 
-    wandb.init(project="seqlab-eval-by-sequence", entity="anwari32")
+    # Workdir contains folder in which model for every epoch is saved.
+    # Traverse thorough that folder.
+    directories = os.listdir(args["workdir"])
+    num_epoch = len(directories)
+    loss_fn = CrossEntropyLoss()
+    loss_strategy = "sum"
 
-    complete_config = {
-        "eval_config": config,
-        "model_config": json.load(open(args["model_config"], "r")),
-        "model_version": json.load(open(args["model_version"], "r")) if "model_version" in args.keys() else "default"
-    }
+    # for d in directories:
+    for idx in range(num_epoch):
+        d = directories[idx] 
+        epoch = d.split("-")[1] # Get epoch number from dir.
+        dpath = os.path.join(args["workdir"], d)
+        model_checkpoint = os.path.join(dpath, "model.pth")
+        optimizer_checkpoint = os.path.join(dpath, "optimizer.pth")
+        scheduler_checkpoint = os.path.join(dpath, "scheduler.pth")
+        log_path = os.path.join(dpath, "validation_log.csv")
 
-    result = do_evaluate(model, dataloader, log=config["log"], device=args["device"])
-    save_json_config(complete_config, os.path.join(os.path.dirname(config["log"]), "evaluation_config.json"))
-    print(result)
+        bert = BertForMaskedLM.from_pretrained(str(Path(PureWindowsPath("pretrained\\3-new-12w-0")))).bert
+        model = DNABERT_SL(bert, None)
+        model.load_state_dict(model_checkpoint)
+        
+        wandb.init(project="thesis", entity="anwari32", config={
+            "epoch": epoch
+        })
+        wandb.define_metric("epoch")
+        wandb.define_metric("average_accuracy", "epoch")
+        wandb.define_metric("average_loss", "epoch")
+
+        avg_acc, avg_loss = evaluate_sequences(model, dataloader, device, log_path, epoch, num_epoch, loss_fn, loss_strategy)
+
+        wandb.log({
+            "average_accuracy": avg_acc,
+            "average_loss": avg_loss,
+            "epoch": epoch
+        })

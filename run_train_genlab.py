@@ -68,11 +68,8 @@ if __name__ == "__main__":
         print(key, args[key])
 
     # Make sure input parameters are valid.
-    if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
-        print(f"Training config not found at {args['training_config']}")
-    
-    if not os.path.exists(args["model_config"]) or not os.path.isfile(args["model_config"]):
-        print(f"Model config not found at {args['model_config']}")
+    assert os.path.exists(args["training_config"]) and os.path.isfile(args["training_config"]), f"Training config not found at {args['training_config']}"
+    assert os.path.exists(args["model_config"]) and os.path.isfile(args["model_config"]), f"Model config not found at {args['model_config']}"
 
     if not "force-cpu" in args.keys():
         if args["device"] == "cpu":
@@ -118,10 +115,6 @@ if __name__ == "__main__":
             model.bert = saved_model.bert
         else:
             print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-GSL.")
-
-    # TODO: develop resume training feature here.
-    if "resume" in args.keys():
-        load_from_dirpath = os.path.join(args["resume"])
     
     # Simplify optimizer, just use default parameters if necessary.
     lr = training_config["optimizer"]["learning_rate"]
@@ -174,6 +167,10 @@ if __name__ == "__main__":
     
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
     num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
+
+    # TODO: develop resume training feature here.
+    if "resume" in args.keys():
+        load_from_dirpath = os.path.join(args["resume"])
 
     # Prepare wandb.
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
