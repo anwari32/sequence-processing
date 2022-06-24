@@ -48,6 +48,7 @@ if __name__ == "__main__":
     # Workdir contains folder in which model for every epoch is saved.
     # Traverse thorough that folder.
     directories = os.listdir(args["workdir"])
+    directories = [d for d in directories if os.path.isdir(os.path.join(args["workdir"], d))]
     num_epoch = len(directories)
     loss_fn = CrossEntropyLoss()
     loss_strategy = "sum"
