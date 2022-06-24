@@ -10,6 +10,7 @@ from utils.utils import load_checkpoint, save_json_config
 from transformers import BertTokenizer, BertForMaskedLM
 import os
 import wandb
+from pathlib import Path, PureWindowsPath
 
 def parse_args(argv):
     opts, args = getopt(argv, "w:e:d:m:", ["work-dir=", "eval-data=", "device=", "model-config="])
@@ -39,7 +40,7 @@ if __name__ == "__main__":
 
     dataloader = preprocessing(
         args["eval_data"],  # csv_file, 
-        BertTokenizer.from_pretrained("pretrained\\3-new-12w-0"), #pretrained_path, 
+        BertTokenizer.from_pretrained(str(Path(PureWindowsPath("pretrained\\3-new-12w-0")))), #pretrained_path, 
         1, #batch_size,
         do_kmer=False
     )
