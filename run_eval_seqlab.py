@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     dataloader = preprocessing(
         args["eval_data"],  # csv_file, 
-        BertTokenizer.from_pretrained(config["pretrained"]), #pretrained_path, 
+        BertTokenizer.from_pretrained("pretrained\\3-new-12w-0"), #pretrained_path, 
         1, #batch_size,
         do_kmer=False
     )
