@@ -66,14 +66,12 @@ if __name__ == "__main__":
         schpath = os.path.join(dpath, "scheduler.pth")
         cfgpath = os.path.join(dpath, "model_config.json")
 
-        # If model config is specified, use it instead of model config found in folder.
-        if "model_config" in args.keys():
-            cfg_path = args["model_config"]
-
         assert os.path.exists(mpath), f"Model not found at {mpath}"
         assert os.path.exists(optimpath), f"Optimizer not found at {optimpath}"
         assert os.path.exists(schpath), f"Scheduler not found at {schpath}"
-        assert os.path.exists(cfgpath), f"Model config not found at {cfgpath}"
+        
+        if not os.path.exists(cfgpath): 
+            cfgpath = args["model_config"]
         
         log_path = os.path.join(dpath, "validation_log.csv")
 
