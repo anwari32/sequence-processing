@@ -11,7 +11,7 @@ import os
 import wandb
 
 def parse_args(argv):
-    opts, args = getopt(argv, "w:e:d:", ["work-dir=", "eval-data=", "device="])
+    opts, args = getopt(argv, "w:e:d:m:", ["work-dir=", "eval-data=", "device=", "model-config="])
     output = {}
     for o, a in opts:
         if o in ["-w", "--work-dir"]:
@@ -20,6 +20,8 @@ def parse_args(argv):
             output["eval_data"] = a
         elif o in ["-d", "--device"]:
             output["device"] = True
+        elif o in ["-m", "--model-config"]:
+            output["model_config"] = a
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -29,6 +31,10 @@ if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
     for key in args.keys():
         print(key, args[key])
+
+    assert "workdir" in args.keys(), f"`workdir` not specified. Workdir folder contains folders in each which contains all model checkpoints."
+    assert "eval_data" in args.keys(), f"`eval_data` not specified."
+    assert "device" in args.keys(), f"`device` not specified"
 
     dataloader = preprocessing(
         args["eval_data"],  # csv_file, 
@@ -51,16 +57,30 @@ if __name__ == "__main__":
         d = directories[idx] 
         epoch = d.split("-")[1] # Get epoch number from dir.
         dpath = os.path.join(args["workdir"], d)
-        model_checkpoint = os.path.join(dpath, "model.pth")
-        optimizer_checkpoint = os.path.join(dpath, "optimizer.pth")
-        scheduler_checkpoint = os.path.join(dpath, "scheduler.pth")
+
+        mpath = os.path.join(dpath, "model.pth")
+        optimpath = os.path.join(dpath, "optimizer.pth")
+        schpath = os.path.join(dpath, "scheduler.pth")
+        cfgpath = os.path.join(dpath, "model_config.json")
+
+        # If model config is specified, use it instead of model config found in folder.
+        if "model_config" in args.keys():
+            cfg_path = args["model_config"]
+
+        assert os.path.exists(mpath), f"Model not found at {mpath}"
+        assert os.path.exists(optimpath), f"Optimizer not found at {optimpath}"
+        assert os.path.exists(schpath), f"Scheduler not found at {schpath}"
+        assert os.path.exists(cfgpath), f"Model config not found at {cfgpath}"
+        
         log_path = os.path.join(dpath, "validation_log.csv")
 
         bert = BertForMaskedLM.from_pretrained(str(Path(PureWindowsPath("pretrained\\3-new-12w-0")))).bert
-        model = DNABERT_SL(bert, None)
-        model.load_state_dict(model_checkpoint)
+        cfg = json.load(open(cfgpath, "r"))
+
+        model = DNABERT_SL(bert, cfg)
+        model.load_state_dict(mpath)
         
-        wandb.init(project="thesis", entity="anwari32", config={
+        wandb.init(project="thesis-sequential-labelling", entity="anwari32", config={
             "epoch": epoch
         })
         wandb.define_metric("epoch")
