@@ -2,6 +2,7 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count
+from torch.nn import CrossEntropyLoss
 from sequential_labelling import evaluate_sequences
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
