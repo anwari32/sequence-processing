@@ -11,7 +11,7 @@ from transformers import BertTokenizer, BertForMaskedLM
 import os
 import wandb
 from pathlib import Path, PureWindowsPath
-from models.model import DNABERT_SL
+from models.seqlab import DNABERT_SL
 
 def parse_args(argv):
     opts, args = getopt(argv, "w:e:d:m:", ["work-dir=", "eval-data=", "device=", "model-config="])
