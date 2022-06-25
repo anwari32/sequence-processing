@@ -3,6 +3,7 @@ import sys
 import json
 from torch.cuda import device_count as cuda_device_count
 from torch.nn import CrossEntropyLoss
+from torch import load
 from sequential_labelling import evaluate_sequences
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         cfg = json.load(open(cfgpath, "r"))
 
         model = DNABERT_SL(bert, cfg)
-        model.load_state_dict(mpath)
+        model.load_state_dict(torch.load(mpath))
         
         wandb.init(project="thesis-sequential-labelling", entity="anwari32", config={
             "epoch": epoch
