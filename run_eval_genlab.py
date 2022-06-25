@@ -1,8 +1,9 @@
 from getopt import getopt
 import sys
 import json
+from torch import load
 from torch.cuda import device_count as cuda_device_count
-from sequential_gene_labeling import evaluate
+from sequential_gene_labelling import evaluate
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
 from utils.utils import load_checkpoint, save_json_config
@@ -10,6 +11,8 @@ from transformers import BertTokenizer, BertForMaskedLM
 import os
 import wandb
 import pandas as pd
+from pathlib import Path, PureWindowsPath
+from sequential_gene_labelling import DNABERT_GSL
 
 def parse_args(argv):
     opts, args = getopt(argv, "w:e:d:m:", ["work-dir=", "eval-data=", "device=", "model-config="])
@@ -75,8 +78,8 @@ if __name__ == "__main__":
         bert = BertForMaskedLM.from_pretrained(str(Path(PureWindowsPath("pretrained\\3-new-12w-0")))).bert
         cfg = json.load(open(cfgpath, "r"))
 
-        model = DNABERT_SL(bert, cfg)
-        model.load_state_dict(mpath)
+        model = DNABERT_GSL(bert, cfg)
+        model.load_state_dict(load(mpath))
         
         wandb.init(project="thesis-sequential-gene-labelling", entity="anwari32", config={
             "epoch": epoch
