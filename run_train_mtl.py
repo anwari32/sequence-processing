@@ -117,7 +117,7 @@ if __name__ == "__main__":
         training_config["train_data"],  # CSV file,
         training_config["pretrained"],  # Pretrained_path,
         batch_sizes=batch_sizes,        # Batch size,
-        do_kmer=args["do_kmer"]   
+        do_kmer=args["do_kmer"]         # Must be True if dataset is not in KMER format.
     )
     
     print(f"Preparing Validation Data")

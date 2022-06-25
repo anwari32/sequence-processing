@@ -22,14 +22,12 @@ class SeqLabHead(nn.Module):
         super().__init__()
         self.dim = 768
         self.input_dim = 768
-        self.lstm = 0
         self.norm_layer = False
         self.dropout = 0
         self.num_blocks = 1
         self.num_labels = 11
 
         if config:
-            self.lstm = LSTM_Block(config["lstm"]) if config["use_lstm"] > 0 else None
             self.num_blocks = config["linear"]["num_layers"] 
             self.num_labels = config["linear"]["num_labels"]
             self.input_dim = config["linear"]["input_dim"]
@@ -63,8 +61,6 @@ class SeqLabHead(nn.Module):
     
     def forward(self, input):
         x = input
-        if self.lstm:
-            x, (h_n, c_n) = self.lstm(input)
         x = self.linear(x)
         x = self.classifier(x)
         return x
