@@ -81,7 +81,7 @@ if __name__ == "__main__":
         cfg = json.load(open(cfgpath, "r"))
 
         model = DNABERT_SL(bert, cfg)
-        model.load_state_dict(torch.load(mpath))
+        model.load_state_dict(load(mpath))
         
         wandb.init(project="thesis-sequential-labelling", entity="anwari32", config={
             "epoch": epoch
