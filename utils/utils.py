@@ -90,9 +90,9 @@ def save_checkpoint(model, optimizer, scheduler, config, dirpath):
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     
-    torch.save(model.state_dict, os.path.join(dest_dir, "model.pth"))
-    torch.save(optimizer.state_dict, os.path.join(dest_dir, "optimizer.pth"))
-    torch.save(scheduler.state_dict, os.path.join(dest_dir, "scheduler.pth"))
+    torch.save(model.state_dict(), os.path.join(dest_dir, "model.pth"))
+    torch.save(optimizer.state_dict(), os.path.join(dest_dir, "optimizer.pth"))
+    torch.save(scheduler.state_dict(), os.path.join(dest_dir, "scheduler.pth"))
     cfgpath = os.path.join(dest_dir, "configuration.json")
     if os.path.exists(cfgpath):
         os.remove(cfgpath)
