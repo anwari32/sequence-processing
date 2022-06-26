@@ -5,7 +5,7 @@ import sys
 import os
 from transformers import BertForMaskedLM
 from models.genlab import DNABERT_GSL
-from sequential_gene_labeling import train
+from sequential_gene_labelling import train
 from utils.model import init_seqlab_model
 import torch
 from torch.optim import AdamW

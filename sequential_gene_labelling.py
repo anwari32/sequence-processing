@@ -65,7 +65,6 @@ def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, l
                     "contig_loss": contig_loss.item()
                 })
             #endfor
-        
 
         if mode == "train":
             if scaler:

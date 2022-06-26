@@ -9,10 +9,12 @@ class LinearBlock(nn.Module):
         super().__init__()
 
         self.layers = nn.Sequential()
-        for n in range(num_layers):
-            if n + 1 == num_layers:
+        self.num_layers = num_layers
+        self.num_labels = 11
+        for n in range(self.num_layers):
+            if n + 1 == self.num_layers:
                 self.layers.add_module(
-                    f"linear-{n}", nn.Linear(768, 11)
+                    f"linear-{n}", nn.Linear(768, self.num_labels)
                 )
             else:
                 self.layers.add_module(

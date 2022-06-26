@@ -18,14 +18,15 @@ def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function
 
         # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
         batch_loss = None
-        for pred, labels in zip(prediction, batch_labels):
-            loss = loss_function(pred, labels)
-            if batch_loss == None:
-                batch_loss = loss
-            else:
-                batch_loss += loss
-        if loss_strategy == "average":
-            batch_loss = batch_loss/batch_input_ids.shape[0]
+        #for pred, labels in zip(prediction, batch_labels):
+        #    loss = loss_function(pred, labels)
+        #    if batch_loss == None:
+        #        batch_loss = loss
+        #    else:
+        #        batch_loss += loss
+        #if loss_strategy in ["average", "avg"]:
+        #    batch_loss = batch_loss/batch_input_ids.shape[0]
+        batch_loss = loss_function(prediction.view(-1, model.seqlab_head.num_labels), batch_labels.view(-1))
     return batch_loss
 
 def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, loss_strategy, wandb=None):

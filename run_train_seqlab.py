@@ -26,7 +26,8 @@ def parse_args(argv):
         "disable-wandb",
         "batch-size=",
         "num-epochs=",
-        "resume="
+        "resume=",
+        "loss-strategy="
         ])
     output = {}
     for o, a in opts:
@@ -50,6 +51,8 @@ def parse_args(argv):
             output["batch_size"] = int(a)
         elif o in ["-r", "--resume"]:
             output["resume"] = a
+        elif o in ["--loss-strategy"]:
+            output["loss_strategy"] = a
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -150,13 +153,19 @@ if __name__ == "__main__":
     # Loss function.
     loss_function = CrossEntropyLoss()
 
+    # Loss strategy.
+    loss_strategy = "sum" # Default mode.
+    if "loss_strategy" in args.keys():
+        loss_strategy = args["loss_strategy"]
+
     # Final training configuration.
     tcfg = {
         "learning_rate": lr,
         "epochs": epoch_size,
         "batch_size": batch_size,
         "device": device_name,
-        "device_list": device_names
+        "device_list": device_names,
+        "loss_strategy": loss_strategy
     }
     print("Final Training Configuration")
     for k in tcfg.keys():
@@ -181,7 +190,7 @@ if __name__ == "__main__":
         save_dir,
         loss_function,
         device=args["device"], 
-        loss_strategy="sum",
+        loss_strategy=loss_strategy,
         wandb=wandb,
         device_list=(args["device_list"] if "device_list" in args.keys() else []),
         eval_dataloader=eval_dataloader,        
