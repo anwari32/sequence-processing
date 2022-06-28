@@ -112,6 +112,12 @@ if __name__ == "__main__":
         1,
         do_kmer=False
     )
+
+    # Override batch size and epoch if given in command.
+    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
+    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
+
+
     lr = training_config["optimizer"]["learning_rate"]
     model = init_seqlab_model(args["model_config"])
     optimizer = AdamW(model.parameters(), 
@@ -120,6 +126,21 @@ if __name__ == "__main__":
         eps=training_config["optimizer"]["epsilon"],
         weight_decay=training_config["optimizer"]["weight_decay"]
     )
+
+    training_steps = len(dataloader) * epoch_size
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+    training_counter = 0
+
+    # Resume training of checkpoint is stated.
+    if "resume" in args["resume"]:
+        resume_path = os.path.join(args["resume"])
+        checkpoint_dir = os.path.basename(resume_path)
+        last_epoch = checkpoint_dir.split("-")[1]
+        training_counter = last_epoch + 1
+        model.load_state_dict()
+        optimizer.load_state_dict()
+        scheduler.load_state_dict()
+
 
     if int(training_config["freeze_bert"]) > 0:
         for param in model.bert.parameters():
@@ -132,12 +153,6 @@ if __name__ == "__main__":
         print(f"# GPU: {len(args['device_list'])}")
         device_names = ", ".join([get_device_name(f"cuda:{a}") for a in args["device_list"]])
     
-    # Override batch size and epoch if given in command.
-    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
-    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
-
-    training_steps = len(dataloader) * epoch_size
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
     # Prepare save directory for this work.
     save_dir = os.path.join("run", args["run_name"])

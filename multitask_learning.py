@@ -254,7 +254,7 @@ def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, 
         
         scaler = GradScaler()
         
-        for i in range(epoch_size):
+        for training_counter in range(epoch_size):
             epoch_start_time = datetime.now()
             model.train()
             model.zero_grad()

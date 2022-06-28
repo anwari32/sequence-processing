@@ -21,13 +21,10 @@ def parse_args(argv):
         "device=", 
         "force-cpu", 
         "training-counter=", 
-        "resume-from-checkpoint=", 
-        "resume-from-optimizer=", 
-        "cuda-garbage-collection-mode=", 
         "run-name=",
         "device-list=",
         "max-steps=",
-        "fp16",
+        "resume=",
         "disable-wandb",
         "batch-sizes=",
         "num-epochs=",
@@ -45,18 +42,10 @@ def parse_args(argv):
             output["force-cpu"] = True
         elif o in ["--training-counter"]:
             output["training_counter"] = a
-        elif o in ["--resume-from-checkpoint"]:
-            output["resume_from_checkpoint"] = a
-        elif o in ["--resume-from-optimizer"]:
-            output["resume_from_optimimzer"] = a
-        elif o in ["--cuda-garbage-collection-mode"]:
-            output["cuda_garbage_collection_mode"] = a
         elif o in ["--run-name"]:
             output["run_name"] = [x for x in a.split(',')]
         elif o in ["--device-list"]:
             output["device_list"] = [int(x) for x in a.split(",")]
-        elif o in ["--fp16"]:
-            output["fp16"] = True
         elif o in ["--disable-wandb"]:
             output["disable_wandb"] = True
         elif o in ["--max-steps"]:
@@ -178,6 +167,21 @@ if __name__ == "__main__":
         grad_accumulation_steps=training_config["grad_accumulation_steps"]
         device_list=args["device_list"] if "device_list" in args.keys() else []
 
+        if "resume" in args.keys():
+            resume_path = os.path.join(args["resume"])
+            checkpoint_dir = os.path.basename(resume_path)
+            last_epoch = checkpoint_dir.split("-")[1]
+            training_counter = last_epoch + 1
+            model.load_state_dict(
+                torch.load(os.path.join(resume_path, "model.pth"))
+            )
+            optimizer.load_state_dict(
+                torch.load(os.path.join(resume_path, "optimizer.pth"))
+            )
+            scheduler.load_state_dict(
+                torch.load(os.path.join(resume_path, "scheduler.pth"))
+            )
+
         # Prepare wandb.
         device_name = get_device_name(device)
         device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
@@ -187,6 +191,7 @@ if __name__ == "__main__":
             "batch_size": batch_size,
             "device": device_name,
             "device_list": device_names,
+            "training_counter": training_counter
         }
         print("Final Training Configuration")
         for key in wandb_cfg.keys():
