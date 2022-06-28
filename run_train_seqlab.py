@@ -16,7 +16,8 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import lr_scheduler
 
 def parse_args(argv):
-    opts, args = getopt(argv, "t:m:d:f:r", ["training-config=", 
+    opts, args = getopt(argv, "t:m:d:f:r", [
+        "training-config=", 
         "model-config=", 
         "device=", 
         "force-cpu", 
@@ -39,7 +40,7 @@ def parse_args(argv):
             output["device"] = a
         elif o in ["-f", "--force-cpu"]:
             output["force-cpu"] = True
-        elif o in ["--device-list="]:
+        elif o in ["--device-list"]:
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--run-name"]:
             output["run_name"] = a
