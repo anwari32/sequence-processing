@@ -132,7 +132,7 @@ if __name__ == "__main__":
     training_counter = 0
 
     # Resume training of checkpoint is stated.
-    if "resume" in args["resume"]:
+    if "resume" in args.keys():
         resume_path = os.path.join(args["resume"])
         checkpoint_dir = os.path.basename(resume_path)
         last_epoch = checkpoint_dir.split("-")[1]
