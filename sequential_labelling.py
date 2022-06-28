@@ -43,7 +43,7 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
     with torch.no_grad():
         for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc=f"Evaluating {epoch + 1}/{num_epoch}"):
             input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
-            predictions = model(input_ids, attention_mask)
+            predictions, bert_output = model(input_ids, attention_mask)
             batch_loss = 0
             batch_accuracy = 0
             for pred, label in zip(predictions, batch_labels):

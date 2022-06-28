@@ -90,8 +90,8 @@ class DNABERT_SL(nn.Module):
     # `token_type_ids` is used for next sentence prediction where input contains two sentence.
     def forward(self, input_ids, attention_masks):
         # output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
-        output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
-        output = output[0] # Last hidden state
+        bert_output = self.bert(input_ids=input_ids, attention_mask=attention_masks, output_attentions=True)
+        output = bert_output[0] # Last hidden state
         output = self.seqlab_head(output)
         output = self.activation(output)
-        return output
+        return output, bert_output
