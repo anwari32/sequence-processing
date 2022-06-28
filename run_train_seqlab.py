@@ -39,7 +39,7 @@ def parse_args(argv):
             output["device"] = a
         elif o in ["-f", "--force-cpu"]:
             output["force-cpu"] = True
-        elif o in ["--device-list"]:
+        elif o in ["--device-list="]:
             output["device_list"] = [int(x) for x in a.split(",")]
         elif o in ["--run-name"]:
             output["run_name"] = a
