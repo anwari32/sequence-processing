@@ -26,7 +26,12 @@ def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function
         #        batch_loss += loss
         #if loss_strategy in ["average", "avg"]:
         #    batch_loss = batch_loss/batch_input_ids.shape[0]
-        batch_loss = loss_function(prediction.view(-1, model.seqlab_head.num_labels), batch_labels.view(-1))
+        num_labels = 11
+        #if isinstance(model, torch.nn.DataParallel):
+        #    num_labels = model.module.seqlab_head.num_labels
+        #else:
+        #    num_labels = model.seqlab.num_labels
+        batch_loss = loss_function(prediction.view(-1, num_labels), batch_labels.view(-1))
     return batch_loss
 
 def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, loss_strategy, wandb=None):
