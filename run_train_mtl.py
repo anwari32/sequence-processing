@@ -197,7 +197,7 @@ if __name__ == "__main__":
         for key in wandb_cfg.keys():
             print(f"{key} {wandb_cfg[key]}")
 
-        wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg) 
+        run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{run_name}-{wandb.run.id}'
             wandb.run.save()
@@ -263,4 +263,7 @@ if __name__ == "__main__":
 
         # Save final trained model.
         save_checkpoint(trained_model, trained_optimizer, trained_scheduler, total_config, os.path.join(save_dir, "final-checkpoint.pth"))
+        
+        # Finished this wandb run.
+        run.finish()
     

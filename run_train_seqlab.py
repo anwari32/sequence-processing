@@ -138,6 +138,9 @@ if __name__ == "__main__":
             raise FileNotFoundError("Path to model config not found")
     else:
         model_config_list.append(args["model_config"])
+
+    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
+    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
     
     for cfg_path in model_config_list:
         cfg_name = os.path.basename(cfg_path).split(".")[0] # Get filename without extension.
@@ -208,9 +211,7 @@ if __name__ == "__main__":
             print(f"{k} {tcfg[k]}")
 
         # Prepare wandb.
-        args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
-        os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-        wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg) 
+        run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'
             wandb.run.save()
@@ -247,3 +248,4 @@ if __name__ == "__main__":
         }
 
         save_checkpoint(model, optimizer, scheduler, total_config, save_dir)
+        run.finish()
