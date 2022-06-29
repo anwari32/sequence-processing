@@ -158,7 +158,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
         torch.cuda.empty_cache()
     #endfor epoch
     log_file.close()
-    return model, optimizer
+    return model, optimizer, scheduler
 
 if __name__ == "__main__":
     import getopt

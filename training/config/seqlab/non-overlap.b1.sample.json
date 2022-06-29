@@ -4,7 +4,7 @@
     "validation_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\val_sample.csv",
     "test_data": "workspace\\seqlab\\seqlab.strand-positive.kmer.stride-510\\test_sample.csv",
     "freeze_bert": 0,
-    "num_epochs": 10,
+    "num_epochs": 3,
     "batch_size": 1,
     "optimizer": {
         "name": "adamw",
