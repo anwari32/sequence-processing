@@ -69,7 +69,7 @@ if __name__ == "__main__":
     print("Command Parameters.")
     args = parse_args(sys.argv[1:])
     for key in args.keys():
-        print(key, args[key])
+        print(f"- {key} {args[key]}")
 
     # Make sure input config parameters are valid.
     if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         }
         print("Final Training Configuration")
         for k in tcfg.keys():
-            print(f"{k} {tcfg[k]}")
+            print(f"+ {k} {tcfg[k]}")
 
         # Prepare wandb.
         run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
