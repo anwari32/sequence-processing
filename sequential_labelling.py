@@ -14,7 +14,7 @@ def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function
     batch_labels.to(device)
 
     with autocast(enabled=True, cache_enabled=True):
-        prediction = model(batch_input_ids, batch_attn_mask)
+        prediction, bert_output = model(batch_input_ids, batch_attn_mask)
 
         # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
         batch_loss = None
