@@ -72,11 +72,14 @@ if __name__ == "__main__":
         print(f"- {key} {args[key]}")
 
     # Make sure input config parameters are valid.
-    if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
+    if "training_config" not in args.keys():
+        print("Please provide training config.")
+
+    if not os.path.exists(args["training_config"]):
         print(f"Training config not found at {args['training_config']}")
         sys.exit(2)
     
-    if not os.path.exists(args["model_config"]) or not os.path.isfile(args["model_config"]):
+    if "model_config" not in args.keys() and "model_config_dir" not in args.keys() and "model_config_names" not in args.keys():
         print(f"Model config not found at {args['model_config']}")
         sys.exit(2)
 
@@ -137,6 +140,8 @@ if __name__ == "__main__":
         if not all([os.path.exists(p) for p in model_config_list]):
             raise FileNotFoundError("Path to model config not found")
     else:
+        if not os.path.exists(args["model_config"]):
+            raise FileNotFoundError("Path to model config not found")
         model_config_list.append(args["model_config"])
 
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
