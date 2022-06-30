@@ -98,7 +98,7 @@ if __name__ == "__main__":
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
     os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
-    model_config_paths = [os.path.join(args["model_config_dir"], f"{n}") for n in args["model_config_names"]]
+    model_config_paths = [os.path.join(args["model_config_dir"], f"{n}.json") for n in args["model_config_names"]]
     for cfg_path in model_config_paths:
         cfg_name = os.path.basename(cfg_path).split('.')[0] # Get config filename as config name.
         print(f"Training model with config {cfg_name}")
