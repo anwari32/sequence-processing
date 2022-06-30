@@ -100,6 +100,11 @@ if __name__ == "__main__":
         print("`--run-name=<runname>`")
         sys.exit(2)
 
+    # Override batch size and epoch if given in command.
+    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
+    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
+
+
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
     training_filepath = str(Path(PureWindowsPath(training_config["train_data"])))
@@ -108,7 +113,7 @@ if __name__ == "__main__":
     dataloader = preprocessing(
         training_filepath,# csv_file, 
         BertTokenizer.from_pretrained(str(Path(PureWindowsPath(training_config["pretrained"])))), # tokenizer
-        training_config["batch_size"], #batch_size,
+        batch_size, # training_config["batch_size"], #batch_size,
         do_kmer=False
         )
     print(f"Preparing Validation Data {validation_filepath}")
@@ -118,10 +123,6 @@ if __name__ == "__main__":
         1,
         do_kmer=False
     )
-
-    # Override batch size and epoch if given in command.
-    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
-    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
 
     # All training devices are CUDA GPUs.
     device_name = get_device_name(args["device"])
@@ -168,14 +169,21 @@ if __name__ == "__main__":
         training_counter = 0
 
         # Resume training of checkpoint is stated.
+        # For now, it only works in single config.
         if "resume" in args.keys():
             resume_path = os.path.join(args["resume"])
             checkpoint_dir = os.path.basename(resume_path)
             last_epoch = checkpoint_dir.split("-")[1]
             training_counter = last_epoch + 1
-            model.load_state_dict()
-            optimizer.load_state_dict()
-            scheduler.load_state_dict()
+            model.load_state_dict(
+                os.path.join(resume_path, "model.pth")
+            )
+            optimizer.load_state_dict(
+                os.path.join(resume_path, "optimizer.pth")
+            )
+            scheduler.load_state_dict(
+                os.path.join(resume_path, "scheduler.pth")
+            )
             print(f"Continuing training. Start from epoch {training_counter}")
 
         if int(training_config["freeze_bert"]) > 0:
