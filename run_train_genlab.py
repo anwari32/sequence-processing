@@ -57,7 +57,7 @@ def _parse_argv(argvs):
         elif o in ["--batch-size"]:
             output["batch_size"] = int(a)
         elif o in ["--model-config-dir"]:
-            output["model_config_dir"]
+            output["model_config_dir"] = a
         elif o in ["--model-config-names"]:
             output["model_config_names"] = a.split(',')
         else:
