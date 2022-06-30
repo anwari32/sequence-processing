@@ -196,6 +196,9 @@ if __name__ == "__main__":
         wandb.run.save()
     wandb.watch(model)
 
+    # Block GPU.
+    os.environ["CUDA_LAUNCH_BLOCKING"] = 1
+
     start_time = datetime.now()
     trained_model, optimizer, scheduler = train(
         model, 
