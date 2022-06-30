@@ -100,12 +100,13 @@ if __name__ == "__main__":
         print("`--run-name=<runname>`")
         sys.exit(2)
 
+    training_config_path = args["training_config"]
+    training_config = json.load(open(training_config_path, "r"))
+
     # Override batch size and epoch if given in command.
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
 
-    training_config_path = args["training_config"]
-    training_config = json.load(open(training_config_path, "r"))
     training_filepath = str(Path(PureWindowsPath(training_config["train_data"])))
     validation_filepath = str(Path(PureWindowsPath(training_config["validation_data"])))
     print(f"Preparing Training Data {training_filepath}")
