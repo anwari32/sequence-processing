@@ -30,6 +30,7 @@ def _parse_argv(argvs):
         "device-list=",
         "disable-wandb",
         "num-epochs=",
+        "batch-size=",
         "model_config_dir=",
         "model_config_names="
     ])
@@ -53,6 +54,8 @@ def _parse_argv(argvs):
             output["disable_wandb"] = True
         elif o in ["--num-epochs"]:
             output["num_epochs"] = int(a)
+        elif o in ["--batch-size"]:
+            output["batch_size"] = int(a)
         elif o in ["--model-config-dir"]:
             output["model_config_dir"]
         elif o in ["--model-config-names"]:
