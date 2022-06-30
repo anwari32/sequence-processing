@@ -40,8 +40,6 @@ def parse_args(argv):
             output["device"] = a
         elif o in ["-f", "--force-cpu"]:
             output["force-cpu"] = True
-        elif o in ["--training-counter"]:
-            output["training_counter"] = a
         elif o in ["--run-name"]:
             output["run_name"] = [x for x in a.split(',')]
         elif o in ["--device-list"]:
@@ -124,6 +122,7 @@ if __name__ == "__main__":
     # Enable or disable wandb real time sync.
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
     for run_name, batch_size, dataloader in zip(run_names, batch_sizes, dataloaders):
         print(f"Runname {run_name}, Batch size {batch_size}")

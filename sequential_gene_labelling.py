@@ -223,7 +223,7 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
     wandb.define_metric(VALIDATION_AVG_INACC, step_metric=VALIDATION_EPOCH) # Average inaccuracy.
     wandb.define_metric(VALIDATION_AVG_LOSS, step_metric=VALIDATION_EPOCH) # Average gene loss.
 
-    for epoch in range(num_epoch):
+    for epoch in range(training_counter, num_epoch):
         model.train()
         epoch_loss = None
 
@@ -297,7 +297,7 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
                 _model = model.module
 
             cur_config = {
-                "epoch": epoch + training_counter,
+                "epoch": epoch,
                 "num_epochs": num_epoch,
                 "batch_size": batch_size,
                 "accuracy": avg_accuracy
@@ -305,4 +305,4 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
             save_checkpoint(_model, optimizer, scheduler, cur_config, os.path.join(save_dir, f"checkpoint-{epoch}"))
 
     logfile.close()
-    return model, optimizer
+    return model, optimizer, scheduler

@@ -104,8 +104,7 @@ if __name__ == "__main__":
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
 
-
-    training_config_path = str(Path(PureWindowsPath(args["training_config"])))
+    training_config_path = args["training_config"]
     training_config = json.load(open(training_config_path, "r"))
     training_filepath = str(Path(PureWindowsPath(training_config["train_data"])))
     validation_filepath = str(Path(PureWindowsPath(training_config["validation_data"])))
@@ -148,7 +147,7 @@ if __name__ == "__main__":
 
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    os.environ["CUDA_LAUNCH_BLOCKING"] = 1
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     
     for cfg_path in model_config_list:
         cfg_name = os.path.basename(cfg_path).split(".")[0] # Get filename without extension.
@@ -168,6 +167,7 @@ if __name__ == "__main__":
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
         training_counter = 0
 
+        # TODO: develop resume training feature here.
         # Resume training of checkpoint is stated.
         # For now, it only works in single config.
         if "resume" in args.keys():
@@ -176,13 +176,13 @@ if __name__ == "__main__":
             last_epoch = checkpoint_dir.split("-")[1]
             training_counter = last_epoch + 1
             model.load_state_dict(
-                os.path.join(resume_path, "model.pth")
+                torch.load(os.path.join(resume_path, "model.pth"))
             )
             optimizer.load_state_dict(
-                os.path.join(resume_path, "optimizer.pth")
+                torch.load(os.path.join(resume_path, "optimizer.pth"))
             )
             scheduler.load_state_dict(
-                os.path.join(resume_path, "scheduler.pth")
+                torch.load(os.path.join(resume_path, "scheduler.pth"))
             )
             print(f"Continuing training. Start from epoch {training_counter}")
 
@@ -199,8 +199,12 @@ if __name__ == "__main__":
     
         # Save current model config in run folder.
         model_config = json.load(open(cfg_path, "r"))
-        model_config_path = os.path.join("run", runname, "model_config.json")
+        model_config_path = os.path.join(save_dir, "model_config.json")
         json.dump(model_config, open(model_config_path, "x"), indent=4)
+
+        # Save current training config in run folder.
+        training_config_path = os.path.join(save_dir, "training_config.json")
+        json.dump(training_config, open(training_config_path, "x"), indent=4)
     
         # Loss function.
         loss_function = CrossEntropyLoss()
@@ -234,7 +238,7 @@ if __name__ == "__main__":
 
         print(f"Begin Training {wandb.run.name}")
         start_time = datetime.now()
-        trained_model, optimizer, scheduler = train(
+        trained_model, trained_optimizer, trained_scheduler = train(
             model, 
             optimizer, 
             scheduler, 
@@ -246,7 +250,8 @@ if __name__ == "__main__":
             loss_strategy=loss_strategy,
             wandb=wandb,
             device_list=device_list,
-            eval_dataloader=eval_dataloader,        
+            eval_dataloader=eval_dataloader,    
+            training_counter=training_counter    
         )
         end_time = datetime.now()
         running_time = end_time - start_time
@@ -254,13 +259,13 @@ if __name__ == "__main__":
         print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
 
         total_config = {
-            "training": training_config,
-            "model": json.load(open(cfg_path, "r")),
+            "training_config": training_config,
+            "model_config": model_config,
             "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
             "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
             "running_time": str(running_time),
             "runname": runname
         }
-
-        save_checkpoint(model, optimizer, scheduler, total_config, save_dir)
+        training_info_path = os.path.join(save_dir, "training_info.json")
+        json.dump(total_config, open(training_info_path, "x"), indent=4)
         run.finish()

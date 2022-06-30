@@ -72,7 +72,7 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
         
     return avg_accuracy, avg_loss
 
-def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None):
+def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None, training_counter=0):
     assert model != None, f"Model must not be NoneType."
     assert isinstance(model, DNABERT_SL), f"Model must be DNABERT_SL instance."
 
@@ -106,7 +106,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
 
     # Do training.
     best_accuracy = 0
-    for epoch in range(epoch_size):
+    for epoch in range(training_counter, epoch_size):
         epoch_loss = 0
         model.train()
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1}/{epoch_size}]"):
