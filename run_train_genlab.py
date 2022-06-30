@@ -86,6 +86,24 @@ if __name__ == "__main__":
         if cuda_device_count > 1 and args["device"] == "cuda":
             print(f"There are more than one CUDA devices. Please choose one.")
             sys.exit(2)
+
+    device_list = []
+    device_names = ""
+    if "device_list" in args.keys():
+        print(f"# GPU: {len(args['device_list'])}")
+        device_list = args["device_list"]
+        device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
+
+    # All training devices are CUDA GPUs.
+    device_name = ""
+    if "device" in args.keys():
+        device_name = torch.cuda.get_device_name(args["device"])
+
+    device_names = ""
+    if "device_list" in args.keys():
+        print(f"# GPU: {len(args['device_list'])}")
+        device_names = ", ".join([torch.cuda.get_device_name(f"cuda:{a}") for a in args["device_list"]])
+
     
     # Determine batch size and epochs.    
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
@@ -172,15 +190,6 @@ if __name__ == "__main__":
                     param.requires_grad = False
                 print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
 
-        # All training devices are CUDA GPUs.
-        device_name = ""
-        if "device" in args.keys():
-            device_name = torch.cuda.get_device_name(args["device"])
-
-        device_names = ""
-        if "device_list" in args.keys():
-            print(f"# GPU: {len(args['device_list'])}")
-            device_names = ", ".join([torch.cuda.get_device_name(f"cuda:{a}") for a in args["device_list"]])
         
         # TODO: develop resume training feature here.
         training_counter = 1
