@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # Make sure input parameters are valid.
     assert os.path.exists(args["training_config"]) and os.path.isfile(args["training_config"]), f"Training config not found at {args['training_config']}"
-    assert os.path.exists(args["model_config"]) and os.path.isfile(args["model_config"]), f"Model config not found at {args['model_config']}"
+    #assert os.path.exists(args["model_config"]) and os.path.isfile(args["model_config"]), f"Model config not found at {args['model_config']}"
 
     # Run name is made required. If there is None then Error shall be there.
     assert "run_name" in args.keys(), f"run_name must be stated."
