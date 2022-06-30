@@ -183,7 +183,7 @@ def eval_gene(model, dataloader, device, loss_fn, gene_name: str = None, wandb: 
 
 def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
     assert model != None, f"Model must not be NoneType."
-    assert isintance(model, DNABERT_GSL), f"Model must be DNABERT_GSL instance."
+    assert isinstance(model, DNABERT_GSL), f"Model must be DNABERT_GSL instance."
     assert tokenizer != None, f"Tokenizer must not be NoneType."
     assert isinstance(tokenizer, BertTokenizer), f"Tokenizer must be BertTokenizer instance."
     assert wandb != None, f"wandb not initialized."
@@ -228,7 +228,7 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
         epoch_loss = None
 
         lr = 0 # Learning rate.
-        for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes):
+        for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes, unit="gene"):
             
             gene = train_genes[i]
             gene_name = os.path.basename(gene).split(".")[0]

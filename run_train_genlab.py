@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
         
         # TODO: develop resume training feature here.
-        training_counter = 1
+        training_counter = 0
         if "resume" in args.keys():
             resume_path = os.path.join(args["resume"])
             checkpoint_dir = os.path.basename(resume_path)
@@ -214,7 +214,8 @@ if __name__ == "__main__":
             "epochs": num_epochs,
             "batch_size": batch_size,
             "device": device_name,
-            "device_list": device_names
+            "device_list": device_names,
+            "training_counter": training_counter
         }
         print("Final Training Configuration")
         for key in wandb_cfg.keys():
@@ -258,7 +259,8 @@ if __name__ == "__main__":
             print(ex)
             end_time = datetime.now()
             running_time = end_time - start_time
-            print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")    
+            print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
+            sys.exit(2)   
 
         end_time = datetime.now()
         running_time = end_time - start_time
