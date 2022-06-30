@@ -28,7 +28,9 @@ def parse_args(argv):
         "batch-size=",
         "num-epochs=",
         "resume=",
-        "loss-strategy="
+        "loss-strategy=",
+        "model-config-dir=",
+        "model-config-names="
         ])
     output = {}
     for o, a in opts:
@@ -54,6 +56,10 @@ def parse_args(argv):
             output["resume"] = a
         elif o in ["--loss-strategy"]:
             output["loss_strategy"] = a
+        elif o in ["--model-config-dir"]:
+            output["model_config_dir"] = a
+        elif o in ["--model-config-names"]:
+            output["model_config_names"] = a.split(",")
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -63,14 +69,18 @@ if __name__ == "__main__":
     print("Command Parameters.")
     args = parse_args(sys.argv[1:])
     for key in args.keys():
-        print(key, args[key])
+        print(f"- {key} {args[key]}")
 
     # Make sure input config parameters are valid.
-    if not os.path.exists(args["training_config"]) or not os.path.isfile(args["model_config"]):
+    if "training_config" not in args.keys():
+        print("Please provide training config.")
+        sys.exit(2)
+
+    if not os.path.exists(args["training_config"]):
         print(f"Training config not found at {args['training_config']}")
         sys.exit(2)
     
-    if not os.path.exists(args["model_config"]) or not os.path.isfile(args["model_config"]):
+    if "model_config" not in args.keys() and "model_config_dir" not in args.keys() and "model_config_names" not in args.keys():
         print(f"Model config not found at {args['model_config']}")
         sys.exit(2)
 
@@ -89,11 +99,6 @@ if __name__ == "__main__":
         print("Run name is required.")
         print("`--run-name=<runname>`")
         sys.exit(2)
-
-    # Run name may be the same. So append current datetime to differentiate.
-    # Create this folder if not exist.
-    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
-    args["run_name"] = f"{args['run_name']}-{cur_date}"
 
     training_config_path = str(Path(PureWindowsPath(args["training_config"])))
     training_config = json.load(open(training_config_path, "r"))
@@ -118,114 +123,136 @@ if __name__ == "__main__":
     epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
 
-
-    lr = training_config["optimizer"]["learning_rate"]
-    model = init_seqlab_model(args["model_config"])
-    optimizer = AdamW(model.parameters(), 
-        lr=training_config["optimizer"]["learning_rate"], 
-        betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
-        eps=training_config["optimizer"]["epsilon"],
-        weight_decay=training_config["optimizer"]["weight_decay"]
-    )
-
-    training_steps = len(dataloader) * epoch_size
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
-    training_counter = 0
-
-    # Resume training of checkpoint is stated.
-    if "resume" in args.keys():
-        resume_path = os.path.join(args["resume"])
-        checkpoint_dir = os.path.basename(resume_path)
-        last_epoch = checkpoint_dir.split("-")[1]
-        training_counter = last_epoch + 1
-        model.load_state_dict()
-        optimizer.load_state_dict()
-        scheduler.load_state_dict()
-
-
-    if int(training_config["freeze_bert"]) > 0:
-        for param in model.bert.parameters():
-            param.requires_grad(False)
-
     # All training devices are CUDA GPUs.
     device_name = get_device_name(args["device"])
     device_names = ""
+    device_list = []
     if "device_list" in args.keys():
         print(f"# GPU: {len(args['device_list'])}")
-        device_names = ", ".join([get_device_name(f"cuda:{a}") for a in args["device_list"]])
-    
+        device_list = args["device_list"]
+        device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
 
-    # Prepare save directory for this work.
-    save_dir = os.path.join("run", args["run_name"])
-    print(f"Save Directory {save_dir}")
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir, exist_ok=True)
-    
-    # Save current model config in run folder.
-    model_config = json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r"))
-    model_config_path = os.path.join("run", args["run_name"], "model_config.json")
-    json.dump(model_config, open(model_config_path, "x"), indent=4)
-    
-    # Loss function.
-    loss_function = CrossEntropyLoss()
+    # Run name may be the same. So append current datetime to differentiate.
+    # Create this folder if not exist.
+    cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_config_list = []
+    if "model_config_dir" in args.keys() and "model_config_names" in args.keys():
+        model_config_list = [os.path.join(args["model_config_dir"], f"{n}.json") for n in args["model_config_names"]]
+        if not all([os.path.exists(p) for p in model_config_list]):
+            raise FileNotFoundError("Path to model config not found")
+    else:
+        if not os.path.exists(args["model_config"]):
+            raise FileNotFoundError("Path to model config not found")
+        model_config_list.append(args["model_config"])
 
-    # Loss strategy.
-    loss_strategy = "sum" # Default mode.
-    if "loss_strategy" in args.keys():
-        loss_strategy = args["loss_strategy"]
-
-    # Final training configuration.
-    tcfg = {
-        "learning_rate": lr,
-        "epochs": epoch_size,
-        "batch_size": batch_size,
-        "device": device_name,
-        "device_list": device_names,
-        "loss_strategy": loss_strategy
-    }
-    print("Final Training Configuration")
-    for k in tcfg.keys():
-        print(f"{k} {tcfg[k]}")
-
-    # Prepare wandb.
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg) 
-    if "run_name" in args.keys():
-        wandb.run.name = f'{args["run_name"]}-{wandb.run.id}'
-        wandb.run.save()
-    wandb.watch(model)
-
-    # Block GPU.
     os.environ["CUDA_LAUNCH_BLOCKING"] = 1
+    
+    for cfg_path in model_config_list:
+        cfg_name = os.path.basename(cfg_path).split(".")[0] # Get filename without extension.
+        print(f"Training model with config {cfg_name}")
+        runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{epoch_size}-{cur_date}"
+        
+        lr = training_config["optimizer"]["learning_rate"]
+        model = init_seqlab_model(cfg_path)
+        optimizer = AdamW(model.parameters(), 
+            lr=training_config["optimizer"]["learning_rate"], 
+            betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
+            eps=training_config["optimizer"]["epsilon"],
+            weight_decay=training_config["optimizer"]["weight_decay"]
+        )
 
-    start_time = datetime.now()
-    trained_model, optimizer, scheduler = train(
-        model, 
-        optimizer, 
-        scheduler, 
-        dataloader, 
-        epoch_size, 
-        save_dir,
-        loss_function,
-        device=args["device"], 
-        loss_strategy=loss_strategy,
-        wandb=wandb,
-        device_list=(args["device_list"] if "device_list" in args.keys() else []),
-        eval_dataloader=eval_dataloader,        
-    )
-    end_time = datetime.now()
-    running_time = end_time - start_time
+        training_steps = len(dataloader) * epoch_size
+        scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+        training_counter = 0
 
-    print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
+        # Resume training of checkpoint is stated.
+        if "resume" in args.keys():
+            resume_path = os.path.join(args["resume"])
+            checkpoint_dir = os.path.basename(resume_path)
+            last_epoch = checkpoint_dir.split("-")[1]
+            training_counter = last_epoch + 1
+            model.load_state_dict()
+            optimizer.load_state_dict()
+            scheduler.load_state_dict()
+            print(f"Continuing training. Start from epoch {training_counter}")
 
-    total_config = {
-        "training": training_config,
-        "model": json.load(open(str(Path(PureWindowsPath(args["model_config"]))), "r")),
-        "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
-        "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
-        "running_time": str(running_time),
-        "runname": args["run_name"]
-    }
+        if int(training_config["freeze_bert"]) > 0:
+            print("Freezing BERT")
+            for param in model.bert.parameters():
+                param.requires_grad(False)
 
-    save_checkpoint(model, optimizer, scheduler, total_config, save_dir)
+        # Prepare save directory for this work.
+        save_dir = os.path.join("run", runname)
+        print(f"Save Directory {save_dir}")
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+    
+        # Save current model config in run folder.
+        model_config = json.load(open(cfg_path, "r"))
+        model_config_path = os.path.join("run", runname, "model_config.json")
+        json.dump(model_config, open(model_config_path, "x"), indent=4)
+    
+        # Loss function.
+        loss_function = CrossEntropyLoss()
+
+        # Loss strategy.
+        loss_strategy = "sum" # Default mode.
+        if "loss_strategy" in args.keys():
+            loss_strategy = args["loss_strategy"]
+
+        # Final training configuration.
+        tcfg = {
+            "training_data": training_filepath,
+            "validation_data": validation_filepath,
+            "learning_rate": lr,
+            "epochs": epoch_size,
+            "batch_size": batch_size,
+            "device": device_name,
+            "device_list": device_names,
+            "loss_strategy": loss_strategy
+        }
+        print("Final Training Configuration")
+        for k in tcfg.keys():
+            print(f"+ {k} {tcfg[k]}")
+
+        # Prepare wandb.
+        run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
+        if "run_name" in args.keys():
+            wandb.run.name = f'{runname}-{wandb.run.id}'
+            wandb.run.save()
+        wandb.watch(model)
+
+        print(f"Begin Training {wandb.run.name}")
+        start_time = datetime.now()
+        trained_model, optimizer, scheduler = train(
+            model, 
+            optimizer, 
+            scheduler, 
+            dataloader, 
+            epoch_size, 
+            save_dir,
+            loss_function,
+            device=args["device"], 
+            loss_strategy=loss_strategy,
+            wandb=wandb,
+            device_list=device_list,
+            eval_dataloader=eval_dataloader,        
+        )
+        end_time = datetime.now()
+        running_time = end_time - start_time
+
+        print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
+
+        total_config = {
+            "training": training_config,
+            "model": json.load(open(cfg_path, "r")),
+            "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
+            "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
+            "running_time": str(running_time),
+            "runname": runname
+        }
+
+        save_checkpoint(model, optimizer, scheduler, total_config, save_dir)
+        run.finish()
