@@ -74,6 +74,7 @@ if __name__ == "__main__":
     # Make sure input config parameters are valid.
     if "training_config" not in args.keys():
         print("Please provide training config.")
+        sys.exit(2)
 
     if not os.path.exists(args["training_config"]):
         print(f"Training config not found at {args['training_config']}")
