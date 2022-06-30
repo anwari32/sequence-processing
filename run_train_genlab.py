@@ -116,7 +116,7 @@ if __name__ == "__main__":
         
         # Change model from DNABERT-SL to DNABERT-GSL with built in RNN.
         # model = init_seqlab_model(args["model_config"])
-        model_config = json.load(open(args["model_config"], "r"))
+        model_config = json.load(open(cfg_path, "r"))
         bert = BertForMaskedLM.from_pretrained(str(PurePath(PureWindowsPath(model_config["pretrained"]))))
         bert = bert.bert
         model = DNABERT_GSL(bert, model_config)
