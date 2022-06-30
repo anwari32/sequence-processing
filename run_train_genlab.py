@@ -105,7 +105,7 @@ if __name__ == "__main__":
     for cfg_path in model_config_paths:
         cfg_name = os.path.basename(cfg_path).split('.')[0] # Get config filename as config name.
         print(f"Training model with config {cfg_name}")
-        runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{epoch_size}-{cur_date}"
+        runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{num_epochs}-{cur_date}"
 
         save_dir = os.path.join("run", runname)
         print(f"Save Directory {save_dir}")
