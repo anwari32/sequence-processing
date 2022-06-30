@@ -31,8 +31,8 @@ def _parse_argv(argvs):
         "disable-wandb",
         "num-epochs=",
         "batch-size=",
-        "model_config_dir=",
-        "model_config_names="
+        "model-config-dir=",
+        "model-config-names="
     ])
     output = {}
     for o, a in opts:
