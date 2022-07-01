@@ -239,21 +239,30 @@ if __name__ == "__main__":
 
         print(f"Begin Training {wandb.run.name}")
         start_time = datetime.now()
-        trained_model, trained_optimizer, trained_scheduler = train(
-            model, 
-            optimizer, 
-            scheduler, 
-            dataloader, 
-            epoch_size, 
-            save_dir,
-            loss_function,
-            device=args["device"], 
-            loss_strategy=loss_strategy,
-            wandb=wandb,
-            device_list=device_list,
-            eval_dataloader=eval_dataloader,    
-            training_counter=training_counter    
-        )
+        try:
+            trained_model, trained_optimizer, trained_scheduler = train(
+                model, 
+                optimizer, 
+                scheduler, 
+                dataloader, 
+                epoch_size, 
+                save_dir,
+                loss_function,
+                device=args["device"], 
+                loss_strategy=loss_strategy,
+                wandb=wandb,
+                device_list=device_list,
+                eval_dataloader=eval_dataloader,    
+                training_counter=training_counter    
+            )
+        except Exception as ex:
+            print(ex)
+            end_time = datetime.now()
+            running_time = end_time - start_time
+            print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
+            sys.exit(2)   
+
+
         end_time = datetime.now()
         running_time = end_time - start_time
 
