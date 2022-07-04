@@ -28,6 +28,7 @@ def parse_args(argv):
         "disable-wandb",
         "batch-sizes=",
         "num-epochs=",
+        "project-name="
         "do-kmer"
         ])
     output = {}
@@ -52,6 +53,8 @@ def parse_args(argv):
             output["batch_sizes"] = [int(x) for x in a.split(',')]
         elif o in ["--num-epochs"]:
             output["num_epochs"] = int(a)
+        elif o in ["--project-name"]:
+            output["project_name"] = a
         elif o in ["--do-kmer"]:
             output["do_kmer"] = True
         else:
@@ -122,7 +125,8 @@ if __name__ == "__main__":
     # Enable or disable wandb real time sync.
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    project_name = args.get("project_name", "thesis")
+    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
     for run_name, batch_size, dataloader in zip(run_names, batch_sizes, dataloaders):
         print(f"Runname {run_name}, Batch size {batch_size}")
@@ -196,7 +200,8 @@ if __name__ == "__main__":
         for key in wandb_cfg.keys():
             print(f"{key} {wandb_cfg[key]}")
 
-        run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True) 
+        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True)
+        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True)
         if "run_name" in args.keys():
             wandb.run.name = f'{run_name}-{wandb.run.id}'
             wandb.run.save()

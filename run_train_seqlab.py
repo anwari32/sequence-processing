@@ -30,7 +30,8 @@ def parse_args(argv):
         "resume=",
         "loss-strategy=",
         "model-config-dir=",
-        "model-config-names="
+        "model-config-names=",
+        "project-name="
         ])
     output = {}
     for o, a in opts:
@@ -60,6 +61,8 @@ def parse_args(argv):
             output["model_config_dir"] = a
         elif o in ["--model-config-names"]:
             output["model_config_names"] = a.split(",")
+        elif o in ["--project-name"]:
+            output["project_name"] = a
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -147,7 +150,8 @@ if __name__ == "__main__":
 
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    project_name = args.get("project_name", "thesis")
+    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     
     for cfg_path in model_config_list:
         cfg_name = os.path.basename(cfg_path).split(".")[0] # Get filename without extension.
@@ -230,7 +234,8 @@ if __name__ == "__main__":
             print(f"+ {k} {tcfg[k]}")
 
         # Prepare wandb.
-        run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
+        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
+        run = wandb.init(project=project_name, entity="anwari32", config=tcfg, reinit=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'
             wandb.run.save()

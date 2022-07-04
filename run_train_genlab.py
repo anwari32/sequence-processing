@@ -32,7 +32,8 @@ def _parse_argv(argvs):
         "num-epochs=",
         "batch-size=",
         "model-config-dir=",
-        "model-config-names="
+        "model-config-names=",
+        "project-name="
     ])
     output = {}
     for o, a in opts:
@@ -60,6 +61,8 @@ def _parse_argv(argvs):
             output["model_config_dir"] = a
         elif o in ["--model-config-names"]:
             output["model_config_names"] = a.split(',')
+        elif o in ["--project-name"]:
+            output["project_name"] = a
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -117,7 +120,8 @@ if __name__ == "__main__":
 
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    project_name = args.get("project_name", "thesis")
+    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
     model_config_paths = [os.path.join(args["model_config_dir"], f"{n}.json") for n in args["model_config_names"]]
     for cfg_path in model_config_paths:
@@ -221,7 +225,8 @@ if __name__ == "__main__":
         for key in wandb_cfg.keys():
             print(f"+ {key} {wandb_cfg[key]}")
         
-        run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True) 
+        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True) 
+        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'
             wandb.run.save()
