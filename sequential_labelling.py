@@ -59,11 +59,14 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
                 #print(pscores)
                 #print(pindices)
                 #print(label)
-                for idx, lab in zip(pindices, label):
-                    accuracy = accuracy + 1 if idx == lab else 0
+                pindices_str = [str(a) for a in pindices.tolist()]
+                label_str = [str(a) for a in label.tolist()]
+                for idx, lab in zip(pindices_str, label_str):
+                    if idx == lab:
+                        accuracy += 1
                 accuracy = accuracy / predictions.shape[1] * 100
                 batch_accuracy += accuracy
-                eval_log_file.write(f"{epoch},{step},{accuracy},{loss.item()},{' '.join([str(a) for a in pindices.tolist()])},{' '.join([str(a) for a in label.tolist()])}\n")
+                eval_log_file.write(f"{epoch},{step},{accuracy},{loss.item()},{' '.join(pindices_str)},{' '.join(label_str)}\n")
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
 
