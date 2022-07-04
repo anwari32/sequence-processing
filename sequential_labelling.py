@@ -86,6 +86,8 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = torch.nn.DataParallel(model, device_list)
+        print(f"Main Device {device}")
+        print(f"Device List {device_list}")
     else:
         print(f"Device {device}")
 
