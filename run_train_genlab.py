@@ -107,16 +107,16 @@ if __name__ == "__main__":
         print(f"# GPU: {len(args['device_list'])}")
         device_names = ", ".join([torch.cuda.get_device_name(f"cuda:{a}") for a in args["device_list"]])
 
-    
-    # Determine batch size and epochs.    
-    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
-    num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
-
     # Run name may be the same. So append current datetime to differentiate.
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     training_config_path = args["training_config"]
     training_config = json.load(open(training_config_path, "r"))
+
+    # Determine batch size and epochs.    
+    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
+    num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
+
 
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
