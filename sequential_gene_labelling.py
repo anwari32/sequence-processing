@@ -67,8 +67,6 @@ def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, l
                 })
             #endfor
         num_labels = 11
-        print(f"prediction shape {prediction.shape}")
-        print(f"labels shape {labels.shape}")
         batch_loss = loss_function(prediction.view(-1, num_labels), labels.view(-1))
 
         if mode == "train":
