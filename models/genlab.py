@@ -5,24 +5,22 @@ class LinearBlock(nn.Module):
     """
     Linear layer.
     """
-    def __init__(self, num_layers=1):
+    def __init__(self, num_layers=1, num_labels=11):
         super().__init__()
 
-        self.layers = nn.Sequential()
         self.num_layers = num_layers
-        self.num_labels = 11
+        self.num_labels = num_labels
+        self.layers = nn.Sequential()
         for n in range(self.num_layers):
-            if n + 1 == self.num_layers:
-                self.layers.add_module(
-                    f"linear-{n}", nn.Linear(768, self.num_labels)
-                )
-            else:
-                self.layers.add_module(
-                    f"linear-{n}", nn.Linear(768, 768)
-                )
-
+            self.layers.add_module(
+                f"linear-{n}", nn.Linear(768, 768)
+            )
+        self.classifier = nn.Linear(in_features=768, out_features=self.num_labels)
+    
     def forward(self, input):
-        return self.layers(input)
+        output = self.layers(input)
+        output = self.classifier(output)
+        return output
 
 class RNNBlock(nn.Module):
     """
