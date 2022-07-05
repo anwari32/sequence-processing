@@ -16,6 +16,7 @@ import wandb
 import pandas as pd
 from pathlib import Path, PurePath, PureWindowsPath
 from datetime import datetime
+import traceback
 
 from utils.utils import save_checkpoint
 
@@ -261,6 +262,7 @@ if __name__ == "__main__":
                 training_counter=training_counter
             )
         except Exception as ex:
+            print(traceback.print_exc())
             print(ex)
             end_time = datetime.now()
             running_time = end_time - start_time
