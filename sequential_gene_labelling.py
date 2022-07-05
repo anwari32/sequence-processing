@@ -43,7 +43,8 @@ def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, l
     for step, batch in enumerate(dataloader):
         input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
         contig_loss = None
-        accumulated_contig_loss = None
+        # accumulated_contig_loss = None
+        prediction = None
         with autocast(enabled=True, cache_enabled=True):
             # prediction = model(input_ids, attn_mask, token_type_ids)
             # Not using `token_type_ids` anymore.
@@ -54,10 +55,10 @@ def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, l
                 assert pred != None, f"Prediction must not be None, got {pred}"
                 assert label != None, f"Label must not be None, got {label}"
                 contig_loss = loss_function(pred, label)
-                if accumulated_contig_loss == None:
-                    accumulated_contig_loss = contig_loss
-                else:
-                    accumulated_contig_loss += contig_loss
+                # if accumulated_contig_loss == None:
+                #    accumulated_contig_loss = contig_loss
+                # else:
+                #    accumulated_contig_loss += contig_loss
                 
                 # Log loss every step.
                 # Contig loss is accumulated for each gene.
@@ -65,23 +66,26 @@ def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, l
                     "contig_loss": contig_loss.item()
                 })
             #endfor
+        num_labels = 11
+        batch_loss = loss_function(prediction.view(-1, num_labels), labels.view(-1, num_labels))
 
         if mode == "train":
             if scaler:
-                scaler.scale(accumulated_contig_loss).backward()
+                # scaler.scale(accumulated_contig_loss).backward()
+                scaler.scale(batch_loss).backward()
             else:
-                contig_loss.backward()                
+                # accumulated_contig_loss.backward()
+                batch_loss.backward()
 
             # scaler.step(optimizer)
             # scaler.update()
             # scheduler.step()
             optimizer.zero_grad()
 
-
     # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
-    contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
+    # contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
     # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
-    contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
+    # contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
     
     # print(contig_predicted_labels, contig_predicted_labels[0].shape)
     # print(contig_target_labels, contig_target_labels[0].shape)
