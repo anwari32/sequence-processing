@@ -11,6 +11,7 @@ import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.cuda import device_count as cuda_device_count
+from torch.cuda import get_device_name
 from utils.tokenizer import get_default_tokenizer
 import wandb
 import pandas as pd
