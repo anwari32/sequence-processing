@@ -39,6 +39,11 @@ python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.small.json
 ## [GRU] gene sequential labelling with small dataset, num epochs = 50, gru model
 python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.small.json -m models/config/genlab/gru.json --device=cuda:0 --device-list=0,1,2,3 --run-name=genlab-gru-b64-small-e50 --num-epochs=50
 
+## Genlab training with multiple model architectures
+python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --model-config-dir=models/config/genlab --model-config-names=lstm,gru --project-name=thesis --run-name=genlab --device=cuda:0 --batch-size=1 --num-epochs=50 
+
+python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --model-config-dir=models/config/genlab --model-config-names=gru --project-name=thesis --run-name=genlab --device=cuda:1 --batch-size=1 --num-epochs=50 
+
 # multitask learning command
 ## run mtl training for three batch sizes: 64, 128, 256
 python3 run_train_mtl.py -t training/config/mtl/mtl.balanced.b256.json -m models/config/mtl/base.json --device=cuda:0 --device-list=0,1,2,3 --run-name=mtl-base-b64-e50,mtl-base-b128-e50,mtl-base-b256-e50 --batch-sizes=64,128,256 --num-epochs=50

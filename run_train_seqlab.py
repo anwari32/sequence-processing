@@ -191,10 +191,11 @@ if __name__ == "__main__":
             )
             print(f"Continuing training. Start from epoch {training_counter}")
 
-        if int(training_config["freeze_bert"]) > 0:
-            print("Freezing BERT")
-            for param in model.bert.parameters():
-                param.requires_grad(False)
+        if "freeze_bert" in model_config.keys():
+            if int(model_config["freeze_bert"]) > 0:
+                print("Freezing BERT")
+                for param in model.bert.parameters():
+                    param.requires_grad(False)
 
         # Prepare save directory for this work.
         save_dir = os.path.join("run", runname)
