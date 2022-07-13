@@ -40,7 +40,7 @@ python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.small.json
 python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.small.json -m models/config/genlab/gru.json --device=cuda:0 --device-list=0,1,2,3 --run-name=genlab-gru-b64-small-e50 --num-epochs=50
 
 ## Genlab training with multiple model architectures
-python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --model-config-dir=models/config/genlab --model-config-names=lstm,gru --project-name=thesis --run-name=genlab --device=cuda:0 --batch-size=1 --num-epochs=50 
+python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --model-config-dir=models/config/genlab --model-config-names=lstm --project-name=thesis --run-name=genlab --device=cuda:0 --batch-size=1 --num-epochs=50 
 
 python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --model-config-dir=models/config/genlab --model-config-names=gru --project-name=thesis --run-name=genlab --device=cuda:1 --batch-size=1 --num-epochs=50 
 
