@@ -45,7 +45,7 @@ Index_Dictionary = {
     5: "iEi",
     6: "Eii",
     7: "iEE",
-    8: "EE",
+    8: "EEi",
     9: "EiE",
     10: "EEE"
 }
@@ -159,7 +159,7 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> D
     sequences = list(df["sequence"])
     labels = list(df["label"])
     arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr = [], [], [], []
-    for seq, label in zip(sequences, labels):
+    for seq, label in tqdm(zip(sequences, labels), total=df.shape[0], desc="Preparing data "):
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)

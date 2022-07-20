@@ -50,3 +50,14 @@ def visualise_average_loss(log_path):
     
     plt.subplots_adjust(top=1.5, bottom=1, left=0.10, right=0.95, hspace=0.5, wspace=0.35)
     plt.show()
+
+def confusion_matrix(csv_file):
+    raise NotImplementedError("Function is not implemented.")
+
+    df = pd.read_csv(csv_file)
+    
+    num_labels = 11
+    cm = [num_labels][num_labels]
+    # Rows represent prediction, columns represent target.
+    
+
