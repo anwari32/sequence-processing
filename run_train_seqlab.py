@@ -156,6 +156,8 @@ if __name__ == "__main__":
     
     for cfg_path in model_config_list:
         cfg_name = os.path.basename(cfg_path).split(".")[0:-1] # Get filename without extension.
+        if isinstance(cfg_name, list):
+            cfg_name = ".".join(cfg_name)
         print(f"Training model with config {cfg_name}")
         runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{epoch_size}-{cur_date}"
         
