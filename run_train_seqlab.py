@@ -191,12 +191,6 @@ if __name__ == "__main__":
             )
             print(f"Continuing training. Start from epoch {training_counter}")
 
-        if "freeze_bert" in model_config.keys():
-            if int(model_config["freeze_bert"]) > 0:
-                print("Freezing BERT")
-                for param in model.bert.parameters():
-                    param.requires_grad(False)
-
         # Prepare save directory for this work.
         save_dir = os.path.join("run", runname)
         print(f"Save Directory {save_dir}")
@@ -207,6 +201,13 @@ if __name__ == "__main__":
         model_config = json.load(open(cfg_path, "r"))
         model_config_path = os.path.join(save_dir, "model_config.json")
         json.dump(model_config, open(model_config_path, "x"), indent=4)
+
+        if "freeze_bert" in model_config.keys():
+            if int(model_config["freeze_bert"]) > 0:
+                print("Freezing BERT")
+                for param in model.bert.parameters():
+                    param.requires_grad(False)
+
 
         # Save current training config in run folder.
         training_config_path = os.path.join(save_dir, "training_config.json")
