@@ -206,7 +206,7 @@ if __name__ == "__main__":
             if int(model_config["freeze_bert"]) > 0:
                 print("Freezing BERT")
                 for param in model.bert.parameters():
-                    param.requires_grad(False)
+                    param.requires_grad = False
 
 
         # Save current training config in run folder.
