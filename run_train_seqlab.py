@@ -155,7 +155,7 @@ if __name__ == "__main__":
     # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     
     for cfg_path in model_config_list:
-        cfg_name = os.path.basename(cfg_path).split(".")[0] # Get filename without extension.
+        cfg_name = os.path.basename(cfg_path).split(".")[0:-1] # Get filename without extension.
         print(f"Training model with config {cfg_name}")
         runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{epoch_size}-{cur_date}"
         
