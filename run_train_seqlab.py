@@ -123,7 +123,7 @@ if __name__ == "__main__":
     eval_dataloader = preprocessing(
         validation_filepath,# csv_file, 
         BertTokenizer.from_pretrained(str(Path(PureWindowsPath(training_config["pretrained"])))), # tokenizer
-        1,
+        batch_size, #1,
         do_kmer=False
     )
 
