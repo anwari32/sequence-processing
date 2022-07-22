@@ -14,6 +14,7 @@ from pathlib import Path, PureWindowsPath
 from utils.utils import save_checkpoint
 from torch.nn import CrossEntropyLoss
 from torch.optim import lr_scheduler
+import traceback
 
 def parse_args(argv):
     opts, args = getopt(argv, "t:m:d:f:r", [
@@ -266,6 +267,7 @@ if __name__ == "__main__":
             )
         except Exception as ex:
             print(ex)
+            traceback.print_exc()
             end_time = datetime.now()
             running_time = end_time - start_time
             print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
