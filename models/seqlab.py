@@ -1,6 +1,6 @@
 from torch import nn
 from models.lstm import LSTM_Block
-from utils.seqlab import NUM_LABELS
+import utils.seqlab
 
 class SeqLabBlock(nn.Module):
     def __init__(self, in_dims, out_dims, norm_layer=False, prob=0.1):
@@ -26,7 +26,7 @@ class SeqLabHead(nn.Module):
         self.norm_layer = False
         self.dropout = 0
         self.num_blocks = 1
-        self.num_labels = NUM_LABELS
+        self.num_labels = utils.seqlab.NUM_LABELS
 
         if config:
             self.num_blocks = config["linear"]["num_layers"] 
