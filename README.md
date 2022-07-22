@@ -3,6 +3,10 @@ Experiment on biological sequence with machine learning or any other methods. If
 
 # sequential labelling training command
 
+## Sample
+python3 run_train_seqlab.py -t training/config/seqlab/non-overlap.b1.sample.json --device=cuda:0 --run-name=seqlab-sample --model-config-dir=models/config/seqlab --model-config-names=freeze.base,base --project-name=pilot-project
+
+## Multiple model configs.
 python3 run_train_seqlab.py -t training/config/seqlab/non-overlap.b64.tiny.json --device=cuda:0 --device-list=0,1,2,3 --run-name=seqlab-tiny --num-epochs=50 --model-config-dir=models/config/seqlab --model-config-names=freeze.base,freeze.dropout,freeze.norm,freeze.lin2
 
 ## [BASE] tiny dataset, batch size = 64, num epochs = 50, base model
