@@ -2,6 +2,7 @@ import torch
 import os
 from tqdm import tqdm
 from utils.utils import save_checkpoint
+from utils.seqlab import NUM_LABELS
 from torch.cuda.amp import autocast, GradScaler
 import wandb
 from models.seqlab import DNABERT_SL
@@ -26,7 +27,7 @@ def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function
         #        batch_loss += loss
         #if loss_strategy in ["average", "avg"]:
         #    batch_loss = batch_loss/batch_input_ids.shape[0]
-        num_labels = 11
+        num_labels = NUM_LABELS
         #if isinstance(model, torch.nn.DataParallel):
         #    num_labels = model.module.seqlab_head.num_labels
         #else:

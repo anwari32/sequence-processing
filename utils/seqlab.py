@@ -56,7 +56,6 @@ Label_Dictionary = {
 Index_Dictionary = {
     #0: "[CLS]",
     #1: "[SEP]",
-    # 2: "[PAD]",
     #2: "III",       # Use `III` as padding symbol.
     0: "iii",
     1: "iiE",
@@ -67,6 +66,8 @@ Index_Dictionary = {
     6: "EiE",
     7: "EEE"
 }
+
+NUM_LABELS = 8
 
 def id2token(id):
     return Index_Dictionary[id]
