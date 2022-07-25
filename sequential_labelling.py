@@ -99,8 +99,10 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
 
     TRAINING_EPOCH = "train/epoch"
     TRAINING_LOSS = "train/loss"
+    TRAINING_EPOCH_LOSS = "train/epoch_loss"
     wandb.define_metric(TRAINING_EPOCH)
     wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
+    wandb.define_metric(TRAINING_EPOCH_LOSS, step_metric=TRAINING_EPOCH)
 
     VALIDATION_ACCURACY = "validation/accuracy"
     VALIDATION_LOSS = "validation/loss"
@@ -108,7 +110,9 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     wandb.define_metric(VALIDATION_EPOCH)
     wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
     wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
-
+    
+    # Clean up previous training, if any.
+    torch.cuda.empty_cache()
 
     # Do training.
     best_accuracy = 0
@@ -130,11 +134,15 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             scaler.update()
             optimizer.zero_grad()
 
-            wandb.log({"epoch_loss": epoch_loss, "batch_loss": batch_loss})
+            wandb.log({"batch_loss": batch_loss})
             log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
         
         # Move scheduler to epoch loop.
         scheduler.step()
+        wandb.log({
+            TRAINING_EPOCH_LOSS: epoch_loss,
+            TRAINING_EPOCH: epoch
+        })
 
         # After an epoch, evaluate.
         if eval_dataloader != None:
