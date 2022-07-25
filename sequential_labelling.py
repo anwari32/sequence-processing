@@ -112,7 +112,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
     
     # Clean up previous training, if any.
-    torch.cuda.empty_cache()
+    # torch.cuda.empty_cache()
 
     # Do training.
     best_accuracy = 0
