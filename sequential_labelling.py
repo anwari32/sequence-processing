@@ -169,7 +169,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
                 "best_accuracy": best_accuracy,
             }, os.path.join(save_dir, f"checkpoint-{epoch}"))
         
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
     #endfor epoch
     log_file.close()
     return model, optimizer, scheduler
