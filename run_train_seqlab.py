@@ -211,7 +211,6 @@ if __name__ == "__main__":
                 for param in model.bert.parameters():
                     param.requires_grad = False
 
-
         # Save current training config in run folder.
         training_config_path = os.path.join(save_dir, "training_config.json")
         json.dump(training_config, open(training_config_path, "x"), indent=4)
@@ -241,7 +240,7 @@ if __name__ == "__main__":
 
         # Prepare wandb.
         # run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
-        run = wandb.init(project=project_name, entity="anwari32", config=tcfg, reinit=True) 
+        run = wandb.init(project=project_name, entity="anwari32", config=tcfg, reinit=True, resume=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'
             wandb.run.save()

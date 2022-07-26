@@ -118,8 +118,7 @@ if __name__ == "__main__":
     # Determine batch size and epochs.    
     batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
     num_epochs = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
-
-
+    
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
     project_name = args.get("project_name", "thesis")
@@ -127,7 +126,9 @@ if __name__ == "__main__":
 
     model_config_paths = [os.path.join(args["model_config_dir"], f"{n}.json") for n in args["model_config_names"]]
     for cfg_path in model_config_paths:
-        cfg_name = os.path.basename(cfg_path).split('.')[0] # Get config filename as config name.
+        cfg_name = os.path.basename(cfg_path).split('.')[0:-1] # Get config filename as config name.
+        if isinstance(cfg_name, list):
+            cfg_name = ".".join(cfg_name)
         print(f"Training model with config {cfg_name}")
         runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{num_epochs}-{cur_date}"
 
@@ -156,7 +157,13 @@ if __name__ == "__main__":
                 model.bert = saved_model.bert
             else:
                 print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-GSL.")
-    
+        
+        if "freeze_bert" in model_config.keys():
+            if model_config["freeze_bert"]:
+                print("Freezing BERT")
+                for param in model.bert.parameters():
+                    param.requires_grad = False
+
         # Simplify optimizer, just use default parameters if necessary.
         lr = training_config["optimizer"]["learning_rate"]
         optimizer = AdamW(model.parameters(), 

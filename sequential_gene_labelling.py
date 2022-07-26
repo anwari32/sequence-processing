@@ -1,5 +1,4 @@
 from models.genlab import DNABERT_GSL
-from models.seqlab import DNABERT_SL
 from transformers import BertTokenizer
 from torch import nn
 from torch.utils.data import DataLoader
@@ -14,7 +13,7 @@ import os
 
 from utils.utils import save_checkpoint
 
-def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, loss_function, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0):
+def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, loss_function, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0):
     """
     This function utilizes non-overlapping sequence.
     """
@@ -66,7 +65,7 @@ def forward(model: DNABERT_SL, optimizer, dataloader: DataLoader, device: str, l
                     "contig_loss": contig_loss.item()
                 })
             #endfor
-        num_labels = 11
+        num_labels = 8
         batch_loss = loss_function(prediction.view(-1, num_labels), labels.view(-1))
 
         if mode == "train":

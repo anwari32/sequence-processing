@@ -5,7 +5,7 @@ class LinearBlock(nn.Module):
     """
     Linear layer.
     """
-    def __init__(self, num_layers=1, num_labels=11):
+    def __init__(self, num_layers=1, num_labels=8):
         super().__init__()
 
         self.num_layers = num_layers
