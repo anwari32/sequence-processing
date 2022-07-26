@@ -158,12 +158,6 @@ if __name__ == "__main__":
             else:
                 print(">> Invalid DNABERT-MTL result path. Initializing default DNABERT-GSL.")
         
-        if "freeze_bert" in model_config.keys():
-            if model_config["freeze_bert"]:
-                print("Freezing BERT")
-                for param in model.bert.parameters():
-                    param.requires_grad = False
-
         # Simplify optimizer, just use default parameters if necessary.
         lr = training_config["optimizer"]["learning_rate"]
         optimizer = AdamW(model.parameters(), 
@@ -196,14 +190,14 @@ if __name__ == "__main__":
         scheduler = ExponentialLR(optimizer, gamma=0.1)
 
         # Freeze BERT layer if necessary.    
-        if "freeze_bert" in training_config.keys():
-            if training_config["freeze_bert"] > 0:
+        if "freeze_bert" in model_config.keys():
+            if model_config["freeze_bert"]:
                 print(">> Freeze BERT layer.", end="\r")
                 for param in model.bert.parameters():
                     param.requires_grad = False
                 print(f">> Freeze BERT layer. [{all([p.requires_grad == False for p in model.bert.parameters()])}]")
 
-        
+    
         # TODO: develop resume training feature here.
         training_counter = 0
         if "resume" in args.keys():
@@ -235,7 +229,7 @@ if __name__ == "__main__":
             print(f"+ {key} {wandb_cfg[key]}")
         
         # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True) 
-        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True) 
+        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True, resume=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'
             wandb.run.save()

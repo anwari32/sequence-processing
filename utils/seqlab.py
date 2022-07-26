@@ -64,7 +64,8 @@ Index_Dictionary = {
     4: "iEE",
     5: "EEi",
     6: "EiE",
-    7: "EEE"
+    7: "EEE",
+    -100: "[CLS]/[SEP]/[III]"
 }
 
 NUM_LABELS = 8
