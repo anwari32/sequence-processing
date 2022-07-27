@@ -103,6 +103,9 @@ def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, 
     gene_accuracy = 0
     if loss_function:
         gene_loss = loss_function(predicted_assembly, target_assembly)
+        wandb.log({
+            "gene_loss": gene_loss.item()
+        })
 
     return gene_loss, predicted_assembly, target_assembly, scaler
 
@@ -124,7 +127,7 @@ def evaluate(model, eval_genes, device, eval_log, epoch, num_epoch, loss_fn, wan
         gene_name = os.path.basename(gene).split('.')[0]
         gene_dir = os.path.dirname(gene)
         gene_dir, gene_chr = os.path.split(gene_dir)
-        dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1)
+        dataloader = preprocessing_kmer(gene, get_default_tokenizer(), 1, disable_tqdm=True)
         accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss = eval_gene(model, dataloader, device, loss_fn, gene_name=gene_name, wandb=wandb, at_epoch=epoch, num_epoch=num_epoch)
         accuracy_score_sum += accuracy_score
         incorrect_score_sum += incorrect_score
@@ -241,7 +244,7 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
             gene_name = os.path.basename(gene).split(".")[0]
             gene_dir = os.path.dirname(gene)
             gene_dir, gene_chr = os.path.split(gene_dir)
-            gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size)
+            gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size, disable_tqdm=True)
 
             # gene_loss = None # This is loss computed from single gene.
             gene_loss, predicted_label, target_label, scaler = forward(model, optimizer, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch, mode="train")
@@ -270,7 +273,7 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
 
             wandb.log({
                 TRAINING_LR: lr,
-                TRAINING_EPOCH: epoch
+                TRAINING_EPOCH: epoch,
             })
         
         # Moved scheduler to epoch loop.

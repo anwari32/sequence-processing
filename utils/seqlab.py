@@ -165,7 +165,7 @@ def preprocessing(csv_file: str, tokenizer, batch_size, do_kmer=True, kmer_size=
     print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
     return tensor_dataloader
 
-def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> DataLoader:
+def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disable_tqdm=False) -> DataLoader:
     """
     Process sequence and label from ``csv_file`` which are already in kmer format. \n
     e.q.    sequence    -> `AAG AGG GGC GCG CGA ...` (kmer format)
@@ -179,7 +179,12 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> D
     sequences = list(df["sequence"])
     labels = list(df["label"])
     arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr = [], [], [], []
-    for seq, label in tqdm(zip(sequences, labels), total=df.shape[0], desc="Preparing data "):
+    enumerator = None
+    if disable_tqdm:
+        enumerator = zip(sequences, labels)
+    else:
+        enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc="Preparing data ")
+    for seq, label in enumerator:
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)
