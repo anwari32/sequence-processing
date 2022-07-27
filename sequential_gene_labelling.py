@@ -194,13 +194,19 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = nn.DataParallel(model, device_list)
-    
+        print(f"Main Device {device}")
+        print(f"Device List {device_list}")
+    else:
+        print(f"Device {device}")
+
     scaler = GradScaler()
 
     # Initialize log.
     log_file_path = os.path.join(save_dir, "log.csv")
     logfile = open(log_file_path, "x")
     logfile.write("epoch,gene,gene_loss,epoch_loss,lr\n")
+
+    model.to(device)
 
     num_training_genes = len(train_genes)
     best_accuracy = 0
