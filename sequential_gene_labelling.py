@@ -206,8 +206,6 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
     logfile = open(log_file_path, "x")
     logfile.write("epoch,gene,gene_loss,epoch_loss,lr\n")
 
-    model.to(device)
-
     num_training_genes = len(train_genes)
     best_accuracy = 0
 
