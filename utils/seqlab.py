@@ -1,19 +1,11 @@
 from datetime import datetime
 import json
 from transformers import BertTokenizer
-from models.seqlab import DNABERT_SL
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
 from data_preparation import str_kmer
 from tqdm import tqdm
-
-def init_seqlab_model(config: json):
-    if not config:
-        raise ValueError("Not valid json object.")
-    model = DNABERT_SL(config)
-    return model
-
 
 Label_Begin = '[CLS]'
 Label_End = '[SEP]'
