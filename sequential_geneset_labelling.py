@@ -17,6 +17,13 @@ def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, 
     """
     This function utilizes non-overlapping sequence.
     """
+    # Assertion
+    assert model != None, f"Model is expected, but found {model}"
+    assert mode == "train" or mode == "validation", f"Expected `train` or `validation` but found {mode}"
+    assert wandb != None, f"wandb is required for logging, but found {wandb}. "
+    if mode == "train":
+        assert optimizer != None, f"Optimizer is expected, but found {optimizer}"
+
     # Make sure model and data are in the same device.
     model.to(device)
     contig_predicted_labels = []
@@ -24,17 +31,36 @@ def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, 
     scaler = GradScaler()
     description = f"Training {gene_name} Epoch {epoch + 1}/{num_epoch}" if mode == "train" else f"Validating {gene_name} Epoch {epoch + 1}/{num_epoch}"
 
+    #if wandb != None:
+    #    if mode == "train":
+    #        wandb.define_metric(f"{gene_name}/train_step")
+    #        wandb.define_metric(f"{gene_name}/train_contig_loss", step_metric=f"{gene_name}/train_step")
+    #    if mode == "validation":
+    #        wandb.define_metric(f"{gene_name}/validation_step")
+    #        wandb.define_metric(f"{gene_name}/validation_contig_loss", step_metric=f"{gene_name}/validation_step")
+
     for step, batch in enumerate(dataloader):
         input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
         contig_loss = None
         # accumulated_contig_loss = None
         prediction = None
         with autocast(enabled=True, cache_enabled=True):
+            # prediction = model(input_ids, attn_mask, token_type_ids)
+            # Not using `token_type_ids` anymore.
             prediction = model(input_ids, attn_mask)
             for pred, label in zip(prediction, labels): # Iterate through batch dimension.
                 contig_predicted_labels.append(pred)
                 contig_target_labels.append(label)
+                assert pred != None, f"Prediction must not be None, got {pred}"
+                assert label != None, f"Label must not be None, got {label}"
                 contig_loss = loss_function(pred, label)
+                # if accumulated_contig_loss == None:
+                #    accumulated_contig_loss = contig_loss
+                # else:
+                #    accumulated_contig_loss += contig_loss
+                
+                # Log loss every step.
+                # Contig loss is accumulated for each gene.
                 wandb.log({
                     "contig_loss": contig_loss.item()
                 })
@@ -58,6 +84,16 @@ def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, 
             # scheduler.step()
             optimizer.zero_grad()
 
+    # ``contig_predicted_labels`` is array of tensors (512, dim), first token and last token are special token hence they need to be removed.
+    # contig_predicted_labels = [t[1:511] for t in contig_predicted_labels] # Convert each tensor(510, dim) into array of 510 element.
+    # ``contig_target_labels`` is array of tensors (512), first token and last token are special token hence they need to be removed.
+    # contig_target_labels = [t[1:511] for t in contig_target_labels] # Each element in ``contig_target_labels`` is a tensor with 510 element.
+    
+    # print(contig_predicted_labels, contig_predicted_labels[0].shape)
+    # print(contig_target_labels, contig_target_labels[0].shape)
+
+    # We need to merge contigs in ``contig_predicted_labels`` into single assembly. First we convert those tensor-label sequence into label token.
+    # and also merge target label in ``contig_target_labels`` into single assembly.
     predicted_assembly = contig_predicted_labels[0]
     target_assembly = contig_target_labels[0]
     for pred, target in zip(contig_predicted_labels[1:], contig_target_labels[1:]):
@@ -154,13 +190,7 @@ def eval_gene(model, dataloader, device, loss_fn, gene_name: str = None, wandb: 
 
     return accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss
 
-def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
-    assert model != None, f"Model must not be NoneType."
-    assert isinstance(model, DNABERT_GSL), f"Model must be DNABERT_GSL instance."
-    assert tokenizer != None, f"Tokenizer must not be NoneType."
-    assert isinstance(tokenizer, BertTokenizer), f"Tokenizer must be BertTokenizer instance."
-    assert wandb != None, f"wandb not initialized."
-    
+def train(model: DNABERT_GSL, tokenizer: BertTokenizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[], lr=4e-4, betas=(0.9, 0.98), eps=1e-6, weight_decay=0.01):    
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = nn.DataParallel(model, device_list)
@@ -168,8 +198,6 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
         print(f"Device List {device_list}")
     else:
         print(f"Device {device}")
-
-    scaler = GradScaler()
 
     # Initialize log.
     log_file_path = os.path.join(save_dir, "log.csv")
@@ -188,7 +216,6 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
     VALIDATION_AVG_ACC = "validation/average_accuracy"
     VALIDATION_AVG_INACC = "validation/average_inaccuracy"
     VALIDATION_AVG_LOSS = "validation/average_loss"
-
     
     wandb.define_metric(TRAINING_EPOCH)
     wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
@@ -196,52 +223,72 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
     wandb.define_metric(TRAINING_LR, step_metric=TRAINING_LOSS)
 
     wandb.define_metric(VALIDATION_EPOCH)
-    wandb.define_metric(VALIDATION_AVG_ACC, step_metric=VALIDATION_EPOCH) # Avaerage accuracy.
+    wandb.define_metric(VALIDATION_AVG_ACC, step_metric=VALIDATION_EPOCH) # Average accuracy.
     wandb.define_metric(VALIDATION_AVG_INACC, step_metric=VALIDATION_EPOCH) # Average inaccuracy.
     wandb.define_metric(VALIDATION_AVG_LOSS, step_metric=VALIDATION_EPOCH) # Average gene loss.
 
+    model.to(device)
+    scaler = GradScaler()
+    num_labels = 8
+
     for epoch in range(training_counter, num_epoch):
         model.train()
-        epoch_loss = None
+        epoch_loss = 0
 
-        lr = 0 # Learning rate.
-        for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes, unit="gene"):
-            
+        for i in tqdm(range(num_training_genes), desc=f"Training Epoch {epoch + 1}/{num_epoch}", total=num_training_genes, unit="gene"):            
             gene = train_genes[i]
             gene_name = os.path.basename(gene).split(".")[0]
             gene_dir = os.path.dirname(gene)
             gene_dir, gene_chr = os.path.split(gene_dir)
             gene_dataloader = preprocessing_kmer(gene, tokenizer, batch_size, disable_tqdm=True)
-
-            # gene_loss = None # This is loss computed from single gene.
-            gene_loss, predicted_label, target_label, scaler = forward(model, optimizer, gene_dataloader, device, loss_function=loss_function, wandb=wandb, gene_name=gene_name, scaler=scaler, epoch=epoch, num_epoch=num_epoch, mode="train")
             
-            gene_loss = gene_loss
-            epoch_loss = gene_loss if epoch_loss == None else epoch_loss + gene_loss
+            model_parameters = None
+            if isinstance(model, torch.nn.DataParallel):
+                model_parameters = model.module.parameters()
+            else:
+                model_parameters = model.parameters()
 
-            # Get current learning rate and log it.
-            lr = optimizer.param_groups[0]['lr']
+            # Initialize AdamW optimizer.
+            optimizer = torch.optim.AdamW(
+                model_parameters,
+                lr=lr,
+                betas=betas,
+                eps=eps,
+                weight_decay=weight_decay
+            )
 
-            # Write gene training log.
-            logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()},{lr}\n")            
+            # Learn this gene.
+            gene_loss = 0
+            for step, batch in enumerate(gene_dataloader):
+                optimizer.zero_grad()
+                input_ids, attention_mask, token_type_ids, target_label = tuple(t.to(device) for t in batch)
+                with autocast():
+                    prediction = model(input_ids, attention_mask)
+                    for pred, label in zip(prediction, target_label):
+                        contig_loss = loss_function(pred, label)
+                        wandb.log({"contig_loss": contig_loss.item()})
 
-            # If model uses RNN, reset hidden state and cell state if a gene has been processed.
-            
+                    batch_loss = loss_function(prediction.view(-1, num_labels), target_label.view(-1))
+                    wandb.log({"batch_loss": batch_loss.item()})
+                    gene_loss += batch_loss
+                
+                batch_loss.backward()
+                optimizer.step()
+
+            wandb.log({"gene_loss": gene_loss.item()})
+            epoch_loss += gene_loss
+
+            # Reset RNN hidden states after learning gene.
             if isinstance(model, torch.nn.DataParallel):
                 model.module.reset_hidden()
             else:
                 model.reset_hidden()
 
-            # Gradient is cleared after a gene has been processed.
-            # Optimizer is reset after a gene is finised.
-            # EDIT 11 May 2022: Moved gradient accumulation and clearance at forward function.
-            scaler.step(optimizer)
-            scaler.update()
+            # Get current learning rate and log it.
+            learning_rate = optimizer.param_groups[0]['lr']
 
-            wandb.log({
-                TRAINING_LR: lr,
-                TRAINING_EPOCH: epoch,
-            })
+            # Write gene training log.
+            logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()},{learning_rate}\n")
         
         # Moved scheduler to epoch loop.
         scheduler.step()
@@ -280,6 +327,19 @@ def train(model: DNABERT_GSL, tokenizer: BertTokenizer, optimizer, scheduler, tr
                 "accuracy": avg_accuracy
             }
             save_checkpoint(_model, optimizer, scheduler, cur_config, os.path.join(save_dir, f"checkpoint-{epoch}"))
+            if not os.path.exists(os.path.join(save_dir, "latest")):
+                os.makedirs(os.path.join(save_dir, "latest"), exist_ok=True)
+            torch.save({
+                "epoch": epoch,
+                "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
+                "epoch_loss": epoch_loss,
+                "num_epochs": num_epoch,
+                "batch_size": batch_size,
+                "accuracy": avg_accuracy
+            }, os.path.join(save_dir, "latest", "checkpoint.pth"))
+            wandb.save(os.path.join(save_dir, "latest", "checkpoint.pth"))
 
     logfile.close()
     return model, optimizer, scheduler

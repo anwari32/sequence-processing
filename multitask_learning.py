@@ -408,6 +408,6 @@ def train_by_steps(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, op
 
     log_file_path = os.path.join(save_dir, "log.csv")
     save_model_path = os.path.join(save_dir)
-    trained_model, trained_optimizer = train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, num_epochs, log_file_path, device, save_model_path, training_counter=training_counter, loss_strategy=loss_strategy, grad_accumulation_steps=grad_accumulation_steps, wandb=wandb, eval_dataloader=eval_dataloader, device_list=device_list)
+    trained_model, trained_optimizer, trained_scheduler = train(dataloader, model, loss_fn, optimizer, scheduler, batch_size, num_epochs, log_file_path, device, save_model_path, training_counter=training_counter, loss_strategy=loss_strategy, grad_accumulation_steps=grad_accumulation_steps, wandb=wandb, eval_dataloader=eval_dataloader, device_list=device_list)
 
-    return trained_model, trained_optimizer
+    return trained_model, trained_optimizer, trained_scheduler

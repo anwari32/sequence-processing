@@ -5,7 +5,7 @@ import sys
 import os
 from transformers import BertForMaskedLM
 from models.genlab import DNABERT_GSL
-from sequential_gene_labelling import train
+from sequential_geneset_labelling import train
 from utils.model import init_seqlab_model
 import torch
 from torch.optim import AdamW
@@ -136,6 +136,7 @@ if __name__ == "__main__":
         print(f"Save Directory {save_dir}")
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
+        
 
         print("Initializing DNABERT-GSL")
         
@@ -199,22 +200,6 @@ if __name__ == "__main__":
 
     
         # TODO: develop resume training feature here.
-        training_counter = 0
-        if "resume" in args.keys():
-            resume_path = os.path.join(args["resume"])
-            checkpoint_dir = os.path.basename(resume_path)
-            last_epoch = checkpoint_dir.split('-')[1]
-            training_counter = last_epoch + 1
-            model.load_state_dict(
-                torch.load(os.path.join(resume_path, "model.pth"))
-            )
-            optimizer.load_state_dict(
-                torch.load(os.path.join(resume_path, "optimizer.pth"))
-            )
-            scheduler.load_state_dict(
-                torch.load(os.path.join(resume_path, "scheduler.pth"))
-            )
-
         # Prepare wandb.
         wandb_cfg = {
             "learning_rate": lr,
@@ -222,20 +207,21 @@ if __name__ == "__main__":
             "batch_size": batch_size,
             "device": device_name,
             "device_list": device_names,
-            "training_counter": training_counter
         }
         print("Final Training Configuration")
         for key in wandb_cfg.keys():
             print(f"+ {key} {wandb_cfg[key]}")
         
-        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True)
-        # run_id = wandb.util.generate_id()
-        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True, resume=True, id=run_id)
+        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True, resume=True)
+        training_counter = 0
         if wandb.run.resumed:
-            resume_path = os.path.join("run", runname, "latest")
-            model_checkpoint = torch.load(wandb.restore(os.path.join(resume_path, "model.pth")))
-            optimizer_checkpoint = torch.load(wandb.restore(os.path.join(resume_path, "optimizer.pth")))
-            scheduler_checkpoint = torch.load(wandb.restore(os.path.join(resume_path, "scheduler.pth")))
+            resume_dir = os.path.join("run", runname, "latest")
+            if os.path.exists(resume_dir):
+                checkpoint = torch.load(wandb.restore(os.path.join(resume_dir, "checkpoint.pth")))
+                model.load_state_dict(torch.load(checkpoint["model"]))
+                scheduler.load_state_dict(torch.load(checkpoint["scheduler"]))
+                optimizer.load_state_dict(torch.load(checkpoint["optimizer"]))
+                training_counter = checkpoint["epoch"] + 1
 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'
@@ -257,7 +243,6 @@ if __name__ == "__main__":
             trained_model, trained_optimizer, trained_scheduler = train(
                 model=model, 
                 tokenizer=get_default_tokenizer(),
-                optimizer=optimizer, 
                 scheduler=scheduler, 
                 train_genes=train_genes, 
                 loss_function=loss_function, 
@@ -276,8 +261,6 @@ if __name__ == "__main__":
             end_time = datetime.now()
             running_time = end_time - start_time
             print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
-            # print(f"Forcing run.finish()")
-            # run.finish()
             sys.exit(2)   
 
         end_time = datetime.now()
