@@ -228,7 +228,8 @@ if __name__ == "__main__":
         for key in wandb_cfg.keys():
             print(f"+ {key} {wandb_cfg[key]}")
         
-        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True) 
+        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True)
+        run_id = wandb.util.generate_id()
         run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True, resume=True) 
         if "run_name" in args.keys():
             wandb.run.name = f'{runname}-{wandb.run.id}'

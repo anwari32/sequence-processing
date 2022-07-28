@@ -67,6 +67,9 @@ def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, 
             #endfor
         num_labels = 8
         batch_loss = loss_function(prediction.view(-1, num_labels), labels.view(-1))
+        wandb.log({
+            "loss": batch_loss.item()
+        })
 
         if mode == "train":
             if scaler:
