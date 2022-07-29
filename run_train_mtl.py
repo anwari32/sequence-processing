@@ -28,7 +28,7 @@ def parse_args(argv):
         "disable-wandb",
         "batch-sizes=",
         "num-epochs=",
-        "project-name="
+        "project-name=",
         "do-kmer"
         ])
     output = {}
