@@ -4,6 +4,10 @@ from torch import nn
 class LSTM_Block(nn.Module):
     def __init__(self, config):
         super().__init__()
+        
+        self.input_size = config["input_dim"]
+        self.hidden_size = config["hidden_dim"]
+        self.num_layers = config["num_layers"]  
 
         self.lstm = nn.LSTM(
             input_size = config["input_dim"],

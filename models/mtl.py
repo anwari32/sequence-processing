@@ -91,9 +91,6 @@ class DNABERT_MTL(nn.Module):
     def __init__(self, bert, config):
         super().__init__()
         self.shared_layer = bert
-        self.lstm_layer = None
-        if config["use_lstm"] > 0:
-            self.lstm_layer = LSTM_Block(config["lstm"])
         self.promoter_layer = PromoterHead(config["prom_head"])
         self.splice_site_layer = SpliceSiteHead(config["ss_head"])
         self.polya_layer = PolyAHead(config["polya_head"])
@@ -101,9 +98,6 @@ class DNABERT_MTL(nn.Module):
     def forward(self, input_ids, attention_masks):
         x = self.shared_layer(input_ids=input_ids, attention_mask=attention_masks)
         x = x[0] # Last hidden state.
-        if self.lstm_layer != None:
-            x, (h_n, c_n) = self.lstm_layer(x)
-        # print(x.shape)
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)
