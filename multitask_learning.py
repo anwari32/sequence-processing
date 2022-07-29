@@ -362,7 +362,7 @@ def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, 
                 best_accuracy = val_avg_accuracy
 
                 # Save checkpoint.
-                checkpoint_path = os.path.join(save_dir, f"checkpoint-{i + training_counter}.pth")
+                checkpoint_path = os.path.join(save_dir, f"checkpoint-{i + training_counter}")
                 info = {
                     "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
                     "epoch": (i + training_counter),
@@ -385,10 +385,6 @@ def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, 
                 current_bert_layer = _model.shared_layer
                 current_bert_layer.save_pretrained(save_dir)
 
-                # Remove previous model.
-                old_model_path = os.path.join(save_dir, os.path.basename(f"checkpoint-{i + training_counter - 1}.pth"))
-                if os.path.exists(old_model_path):
-                    os.remove(old_model_path)
         # endfor epoch.
     except ImportError: 
         raise ImportError("Error importing autocase or GradScaler")
