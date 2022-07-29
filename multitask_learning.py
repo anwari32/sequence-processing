@@ -253,8 +253,8 @@ def train(dataloader: DataLoader, model: DNABERT_MTL, loss_fn: dict, optimizer, 
             model = torch.nn.DataParallel(model, device_list)
         
         scaler = GradScaler()
-        
-        for training_counter in range(epoch_size):
+        i = training_counter
+        for i in range(epoch_size):
             epoch_start_time = datetime.now()
             model.train()
             model.zero_grad()
