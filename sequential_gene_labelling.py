@@ -13,7 +13,7 @@ import os
 
 from utils.utils import save_checkpoint
 
-def forward(model, optimizer, dataloader: DataLoader, device: str, loss_function, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0):
+def forward(model: DNABERT_LSTM, optimizer, dataloader: DataLoader, device: str, loss_function, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0):
     """
     This function utilizes non-overlapping sequence.
     """

@@ -143,7 +143,7 @@ class DNABERT_LSTM(nn.Module):
         self.linear = LinearBlock(self.linear_num_layers)
         self.activation = nn.Softmax(dim=2)
     
-    def forward(input_ids, attention_masks, hidden_units=None):
+    def forward(self, input_ids, attention_masks, hidden_units=None):
         output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
         output = output[0] # Last hidden state
         output, hidden_units = self.lstm(output, hidden_units)
