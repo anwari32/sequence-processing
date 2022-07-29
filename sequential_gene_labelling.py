@@ -79,8 +79,6 @@ def forward(model, optimizer, dataloader: DataLoader, device: str, loss_function
     return gene_loss, predicted_assembly, target_assembly, scaler
 
 def evaluate(model, eval_genes, device, eval_log, epoch, num_epoch, loss_fn, wandb):
-    assert wandb != None, f"wandb not initialized."
-
     model.eval()
     eval_logfile = {}
     if not os.path.exists(eval_log):
@@ -157,12 +155,6 @@ def eval_gene(model, dataloader, device, loss_fn, gene_name: str = None, wandb: 
     return accuracy_score, incorrect_score, predicted_label_token, target_label_token, gene_loss
 
 def train(model, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: list, loss_function, num_epoch=1, batch_size=1, device="cpu", save_dir=None, training_counter=0, wandb=None, eval_genes=None, device_list=[]):
-    assert model != None, f"Model must not be NoneType."
-    assert isinstance(model, DNABERT_GSL), f"Model must be DNABERT_GSL instance."
-    assert tokenizer != None, f"Tokenizer must not be NoneType."
-    assert isinstance(tokenizer, BertTokenizer), f"Tokenizer must be BertTokenizer instance."
-    assert wandb != None, f"wandb not initialized."
-    
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = nn.DataParallel(model, device_list)
