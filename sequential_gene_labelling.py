@@ -1,4 +1,3 @@
-from models.genlab import DNABERT_GSL
 from transformers import BertTokenizer
 from torch import nn
 from torch.utils.data import DataLoader
@@ -13,7 +12,7 @@ import os
 
 from utils.utils import save_checkpoint
 
-def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, loss_function, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0):
+def forward(model, optimizer, dataloader: DataLoader, device: str, loss_function, gene_name: str=None, scaler: GradScaler=None, wandb: wandb = None, mode: str = "train", epoch: int=0, num_epoch: int=0):
     """
     This function utilizes non-overlapping sequence.
     """
@@ -24,13 +23,15 @@ def forward(model: DNABERT_GSL, optimizer, dataloader: DataLoader, device: str, 
     scaler = GradScaler()
     description = f"Training {gene_name} Epoch {epoch + 1}/{num_epoch}" if mode == "train" else f"Validating {gene_name} Epoch {epoch + 1}/{num_epoch}"
 
+    hidden_units = None
     for step, batch in enumerate(dataloader):
         input_ids, attn_mask, token_type_ids, labels = tuple(t.to(device) for t in batch)
         contig_loss = None
         # accumulated_contig_loss = None
         prediction = None
         with autocast(enabled=True, cache_enabled=True):
-            prediction = model(input_ids, attn_mask)
+            prediction, hidden_output = model(input_ids, attn_mask, hidden_units)
+            hidden_output = hidden_units
             for pred, label in zip(prediction, labels): # Iterate through batch dimension.
                 contig_predicted_labels.append(pred)
                 contig_target_labels.append(label)

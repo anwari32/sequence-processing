@@ -116,7 +116,41 @@ class RNNBlock(nn.Module):
             output, hn = self.rnn(input, self.last_hn_cn)
             self.last_hn_cn = hn
             return output, hn
-        
+
+class DNABERT_LSTM(nn.Module):
+    def __init__(self, bert, config):
+        super().__init__()
+
+        self.bert = bert
+        self.linear_num_layers = 1
+        self.lstm_num_layers = 1
+        self.lstm_dropout = 0.1
+        if config:
+            rnn_cfg = config["rnn"]
+            self.lstm_num_layers = rnn_cfg.get("num_layers", 1)
+            self.lstm_dropout = rnn_cfg.get("dropout", 0)
+            lin_cfg = config["linear"]
+            self.linear_num_layers = lin_cfg.get("num_layers", 1)
+
+        self.lstm = nn.LSTM(
+            input_size = 768,
+            hidden_size = 768,
+            num_layers = self.lstm_num_layers,
+            batch_first = True,
+            dropout = self.lstm_dropout,
+            bidirectional = True
+        )
+        self.linear = LinearBlock(self.linear_num_layers)
+        self.activation = nn.Softmax(dim=2)
+    
+    def forward(input_ids, attention_masks, hidden_units=None):
+        output = self.bert(input_ids=input_ids, attention_mask=attention_masks)
+        output = output[0] # Last hidden state
+        output, hidden_units = self.lstm(output, hidden_units)
+        output = self.linear(output)
+        output = self.activation(output)
+        return output, hidden_units
+
 class DNABERT_GSL(nn.Module):
     """
     Core architecture of sequential labelling.

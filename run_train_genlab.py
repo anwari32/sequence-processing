@@ -144,7 +144,7 @@ if __name__ == "__main__":
         model_config = json.load(open(cfg_path, "r"))
         bert = BertForMaskedLM.from_pretrained(str(PurePath(PureWindowsPath(model_config["pretrained"]))))
         bert = bert.bert
-        model = DNABERT_GSL(bert, model_config)
+        model = DNABERT_LSTM(bert, model_config)
         
         if not "mtl" in training_config.keys():
             print(">> Initializing default DNABERT-GSL.")
@@ -230,7 +230,7 @@ if __name__ == "__main__":
         
         # run = wandb.init(project="thesis-mtl", entity="anwari32", config=wandb_cfg, reinit=True)
         # run_id = wandb.util.generate_id()
-        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True, resume=True, id=run_id)
+        run = wandb.init(project=project_name, entity="anwari32", config=wandb_cfg, reinit=True)
         if wandb.run.resumed:
             resume_path = os.path.join("run", runname, "latest")
             model_checkpoint = torch.load(wandb.restore(os.path.join(resume_path, "model.pth")))
