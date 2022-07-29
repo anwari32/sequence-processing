@@ -117,9 +117,6 @@ def evaluate(model, eval_genes, device, eval_log, epoch, num_epoch, loss_fn, wan
 
         eval_logfile.write(f"{epoch},{gene_chr}-{gene_name},{accuracy_score},{incorrect_score},{gene_loss.item()},{' '.join(predicted_label_token)},{' '.join(target_label_token)}\n")
 
-        # After each gene is passed, hidden state and cell state are reset.
-        model.reset_hidden()
-
     #endfor
     eval_logfile.close()
     n_eval_genes = len(eval_genes)
@@ -218,13 +215,6 @@ def train(model, tokenizer: BertTokenizer, optimizer, scheduler, train_genes: li
 
             # Write gene training log.
             logfile.write(f"{epoch},{gene_chr}-{gene_name},{gene_loss.item()},{epoch_loss.item()},{lr}\n")            
-
-            # If model uses RNN, reset hidden state and cell state if a gene has been processed.
-            
-            if isinstance(model, torch.nn.DataParallel):
-                model.module.reset_hidden()
-            else:
-                model.reset_hidden()
 
             # Gradient is cleared after a gene has been processed.
             # Optimizer is reset after a gene is finised.
