@@ -1,4 +1,5 @@
 from transformers import BertTokenizer
+from models.genlab import DNABERT_LSTM
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler
