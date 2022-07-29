@@ -7,7 +7,7 @@ class LSTM_Block(nn.Module):
         
         self.input_size = config["input_dim"]
         self.hidden_size = config["hidden_dim"]
-        self.num_layers = config["num_layers"]  
+        self.num_layers = config["num_layers"] 
 
         self.lstm = nn.LSTM(
             input_size = config["input_dim"],

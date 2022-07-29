@@ -138,7 +138,7 @@ class DNABERT_LSTM(nn.Module):
             num_layers = self.lstm_num_layers,
             batch_first = True,
             dropout = self.lstm_dropout,
-            bidirectional = True
+            bidirectional = False
         )
         self.linear = LinearBlock(self.linear_num_layers)
         self.activation = nn.Softmax(dim=2)
