@@ -155,17 +155,18 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
             
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
-    batch_size = args.get("batch-size", 1)
-    num_epochs = args.get("num-epochs", 1)
     project_name = args.get("project-name", "gene-sequential-labelling")
     run_name = args.get("run-name", "gene-seqlab")
     model_config_dir = args.get("model-config-dir", None)
     model_configs = args.get("model-config", None)
+    model_config_names = ", ".join(model_configs)
     device = args.get("device", None)
     device_list = args.get("device-list", [])
     device_names = ", ".join([torch.cuda.get_device_name(a) for a in device_list])
 
     training_config = json.load(open(args.get("training-config", None), "r"))
+    batch_size = args.get("batch-size", training_config.get("batch_size", 1))
+    num_epochs = args.get("num-epochs", training_config.get("num_epochs", 1))
     training_data = training_config.get("training_data", False)
     validation_data = training_config.get("validation_data", False)
     test_data = training_config.get("test_data", False)
@@ -186,6 +187,7 @@ if __name__ == "__main__":
     print(f"Device {torch.cuda.get_device_name(device)}")
     print(f"Device List {device_names}")
     print(f"Project Name {project_name}")
+    print(f"Model Configs {model_config_names}")
 
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     for config in model_configs:

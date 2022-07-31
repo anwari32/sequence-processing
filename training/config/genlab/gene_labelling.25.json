@@ -1,9 +1,9 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "gene_training_bundle": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_train_bundle.25.csv",
-    "gene_validation_bundle": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_validation_bundle.25.csv",
-    "gene_test_bundle": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_test_bundle.25.csv",
-    "num_epochs": 10,
+    "training_data": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_train_bundle.25.csv",
+    "validation_data": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_validation_bundle.25.csv",
+    "test_data": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_test_bundle.25.csv",
+    "num_epochs": 5,
     "batch_size": 1,
     "optimizer": {
         "name": "adamw",

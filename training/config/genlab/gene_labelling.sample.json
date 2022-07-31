@@ -2,7 +2,7 @@
     "pretrained": "pretrained\\3-new-12w-0",
     "training_data": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_index.training.sample.bundle.csv",
     "validation_data": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_index.validation.sample.bundle.csv",
-    "test_bundle": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_test_bundle.sample.csv",
+    "test_data": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_test_bundle.sample.csv",
     "num_epochs": 3,
     "batch_size": 1,
     "optimizer": {
