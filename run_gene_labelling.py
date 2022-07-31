@@ -19,7 +19,7 @@ from models.genlab import DNABERT_RNN
 
 def parse_args(argvs):
     opts, args = getopt(argvs, "m:t:c:d:r:p:", [
-        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs="
+        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-id="
     ])
     output = {}
     for o, a in opts:
@@ -41,6 +41,8 @@ def parse_args(argvs):
             output["batch-size"] = int(a)
         elif o in ["--num-epochs"]:
             output["num-epochs"]: int(a)
+        elif o in ["--resume-run-id"]:
+            output["resume-run-id"] = a
         else:
             raise ValueError(f"Argument {o} not recognized.")
     return output
@@ -149,6 +151,7 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
             "scheduler": scheduler.state_dict(),
             "epoch": epoch,
             "accuracy": average_accuracy,
+            "run_id": wandb.run.id
         }, checkpoint_path)
         wandb.save(checkpoint_path)
 
@@ -172,6 +175,7 @@ if __name__ == "__main__":
     validation_data = training_config.get("validation_data", False)
     validation_data = str(pathlib.Path(pathlib.PureWindowsPath(validation_data)))
     test_data = training_config.get("test_data", False)
+    resume_run_id = args.get("resume-run-id", False)
 
     for p in [os.path.exists(os.path.join(model_config_dir, f"{a}.csv")) for a in model_configs]:
         if not os.path.exists(p):
@@ -214,6 +218,7 @@ if __name__ == "__main__":
         training_steps = len(train_dataloader) * num_epochs
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
+        run_id = resume_run_id if resume_run_id else wandb.util.generate_id()
         run = wandb.init(project=project_name, entity="anwari32", config={
             "device": device,
             "device_list": device_names,
@@ -222,18 +227,20 @@ if __name__ == "__main__":
             "validation_data": n_validation_data,
             "num_epochs": num_epochs,
             "batch_size": batch_size
-        }, reinit=True, resume=True)
+        }, reinit=True, resume=True, id=run_id)
 
         checkpoint_path = os.path.join("run", runname, "latest", "checkpoint.pth")
         start_epoch = 0
         if wandb.run.resumed:
             if os.path.exists(checkpoint_path):
+                print(f"Resuming from {run_id}")
                 checkpoint = torch.load(wandb.restore(checkpoint_path))
                 model.load_state_dict(checkpoint["model"])
                 optimizer.load_state_dict(checkpoint["optimizer"])
                 scheduler.load_state_dict(checkpoint["scheduler"])
                 start_epoch = checkpoint["epoch"] + 1
-    
+                run_id = checkpoint.get("run_id", False)            
+
         wandb.run.name = f'{runname}-{wandb.run.id}'
         wandb.run.save()
         wandb.watch(model)
