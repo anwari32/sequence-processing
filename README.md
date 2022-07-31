@@ -55,3 +55,10 @@ python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --dev
 ## run mtl training for three batch sizes: 64, 128, 256
 python3 run_train_mtl.py -t training/config/mtl/mtl.balanced.b256.json -m models/config/mtl/base.json --device=cuda:0 --device-list=0,1,2,3 --run-name=mtl-base-b64-e50,mtl-base-b128-e50,mtl-base-b256-e50 --batch-sizes=64,128,256 --num-epochs=50
 
+# gene labelling command
+## run gene labelling
+python3 run_gene_labelling.py -t .\training\config\genlab\gene_labelling.10.json -m .\models\config\genlab\ -c freeze.lstm -d cuda:0 --project-name=gene-labelling --run-name=genlab-labelling
+
+python3 run_gene_labelling.py -t .\training\config\genlab\gene_labelling.10.json -m .\models\config\genlab\ -c lstm -d cuda:0 --project-name=gene-labelling --run-name=genlab-labelling
+
+python3 run_gene_labelling.py -t .\training\config\genlab\gene_labelling.sample.json -m .\models\config\genlab\ -c freeze.lstm -d cuda:0 --project-name=gene-labelling --run-name=genlab-labelling
