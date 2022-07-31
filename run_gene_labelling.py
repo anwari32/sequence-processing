@@ -128,7 +128,7 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
                 accuracy = 0
                 for p, q in zip(pred_indices, label_indices):
                     accuracy = accuracy + (1 if p == q else 0)
-                accuracy = accuracy / len(pred_list) * 100
+                accuracy = accuracy / len(pred_indices) * 100
                 average_accuracy += accuracy
                 loss = criterion(pred, label)
                 validation_log.write(f"{epoch},{step},{input_list},{pred_list},{label_list},{loss.item()},{accuracy}\n")
