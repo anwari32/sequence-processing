@@ -54,3 +54,4 @@ python3 run_train_genlab.py -t training/config/genlab/non-overlap.b64.json --dev
 # multitask learning command
 ## run mtl training for three batch sizes: 64, 128, 256
 python3 run_train_mtl.py -t training/config/mtl/mtl.balanced.b256.json -m models/config/mtl/base.json --device=cuda:0 --device-list=0,1,2,3 --run-name=mtl-base-b64-e50,mtl-base-b128-e50,mtl-base-b256-e50 --batch-sizes=64,128,256 --num-epochs=50
+

@@ -175,7 +175,7 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disa
     if disable_tqdm:
         enumerator = zip(sequences, labels)
     else:
-        enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc="Preparing data ")
+        enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc="Preparing Data ")
     for seq, label in enumerator:
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
@@ -185,3 +185,34 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disa
     
     tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr, batch_size)
     return tensor_dataloader
+
+def preprocessing_gene_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disable_tqdm=False) -> DataLoader:
+    # raise NotImplementedError("Not yet implemented.")
+    df = pd.read_csv(csv_file)
+    sequences = list(df["sequence"])
+    labels = list(df["label"])
+    markers = list(df["marker"])
+    arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr, arr_marker = [], [], [], [], []
+    enumerator = None
+    if disable_tqdm:
+        enumerator = zip(sequences, labels, markers)
+    else:
+        enumerator = tqdm(zip(sequences, labels, markers), total=df.shape[0], desc="Preparing Data")
+    for seq, label, marker in enumerator:
+        input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
+        arr_input_ids.append(input_ids)
+        arr_attention_mask.append(attention_mask)
+        arr_token_type_ids.append(token_type_ids)
+        arr_label_repr.append(label_repr)
+        arr_marker.append(marker)
+
+    arr_input_ids_tensor = tensor(arr_input_ids)
+    arr_attention_mask_tensor = tensor(arr_attention_mask)
+    arr_token_type_ids = tensor(arr_token_type_ids)
+    arr_label_repr_tensor = tensor(arr_label_repr)
+    arr_marker_tensor = tensor(arr_marker)
+
+    dataset = TensorDataset(arr_input_ids_tensor, arr_attention_mask_tensor, arr_token_type_ids, arr_label_repr_tensor, arr_marker_tensor)
+    dataloader = DataLoader(dataset, batch_size=1)
+    
+    return dataloader
