@@ -40,7 +40,7 @@ def parse_args(argvs):
         elif o in ["--batch-size"]:
             output["batch-size"] = int(a)
         elif o in ["--num-epochs"]:
-            output["num-epochs"]: int(a)
+            output["num-epochs"]= int(a)
         elif o in ["--resume-run-id"]:
             output["resume-run-id"] = a
         else:
@@ -120,11 +120,13 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
             
             for input, pred, label in zip(input_ids, prediction, labels):
                 pred_vals, pred_indices = torch.max(pred, 1)
+                pred_indices = pred_indices.tolist()
+                label_indices = label.tolist()
                 pred_list = " ".join([str(a) for a in pred_indices.tolist()])
                 label_list = " ".join([str(a) for a in label.tolist()])
                 input_list = " ".join([str(a) for a in inputs.tolist()])
                 accuracy = 0
-                for p, q in zip(pred_list, label_list):
+                for p, q in zip(pred_indices, label_indices):
                     accuracy = accuracy + (1 if p == q else 0)
                 accuracy = accuracy / len(pred_list) * 100
                 average_accuracy += accuracy
@@ -135,6 +137,10 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
                     "validation/accuracy": accuracy
                 })
         average_accuracy = average_accuracy / len(validation_dataloader)
+        wandb.log({
+            "accuracy": average_accuracy,
+            "epoch": epoch
+        })
 
         checkpoint_dir = os.path.join(save_dir, "latest")
         checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pth")
@@ -194,6 +200,7 @@ if __name__ == "__main__":
     print(f"Device List {device_names}")
     print(f"Project Name {project_name}")
     print(f"Model Configs {model_config_names}")
+    print(f"Epochs {num_epochs}")
 
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     for config in model_configs:
@@ -248,7 +255,11 @@ if __name__ == "__main__":
         if freeze:
             for param in model.bert.parameters():
                 param.requires_grad = False
-
-        print(f"Begin Training & Validation {wandb.run.name}")
+        
+        start_time = datetime.now()
+        print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
         train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch, device_list)
         run.finish()
+        end_time = datetime.now()
+        print(f"Finished Training & Validation at {end_time}")
+        print(f"Duration {end_time - start_time}")
