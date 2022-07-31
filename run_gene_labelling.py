@@ -14,7 +14,7 @@ import json
 from transformers import BertForMaskedLM, BertTokenizer
 from utils.seqlab import preprocessing_gene_kmer
 from tqdm import tqdm
-
+import pathlib
 from models.genlab import DNABERT_RNN
 
 def parse_args(argvs):
@@ -168,7 +168,9 @@ if __name__ == "__main__":
     batch_size = args.get("batch-size", training_config.get("batch_size", 1))
     num_epochs = args.get("num-epochs", training_config.get("num_epochs", 1))
     training_data = training_config.get("training_data", False)
+    training_data = str(pathlib.Path(pathlib.PureWindowsPath(training_data)))
     validation_data = training_config.get("validation_data", False)
+    validation_data = str(pathlib.Path(pathlib.PureWindowsPath(validation_data)))
     test_data = training_config.get("test_data", False)
 
     for p in [os.path.exists(os.path.join(model_config_dir, f"{a}.csv")) for a in model_configs]:
