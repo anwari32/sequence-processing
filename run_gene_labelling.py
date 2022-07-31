@@ -234,7 +234,7 @@ if __name__ == "__main__":
                 scheduler.load_state_dict(checkpoint["scheduler"])
                 start_epoch = checkpoint["epoch"] + 1
     
-        wandb.run.name = f'{run_name}-{wandb.run.id}'
+        wandb.run.name = f'{runname}-{wandb.run.id}'
         wandb.run.save()
         wandb.watch(model)
 
@@ -242,5 +242,6 @@ if __name__ == "__main__":
             for param in model.bert.parameters():
                 param.requires_grad = False
 
+        print(f"Begin Training & Validation {wandb.run.name}")
         train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch, device_list)
         run.finish()
