@@ -204,11 +204,6 @@ if __name__ == "__main__":
 
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
     for config in model_configs:
-        runname = f"{run_name}-{config}-b{batch_size}-e{num_epochs}-{cur_date}"
-        save_dir = os.path.join("run", runname)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir, exist_ok=True)
-
         model_config = os.path.join(model_config_dir, f"{config}.json")
         model_config = json.load(open(model_config, "r"))
         freeze = model_config.get("freeze_bert", False)
@@ -233,8 +228,14 @@ if __name__ == "__main__":
             "training_data": n_train_data,
             "validation_data": n_validation_data,
             "num_epochs": num_epochs,
-            "batch_size": batch_size
-        }, reinit=True, resume=True, id=run_id)
+            "batch_size": batch_size,
+            "training_date": cur_date
+        }, reinit=True, resume='allow', id=run_id)
+
+        runname = f"{run_name}-{config}-{run_id}"
+        save_dir = os.path.join("run", runname)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
 
         checkpoint_path = os.path.join("run", runname, "latest", "checkpoint.pth")
         start_epoch = 0
@@ -258,6 +259,7 @@ if __name__ == "__main__":
         
         start_time = datetime.now()
         print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
+        print(f"Starting epoch {start_epoch}")
         train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch, device_list)
         run.finish()
         end_time = datetime.now()
