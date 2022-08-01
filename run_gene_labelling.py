@@ -249,7 +249,7 @@ if __name__ == "__main__":
                 start_epoch = checkpoint["epoch"] + 1
                 run_id = checkpoint.get("run_id", False)            
 
-        wandb.run.name = f'{runname}-{wandb.run.id}'
+        wandb.run.name = f'{runname}'
         wandb.run.save()
         wandb.watch(model)
 
