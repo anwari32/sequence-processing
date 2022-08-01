@@ -122,8 +122,8 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
                 pred_vals, pred_indices = torch.max(pred, 1)
                 pred_indices = pred_indices.tolist()
                 label_indices = label.tolist()
-                pred_list = " ".join([str(a) for a in pred_indices.tolist()])
-                label_list = " ".join([str(a) for a in label.tolist()])
+                pred_list = " ".join([str(a) for a in pred_indices])
+                label_list = " ".join([str(a) for a in label_indices])
                 input_list = " ".join([str(a) for a in inputs.tolist()])
                 accuracy = 0
                 for p, q in zip(pred_indices, label_indices):
