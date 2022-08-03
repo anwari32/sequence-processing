@@ -276,8 +276,9 @@ if __name__ == "__main__":
         
         start_time = datetime.now()
         print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
-		print(f"Starting epoch {start_epoch}")
-		run.finish()
+        print(f"Starting epoch {start_epoch}")
+        train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch, device_list, loss_weight)
+        run.finish()
         end_time = datetime.now()
         print(f"Finished Training & Validation at {end_time}")
         print(f"Duration {end_time - start_time}")
