@@ -57,8 +57,8 @@ python3 run_train_mtl.py -t training/config/mtl/mtl.balanced.b256.json -m models
 
 # gene labelling command
 ## run gene labelling
-python3 run_gene_labelling.py -t training/config/genlab/gene_labelling.10.json -m models/config/genlab -c freeze.lstm -d cuda:0 --project-name=gene-labelling --run-name=genlab-labelling-10
+python3 run_gene_labelling.py -t training/config/genlab/gene_labelling.10.json -m models/config/genlab -c freeze.lstm,lstm -d cuda:0 --project-name=gene-sequential-labelling --run-name=genlab-labelling-10
 
-python3 run_gene_labelling.py -t training/config/genlab/gene_labelling.10.json -m models/config/genlab -c lstm -d cuda:0 --project-name=gene-labelling-10 --run-name=genlab-labelling-10
+python3 run_gene_labelling.py -t training/config/genlab/gene_labelling.10.json -m models/config/genlab -c freeze.gru,gru -d cuda:0 --project-name=gene--sequential-labelling --run-name=genlab-labelling-10
 
 python3 run_gene_labelling.py -t training/config/genlab/gene_labelling.sample.json -m models/config/genlab -c freeze.lstm -d cuda:0 --project-name=gene-labelling --run-name=genlab-labelling-sample

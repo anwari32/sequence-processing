@@ -18,8 +18,8 @@ import pathlib
 from models.genlab import DNABERT_RNN
 
 def parse_args(argvs):
-    opts, args = getopt(argvs, "m:t:c:d:r:p:", [
-        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-id="
+    opts, args = getopt(argvs, "m:t:c:d:r:p:w:", [
+        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-id=", "loss-weight="
     ])
     output = {}
     for o, a in opts:
@@ -43,6 +43,8 @@ def parse_args(argvs):
             output["num-epochs"]= int(a)
         elif o in ["--resume-run-id"]:
             output["resume-run-id"] = a
+        elif o in ["-w", "--loss-weight"]:
+            output["loss-weight"] = a
         else:
             raise ValueError(f"Argument {o} not recognized.")
     return output
@@ -50,7 +52,21 @@ def parse_args(argvs):
 def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch=0, device_list=[], criterion_weight=None):
     model.to(device)
     num_labels = model.num_labels
-    criterion = CrossEntropyLoss()
+
+    loss_weight_10 = torch.Tensor([0.0001555761504390511, 0.9998775560181217, 0.0001555761504390511, 0.9969478696129899, 1.0, 0.9971913542557089, 0.0001555761504390511, 0.0019914280314346157])
+    loss_weight_25 = torch.Tensor([0.00015717190553216775, 0.9999030960802364, 0.00015717190553216775, 0.9997093445720099, 1.0, 1.0, 0.00015717190553216775, 0.0020191783293449415])
+    loss_weight = torch.Tensor([0.0001583913443766686, 1.0, 0.0001583913443766686, 1.0, 0.9999639301688068, 0.9999639301688068, 0.0001583913443766686, 0.0020260445716651057])
+
+    criterion = None
+    if loss_weight == "10":
+        criterion = CrossEntropyLoss(weight=loss_weight_10)
+    elif loss_weight == "25":
+        criterion = CrossEntropyLoss(weight=loss_weight_25)
+    elif loss_weight == "100":
+        criterion = CrossEntropyLoss(weight=loss_weight)
+    else:
+        criterion = CrossEntropyLoss(weight=None)
+    
     n_train_data = len(train_dataloader)
     n_validation_data = len(validation_dataloader)
     training_log_path = os.path.join(save_dir, "training_log.csv")
@@ -172,6 +188,7 @@ if __name__ == "__main__":
     device = args.get("device", None)
     device_list = args.get("device-list", [])
     device_names = ", ".join([torch.cuda.get_device_name(a) for a in device_list])
+    loss_weight = args.get("loss-weight", None)
 
     training_config = json.load(open(args.get("training-config", None), "r"))
     batch_size = args.get("batch-size", training_config.get("batch_size", 1))
@@ -258,7 +275,7 @@ if __name__ == "__main__":
         
         start_time = datetime.now()
         print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
-        train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch, device_list)
+        train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch, device_list, loss_weight)
         run.finish()
         end_time = datetime.now()
         print(f"Finished Training & Validation at {end_time}")
