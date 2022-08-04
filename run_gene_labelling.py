@@ -20,7 +20,7 @@ from utils.utils import create_loss_weight
 
 def parse_args(argvs):
     opts, args = getopt(argvs, "m:t:c:d:r:p:w:", [
-        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-id=", "loss-weight=", "use-weighted-loss"
+        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-ids=", "loss-weight=", "use-weighted-loss"
     ])
     output = {}
     for o, a in opts:
@@ -42,7 +42,7 @@ def parse_args(argvs):
             output["batch-size"] = int(a)
         elif o in ["--num-epochs"]:
             output["num-epochs"]= int(a)
-        elif o in ["--resume-run-id"]:
+        elif o in ["--resume-run-ids"]:
             output["resume-run-ids"] = a.split(",")
         elif o in ["-w", "--use-weighted-loss"]:
             output["use-weighted-loss"] = True

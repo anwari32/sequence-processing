@@ -367,6 +367,6 @@ def create_loss_weight(csv_path):
         else:
             w.append(min_value / count_dict[k])
     print(f"Label Weight {w}")
-    return w
+    return torch.Tensor(w)
     
 

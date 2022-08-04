@@ -210,8 +210,14 @@ if __name__ == "__main__":
             "training_date": cur_date
         }, reinit=True, resume='allow', run_id=run_id) 
         
-        start_epoch = 0
+        runname = f"{run_name}-{cfg_name}-{run_id}"
+        save_dir = os.path.join("run", runname)
+        print(f"Save Directory {save_dir}")
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+
         checkpoint_path = os.path.join("run", runname, "latest", "checkpoint.pth")
+        start_epoch = 0
         if wandb.run.resumed:
             if os.path.exists(checkpoint_path):
                 checkpoint = torch.load(checkpoint_path)
@@ -220,13 +226,10 @@ if __name__ == "__main__":
                 scheduler.load_state_dict(checkpoint["scheduler"])
                 start_epoch = int(checkpoint["epoch"]) + 1
 
-        # Prepare save directory for this work.
-        runname = f"{run_name}-{cfg_name}-{run_id}"
-        save_dir = os.path.join("run", runname)
-        print(f"Save Directory {save_dir}")
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir, exist_ok=True)
-    
+        wandb.run.name = runname
+        wandb.run.save()
+        wandb.watch(model)
+
         # Save current model config in run folder.
         model_config = json.load(open(cfg_path, "r"))
         model_config_path = os.path.join(save_dir, "model_config.json")
@@ -239,12 +242,8 @@ if __name__ == "__main__":
         # Loss function.
         loss_function = CrossEntropyLoss(weight=loss_weight)
 
-        wandb.run.name = runname
-        wandb.run.save()
-        wandb.watch(model)
-
         if "freeze_bert" in model_config.keys():
-            if int(model_config["freeze_bert"]) > 0:
+            if int(model_config["freeze_bert"]):
                 print("Freezing BERT")
                 for param in model.bert.parameters():
                     param.requires_grad = False
