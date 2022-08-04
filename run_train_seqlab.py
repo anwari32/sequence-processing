@@ -211,7 +211,7 @@ if __name__ == "__main__":
         }, reinit=True, resume='allow', run_id=run_id) 
         
         start_epoch = 0
-        checkpoint_path = os.path.join("run", wandb.run.name, "latest")
+        checkpoint_path = os.path.join("run", runname, "latest", "checkpoint.pth")
         if wandb.run.resumed:
             if os.path.exists(checkpoint_path):
                 checkpoint = torch.load(checkpoint_path)
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         # Loss function.
         loss_function = CrossEntropyLoss(weight=loss_weight)
 
-        wandb.run.name = f'{runname}-{wandb.run.id}'
+        wandb.run.name = runname
         wandb.run.save()
         wandb.watch(model)
 
