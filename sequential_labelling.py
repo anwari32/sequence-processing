@@ -77,8 +77,6 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
     return avg_accuracy, avg_loss
 
 def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None, training_counter=0):
-    assert model != None, f"Model must not be NoneType."
-    assert isinstance(model, DNABERT_SL), f"Model must be DNABERT_SL instance."
 
     # Writing training log.
     log_path = os.path.join(save_dir, "log.csv")
@@ -168,6 +166,19 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
                 "avg_loss": avg_loss.item(),
                 "best_accuracy": best_accuracy,
             }, os.path.join(save_dir, f"checkpoint-{epoch}"))
+            latest_dir = os.path.join(save_dir, "latest")
+            latest_model = os.path.join(latest_dir, "checkpoint.pth")
+            if not os.path.exists(latest_dir):
+                os.makedirs(latest_dir, exist_ok=True)
+            torch.save({
+                "model": _model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
+                "epoch": epoch,
+                "accuracy": avg_accuracy,
+                "run_id": wandb.run.id
+            }, latest_model)
+            wandb.save(latest_dir)
         
         # torch.cuda.empty_cache()
     #endfor epoch

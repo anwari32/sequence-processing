@@ -3,6 +3,7 @@ import sys
 import json
 from torch import load
 from torch.cuda import device_count as cuda_device_count
+from torch.nn import CrossEntropyLoss
 from sequential_gene_labelling import evaluate
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
@@ -26,6 +27,8 @@ def parse_args(argv):
             output["device"] = True
         elif o in ["-m", "--model-config"]:
             output["model_config"] = a
+        elif o in ["--use-weighted-loss"]:
+            output["use-weighted-loss"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -35,10 +38,6 @@ if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
     for key in args.keys():
         print(key, args[key])
-
-    assert "workdir" in args.keys(), f"`workdir` not specified. Workdir folder contains folders in each which contains all model checkpoints."
-    assert "eval_data" in args.keys(), f"`eval_data` not specified."
-    assert "device" in args.keys(), f"`device` not specified"
 
     eval_genes_df = pd.read_csv(args["eval_data"])
     eval_genes_dir = os.path.dirname(args["eval_data"])
@@ -67,11 +66,6 @@ if __name__ == "__main__":
         # If model config is specified, use it instead of model config found in folder.
         if "model_config" in args.keys():
             cfg_path = args["model_config"]
-
-        assert os.path.exists(mpath), f"Model not found at {mpath}"
-        assert os.path.exists(optimpath), f"Optimizer not found at {optimpath}"
-        assert os.path.exists(schpath), f"Scheduler not found at {schpath}"
-        assert os.path.exists(cfgpath), f"Model config not found at {cfgpath}"
         
         log_path = os.path.join(dpath, "validation_log.csv")
 

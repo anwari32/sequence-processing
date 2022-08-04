@@ -16,10 +16,11 @@ from utils.seqlab import preprocessing_gene_kmer
 from tqdm import tqdm
 import pathlib
 from models.genlab import DNABERT_RNN
+from utils.utils import create_loss_weight
 
 def parse_args(argvs):
     opts, args = getopt(argvs, "m:t:c:d:r:p:w:", [
-        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-id=", "loss-weight="
+        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-id=", "loss-weight=", "use-weighted-loss"
     ])
     output = {}
     for o, a in opts:
@@ -42,9 +43,9 @@ def parse_args(argvs):
         elif o in ["--num-epochs"]:
             output["num-epochs"]= int(a)
         elif o in ["--resume-run-id"]:
-            output["resume-run-id"] = a
-        elif o in ["-w", "--loss-weight"]:
-            output["loss-weight"] = a
+            output["resume-run-ids"] = a.split(",")
+        elif o in ["-w", "--use-weighted-loss"]:
+            output["use-weighted-loss"] = True
         else:
             raise ValueError(f"Argument {o} not recognized.")
     return output
@@ -53,19 +54,19 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
     model.to(device)
     num_labels = model.num_labels
 
-    loss_weight_10 = torch.Tensor([0.0001555761504390511, 0.9998775560181217, 0.0001555761504390511, 0.9969478696129899, 1.0, 0.9971913542557089, 0.0001555761504390511, 0.0019914280314346157])
-    loss_weight_25 = torch.Tensor([0.00015717190553216775, 0.9999030960802364, 0.00015717190553216775, 0.9997093445720099, 1.0, 1.0, 0.00015717190553216775, 0.0020191783293449415])
-    loss_weight = torch.Tensor([0.0001583913443766686, 1.0, 0.0001583913443766686, 1.0, 0.9999639301688068, 0.9999639301688068, 0.0001583913443766686, 0.0020260445716651057])
+    # loss_weight_10 = torch.Tensor([0.0001555761504390511, 0.9998775560181217, 0.0001555761504390511, 0.9969478696129899, 1.0, 0.9971913542557089, 0.0001555761504390511, 0.0019914280314346157])
+    # loss_weight_25 = torch.Tensor([0.00015717190553216775, 0.9999030960802364, 0.00015717190553216775, 0.9997093445720099, 1.0, 1.0, 0.00015717190553216775, 0.0020191783293449415])
+    # loss_weight = torch.Tensor([0.0001583913443766686, 1.0, 0.0001583913443766686, 1.0, 0.9999639301688068, 0.9999639301688068, 0.0001583913443766686, 0.0020260445716651057])
 
-    criterion = None
-    if loss_weight == "10":
-        criterion = CrossEntropyLoss(weight=loss_weight_10)
-    elif loss_weight == "25":
-        criterion = CrossEntropyLoss(weight=loss_weight_25)
-    elif loss_weight == "100":
-        criterion = CrossEntropyLoss(weight=loss_weight)
-    else:
-        criterion = CrossEntropyLoss(weight=None)
+    # criterion = None
+    # if loss_weight == "10":
+    #    criterion = CrossEntropyLoss(weight=loss_weight_10)
+    # elif loss_weight == "25":
+    #    criterion = CrossEntropyLoss(weight=loss_weight_25)
+    # elif loss_weight == "100":
+    #    criterion = CrossEntropyLoss(weight=loss_weight)
+    # else:
+    criterion = CrossEntropyLoss(weight=criterion_weight)
     
     n_train_data = len(train_dataloader)
     n_validation_data = len(validation_dataloader)
@@ -188,8 +189,8 @@ if __name__ == "__main__":
     device = args.get("device", None)
     device_list = args.get("device-list", [])
     device_names = ", ".join([torch.cuda.get_device_name(a) for a in device_list])
-    loss_weight = args.get("loss-weight", None)
-
+    use_weighted_loss = args.get("use-weighted-loss", False)
+    resume_run_ids = args.get("resume-run-ids", [])
     training_config = json.load(open(args.get("training-config", None), "r"))
     batch_size = args.get("batch-size", training_config.get("batch_size", 1))
     num_epochs = args.get("num-epochs", training_config.get("num_epochs", 1))
@@ -198,8 +199,8 @@ if __name__ == "__main__":
     validation_data = training_config.get("validation_data", False)
     validation_data = str(pathlib.Path(pathlib.PureWindowsPath(validation_data)))
     test_data = training_config.get("test_data", False)
-    resume_run_id = args.get("resume-run-id", False)
-
+    loss_weight = create_loss_weight(training_data) if use_weighted_loss else None
+    
     for p in [os.path.exists(os.path.join(model_config_dir, f"{a}.csv")) for a in model_configs]:
         if not os.path.exists(p):
             raise ValueError(f"Model configration not found at {p}")
@@ -218,9 +219,13 @@ if __name__ == "__main__":
     print(f"Project Name {project_name}")
     print(f"Model Configs {model_config_names}")
     print(f"Epochs {num_epochs}")
+    print(f"Use weighted loss {use_weighted_loss}")
 
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
-    for config in model_configs:
+    if resume_run_ids == []:
+        resume_run_ids = [None for m in model_configs]
+
+    for config, resume_run_id in zip(model_configs, resume_run_ids):
         model_config = os.path.join(model_config_dir, f"{config}.json")
         model_config = json.load(open(model_config, "r"))
         freeze = model_config.get("freeze_bert", False)
@@ -259,7 +264,8 @@ if __name__ == "__main__":
         if wandb.run.resumed:
             if os.path.exists(checkpoint_path):
                 print(f"Resuming from {run_id}")
-                checkpoint = torch.load(wandb.restore(checkpoint_path))
+                # checkpoint = torch.load(wandb.restore(checkpoint_path))
+                checkpoint = torch.load(checkpoint_path)
                 model.load_state_dict(checkpoint["model"])
                 optimizer.load_state_dict(checkpoint["optimizer"])
                 scheduler.load_state_dict(checkpoint["scheduler"])
@@ -281,4 +287,5 @@ if __name__ == "__main__":
         run.finish()
         end_time = datetime.now()
         print(f"Finished Training & Validation at {end_time}")
-        print(f"Duration {end_time - start_time}")
+        running_time = end_time - start_time
+        print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")

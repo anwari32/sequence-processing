@@ -11,9 +11,10 @@ import os
 import wandb
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
-from utils.utils import save_checkpoint
+from utils.utils import create_loss_weight, save_checkpoint
 from torch.nn import CrossEntropyLoss
 from torch.optim import lr_scheduler
+import torch
 import traceback
 
 def parse_args(argv):
@@ -32,7 +33,9 @@ def parse_args(argv):
         "loss-strategy=",
         "model-config-dir=",
         "model-config-names=",
-        "project-name="
+        "project-name=",
+        "resume-run-ids=",
+        "use-weighted-loss"
         ])
     output = {}
     for o, a in opts:
@@ -64,6 +67,10 @@ def parse_args(argv):
             output["model_config_names"] = a.split(",")
         elif o in ["--project-name"]:
             output["project_name"] = a
+        elif o in ["--resume-run-ids"]:
+            output["resume-run-ids"] = a.split(",")
+        elif o in ["--use-weighted-loss"]:
+            output["use-weighted-loss"] = True
         else:
             print(f"Argument {o} not recognized.")
             sys.exit(2)
@@ -120,6 +127,7 @@ if __name__ == "__main__":
         batch_size, # training_config["batch_size"], #batch_size,
         do_kmer=False
         )
+    n_train_data = len(dataloader)
     print(f"Preparing Validation Data {validation_filepath}")
     eval_dataloader = preprocessing(
         validation_filepath,# csv_file, 
@@ -127,9 +135,11 @@ if __name__ == "__main__":
         batch_size, #1,
         do_kmer=False
     )
+    n_validation_data = len(eval_dataloader)
 
     # All training devices are CUDA GPUs.
-    device_name = get_device_name(args["device"])
+    device = args["device"]
+    device_name = get_device_name(device)
     device_names = ""
     device_list = []
     if "device_list" in args.keys():
@@ -152,15 +162,28 @@ if __name__ == "__main__":
 
     args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
     os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    project_name = args.get("project_name", "thesis")
-    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    
-    for cfg_path in model_config_list:
+    project_name = args.get("project_name", "thesis")    
+    use_weighted_loss = args.get("use-weighted-loss", False)
+    loss_weight = create_loss_weight(training_filepath) if use_weighted_loss else None
+    resume_run_ids = args.get("resume-run-id", [None for a in model_config_list])
+    model_config_names = ", ".join(args["model_config_names"])
+
+    print(f"~~~~~Training Sequential Labelling~~~~~")
+    print(f"# Training Data {n_train_data}")
+    print(f"# Validation Data {n_validation_data}")
+    print(f"Device {torch.cuda.get_device_name(device)}")
+    print(f"Device List {device_names}")
+    print(f"Project Name {project_name}")
+    print(f"Model Configs {model_config_names}")
+    print(f"Epochs {epoch_size}")
+    print(f"Use weighted loss {use_weighted_loss}")
+
+    for cfg_path, resume_run_id in zip(model_config_list, resume_run_ids):
         cfg_name = os.path.basename(cfg_path).split(".")[0:-1] # Get filename without extension.
         if isinstance(cfg_name, list):
             cfg_name = ".".join(cfg_name)
         print(f"Training model with config {cfg_name}")
-        runname = f"{args['run_name']}-{cfg_name}-b{batch_size}-e{epoch_size}-{cur_date}"
+        run_name = args.get("run_name")
         
         lr = training_config["optimizer"]["learning_rate"]
         model = init_seqlab_model(cfg_path)
@@ -173,28 +196,32 @@ if __name__ == "__main__":
 
         training_steps = len(dataloader) * epoch_size
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
-        training_counter = 0
 
-        # TODO: develop resume training feature here.
-        # Resume training of checkpoint is stated.
-        # For now, it only works in single config.
-        if "resume" in args.keys():
-            resume_path = os.path.join(args["resume"])
-            checkpoint_dir = os.path.basename(resume_path)
-            last_epoch = checkpoint_dir.split("-")[1]
-            training_counter = last_epoch + 1
-            model.load_state_dict(
-                torch.load(os.path.join(resume_path, "model.pth"))
-            )
-            optimizer.load_state_dict(
-                torch.load(os.path.join(resume_path, "optimizer.pth"))
-            )
-            scheduler.load_state_dict(
-                torch.load(os.path.join(resume_path, "scheduler.pth"))
-            )
-            print(f"Continuing training. Start from epoch {training_counter}")
+        # Prepare wandb.
+        run_id = resume_run_id if resume_run_id else wandb.util.generate_id()
+        run = wandb.init(project=project_name, entity="anwari32", config={
+            "device": device,
+            "device_list": device_names,
+            "model_config": cfg_name,
+            "training_data": n_train_data,
+            "validation_data": n_validation_data,
+            "num_epochs": epoch_size,
+            "batch_size": batch_size,
+            "training_date": cur_date
+        }, reinit=True, resume='allow', run_id=run_id) 
+        
+        start_epoch = 0
+        checkpoint_path = os.path.join("run", wandb.run.name, "latest")
+        if wandb.run.resumed:
+            if os.path.exists(checkpoint_path):
+                checkpoint = torch.load(checkpoint_path)
+                model.load_state_dict(checkpoint["model"])
+                optimizer.load_state_dict(checkpoint["optimizer"])
+                scheduler.load_state_dict(checkpoint["scheduler"])
+                start_epoch = int(checkpoint["epoch"]) + 1
 
         # Prepare save directory for this work.
+        runname = f"{run_name}-{cfg_name}-{run_id}"
         save_dir = os.path.join("run", runname)
         print(f"Save Directory {save_dir}")
         if not os.path.exists(save_dir):
@@ -205,87 +232,42 @@ if __name__ == "__main__":
         model_config_path = os.path.join(save_dir, "model_config.json")
         json.dump(model_config, open(model_config_path, "x"), indent=4)
 
+        # Save current training config in run folder.
+        training_config_path = os.path.join(save_dir, "training_config.json")
+        json.dump(training_config, open(training_config_path, "x"), indent=4)
+    
+        # Loss function.
+        loss_function = CrossEntropyLoss(weight=loss_weight)
+
+        wandb.run.name = f'{runname}-{wandb.run.id}'
+        wandb.run.save()
+        wandb.watch(model)
+
         if "freeze_bert" in model_config.keys():
             if int(model_config["freeze_bert"]) > 0:
                 print("Freezing BERT")
                 for param in model.bert.parameters():
                     param.requires_grad = False
 
-        # Save current training config in run folder.
-        training_config_path = os.path.join(save_dir, "training_config.json")
-        json.dump(training_config, open(training_config_path, "x"), indent=4)
-    
-        # Loss function.
-        loss_function = CrossEntropyLoss()
-
-        # Loss strategy.
-        loss_strategy = "sum" # Default mode.
-        if "loss_strategy" in args.keys():
-            loss_strategy = args["loss_strategy"]
-
-        # Final training configuration.
-        tcfg = {
-            "training_data": training_filepath,
-            "validation_data": validation_filepath,
-            "learning_rate": lr,
-            "epochs": epoch_size,
-            "batch_size": batch_size,
-            "device": device_name,
-            "device_list": device_names,
-            "loss_strategy": loss_strategy
-        }
-        print("Final Training Configuration")
-        for k in tcfg.keys():
-            print(f"+ {k} {tcfg[k]}")
-
-        # Prepare wandb.
-        # run = wandb.init(project="thesis-mtl", entity="anwari32", config=tcfg, reinit=True) 
-        run = wandb.init(project=project_name, entity="anwari32", config=tcfg, reinit=True, resume=True) 
-        if "run_name" in args.keys():
-            wandb.run.name = f'{runname}-{wandb.run.id}'
-            wandb.run.save()
-        wandb.watch(model)
-
-        print(f"Begin Training {wandb.run.name}")
         start_time = datetime.now()
-        try:
-            trained_model, trained_optimizer, trained_scheduler = train(
-                model, 
-                optimizer, 
-                scheduler, 
-                dataloader, 
-                epoch_size, 
-                save_dir,
-                loss_function,
-                device=args["device"], 
-                loss_strategy=loss_strategy,
-                wandb=wandb,
-                device_list=device_list,
-                eval_dataloader=eval_dataloader,    
-                training_counter=training_counter    
-            )
-        except Exception as ex:
-            print(ex)
-            traceback.print_exc()
-            end_time = datetime.now()
-            running_time = end_time - start_time
-            print(f"Error: Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
-            sys.exit(2)   
-
-
+        print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
+        print(f"Starting epoch {start_epoch}")
+        trained_model, trained_optimizer, trained_scheduler = train(
+            model, 
+            optimizer, 
+            scheduler, 
+            dataloader, 
+            epoch_size, 
+            save_dir,
+            loss_function,
+            device=device, 
+            loss_strategy="sum",
+            wandb=wandb,
+            device_list=device_list,
+            eval_dataloader=eval_dataloader,    
+            training_counter=start_epoch,
+        )
+        run.finish()
         end_time = datetime.now()
         running_time = end_time - start_time
-
         print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
-
-        total_config = {
-            "training_config": training_config,
-            "model_config": model_config,
-            "start_time": start_time.strftime("%Y%m%d-%H%M%S"),
-            "end_time": end_time.strftime("%Y%m%d-%H%M%S"),
-            "running_time": str(running_time),
-            "runname": runname
-        }
-        training_info_path = os.path.join(save_dir, "training_info.json")
-        json.dump(total_config, open(training_info_path, "x"), indent=4)
-        run.finish()

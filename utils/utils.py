@@ -1,4 +1,5 @@
 import json
+from tkinter import Label
 from Bio import SeqIO
 from tqdm import tqdm
 import os
@@ -332,3 +333,40 @@ def save_config(obj, save_path):
         os.remove(save_path)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     json.dump(obj, open(save_path, 'x'))
+
+def create_loss_weight(csv_path):
+    from utils.seqlab import Label_Dictionary
+    labels = []
+    for k in Label_Dictionary.keys():
+        if Label_Dictionary[k] >= 0:
+            labels.append(k)
+    
+    count_dict = {}
+    for k in labels:
+        count_dict[k] = 0
+    df = pd.read_csv(csv_path)
+    for i, r in df.iterrows():
+        sequence = r["label"]
+        sequence = sequence.split(" ") # Split sequence into array of tokens.
+        for token in sequence:
+            count_dict[token] += 1
+
+    print(f"Label count {count_dict}")
+    values = [count_dict[t] for t in count_dict.keys()]
+    max_value = max(values)
+    min_value = min([
+        count_dict['iiE'],
+        count_dict['Eii'],
+        count_dict['iEE'],
+        count_dict['EEi']
+    ])
+    w = []
+    for k in count_dict.keys():
+        if count_dict[k] < min_value:
+            w.append(min_value / max_value)
+        else:
+            w.append(min_value / count_dict[k])
+    print(f"Label Weight {w}")
+    return w
+    
+
