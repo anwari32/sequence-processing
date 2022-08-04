@@ -259,7 +259,8 @@ if __name__ == "__main__":
         if wandb.run.resumed:
             if os.path.exists(checkpoint_path):
                 print(f"Resuming from {run_id}")
-                checkpoint = torch.load(wandb.restore(checkpoint_path))
+                # checkpoint = torch.load(wandb.restore(checkpoint_path))
+                checkpoint = torch.load(checkpoint_path)
                 model.load_state_dict(checkpoint["model"])
                 optimizer.load_state_dict(checkpoint["optimizer"])
                 scheduler.load_state_dict(checkpoint["scheduler"])
