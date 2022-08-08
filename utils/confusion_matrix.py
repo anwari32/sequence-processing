@@ -28,8 +28,11 @@ def create_cf_matrix(df):
 
 def create_confusion_matrix(csv_file, epoch=0):
     # raise NotImplementedError("Function is not implemented.")
-
     df = pd.read_csv(csv_file)
+    if epoch < 0:
+        # Select max epoch from csv file.
+        epoch = max((df["epoch"]).unique())
+
     df = df[df["epoch"] == epoch]
     predictions = np.array([], int)
     targets = np.array([], int)
