@@ -52,6 +52,8 @@ def parse_args(argvs):
 
 def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch=0, device_list=[], criterion_weight=None):
     model.to(device)
+    if criterion_weight:
+        criterion_weight.to(device)
     num_labels = model.num_labels
 
     # loss_weight_10 = torch.Tensor([0.0001555761504390511, 0.9998775560181217, 0.0001555761504390511, 0.9969478696129899, 1.0, 0.9971913542557089, 0.0001555761504390511, 0.0019914280314346157])
