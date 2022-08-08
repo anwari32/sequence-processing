@@ -208,7 +208,7 @@ if __name__ == "__main__":
             "num_epochs": epoch_size,
             "batch_size": batch_size,
             "training_date": cur_date
-        }, reinit=True, resume='allow', run_id=run_id) 
+        }, reinit=True, resume='allow', id=run_id) 
         
         runname = f"{run_name}-{cfg_name}-{run_id}"
         save_dir = os.path.join("run", runname)
