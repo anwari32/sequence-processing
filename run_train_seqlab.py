@@ -240,6 +240,8 @@ if __name__ == "__main__":
         json.dump(training_config, open(training_config_path, "x"), indent=4)
     
         # Loss function.
+        if loss_weight != None:
+            loss_weight = loss_weight.to(device)
         loss_function = CrossEntropyLoss(weight=loss_weight)
 
         if "freeze_bert" in model_config.keys():

@@ -7,7 +7,7 @@ Experiment on biological sequence with machine learning or any other methods. If
 python3 run_train_seqlab.py -t training/config/seqlab/non-overlap.b1.sample.json --device=cuda:0 --run-name=seqlab-sample --model-config-dir=models/config/seqlab --model-config-names=freeze.base,base --project-name=pilot-project
 
 ## Multiple model configs.
-python3 run_train_seqlab.py -t training/config/seqlab/non-overlap.b64.tiny.json --device=cuda:0 --device-list=0,1,2,3 --run-name=seqlab-tiny --num-epochs=50 --model-config-dir=models/config/seqlab --model-config-names=freeze.base,freeze.dropout,freeze.norm,freeze.lin2
+python3 run_train_seqlab.py -t training/config/seqlab/non-overlap.b64.tiny.json --device=cuda:2 --device-list=2,3,4,5 --run-name=seqlab-tiny-b32-e20 --num-epochs=20 --batch-size=32 --model-config-dir=models/config/seqlab --model-config-names=freeze.base,base --use-weighted-loss
 
 ## [BASE] tiny dataset, batch size = 64, num epochs = 50, base model
 python3 run_train_seqlab.py -t training/config/seqlab/non-overlap.b64.tiny.json -m models/config/seqlab/base.json --device=cuda:0 --device-list=0,1,2,3 --run-name=seqlab-base-b64-tiny-e50 --num-epochs=50
