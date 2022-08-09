@@ -103,8 +103,8 @@ if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
 
     training_config = json.load(open(args.get("training-config", False), "r"))
-    batch_size = args.get("batch-size", training_config.get("batch_size"), 1)
-    num_epochs = args.get("num-epochs", training_config.get("num_epochs"), 1)
+    batch_size = args.get("batch-size", training_config.get("batch_size", 1))
+    num_epochs = args.get("num-epochs", training_config.get("num_epochs", 1))
     gene_dir = training_config.get("gene_dir", False)
     training_index = training_config.get("training_index", False)
     validation_index = training_config.get("validation_index", False)
