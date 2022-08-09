@@ -3,11 +3,13 @@ This training utilizes a gene as an instance instead of contig as found in run_g
 Command line accepts several input; one of which is train_genes and validation_genes.
 """
 
+from hashlib import new
 import sys
 import pandas as pd
 import os
 import json
 import torch
+import wandb
 
 from getopt import getopt
 from pathlib import Path, PureWindowsPath
@@ -86,10 +88,16 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     accuracy, error_rate = accuracy_and_error_rate(i, j, k)
                     validation_log.write(f"{epoch},{step},{ilist},{klist},{jlist},{accuracy},{error_rate}\n")
 
-
-                
-
-
+        checkpoint_path = os.path.join(save_dir, "latest", "checkpoint.pth")
+        save_path = os.path.join(save_dir, f"checkpoint-{epoch}.pth")
+        checkpoint = {
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),
+            "epoch": epoch
+        }
+        torch.save(checkpoint, checkpoint_path)
+        torch.save(checkpoint, save_path)
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
@@ -113,21 +121,46 @@ if __name__ == "__main__":
     device_list = args.get("device-list", [])
     use_weighted_loss = args.get("use-weighted-loss", False)
     run_name = args.get("run-name", "genlab")
+    resume_run_ids = args.get("resume-run_ids", [None for a in model_config_names])
+    project_name = args.get("project-name", "pilot-project")
 
     gene_dirpath = str(Path(PureWindowsPath(gene_dir)))
     training_index_path = str(Path(PureWindowsPath(training_index)))
     validation_index_path = str(Path(PureWindowsPath(validation_index)))
     test_index_path = str(Path(PureWindowsPath(test_index)))
 
-    model_config_path_list = []
-    for config_path in model_config_path_list:
-        bert_for_masked_lm = BertForMaskedLM.from_pretrained(str(Path(PureWindowsPath(training_config.get("pretrained", False)))))
-        bert = bert_for_masked_lm.bert
+    pretrained = str(Path(PureWindowsPath(training_config.get("pretrained", os.path.join("pretrained", "3-new-12w-0")))))
+    bert_for_masked_lm = BertForMaskedLM.from_pretrained(pretrained)
+    bert = bert_for_masked_lm.bert
+    tokenizer = BertTokenizer.from_pretrained(pretrained)
+
+    for config_name, resume_run_id in zip(model_config_names, resume_run_ids):
+        config_path = os.path.join(model_config_dir, config_name)
         config = json.load(open(config_path, "r"))
         model = DNABERT_RNN(bert, config)
         optimizer = AdamW(model.parameters(), lr=learning_rate, betas=(beta1, beta2), eps=epsilon, weight_decay=weight_decay)
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
-        train(model, optimizer, scheduler, training_index, validation_index, device=device, batch_size=1, num_epochs=1, device_list=device_list)
+        run_id = resume_run_id if resume_run_id else wandb.util.generate_id()
+        runname = f"{run_name}-{config_name}-{run_id}"
+        save_dir = os.path.join("run", runname)
+        save_checkpoint_dir = os.path.join(save_dir, "latest")
+        for d in [save_dir, save_checkpoint_dir]:
+            if not os.path.exists(d):
+                os.makedirs(d, exist_ok=True)
+        run = wandb.init(id=run_id, project=project_name, resume='allow', reinit=True, name=runname)
+        start_epoch = 0
+        if run.resumed:
+            checkpoint_path = os.path.join("run", runname, "latest", "checkpoint.pth")
+            if os.path.exists(checkpoint_path):
+                checkpoint = torch.load(checkpoint_path)
+                model.load_state_dict(torch.load(checkpoint.get("model")))
+                optimizer.load_state_dict(torch.load(checkpoint.get("optimizer")))
+                scheduler.load_state_dict(torch.load(checkpoint.get("scheduler")))
+                epoch = checkpoint.get("epoch")
+                start_epoch = epoch + 1
+
+        train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, num_epochs, start_epoch, batch_size, use_weighted_loss)
+        run.finish()
 
 
