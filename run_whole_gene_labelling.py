@@ -160,7 +160,7 @@ if __name__ == "__main__":
                 epoch = checkpoint.get("epoch")
                 start_epoch = epoch + 1
 
-        train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, num_epochs, start_epoch, batch_size, use_weighted_loss)
+        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, num_epochs, start_epoch, batch_size, use_weighted_loss)
         run.finish()
 
 
