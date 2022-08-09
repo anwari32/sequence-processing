@@ -19,7 +19,8 @@ from models.genlab import DNABERT_RNN
 from transformers import BertForMaskedLM, BertTokenizer
 from torch.optim import AdamW
 from torch.optim import lr_scheduler
-from torch import autocast, no_grad
+from torch import no_grad
+from torch.cuda.amp import autocast
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 from utils.seqlab import preprocessing_kmer
@@ -53,7 +54,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     for epoch in tqdm(range(start_epoch, num_epochs), total=(num_epochs-start_epoch), desc="Training "):
         model.train()
         for training_gene_file in training_genes:
-            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size)
             loss_weight = None
             if use_weighted_loss:
                 loss_weight = create_loss_weight(training_gene_file)
@@ -73,7 +74,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         
         model.eval()
         for validation_gene_file in validation_genes:
-            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size)
             hidden_output = None
             gene_labelling = []
             for step, batch in enumerate(dataloader):
