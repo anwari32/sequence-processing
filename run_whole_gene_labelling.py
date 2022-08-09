@@ -135,7 +135,7 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained(pretrained)
 
     for config_name, resume_run_id in zip(model_config_names, resume_run_ids):
-        config_path = os.path.join(model_config_dir, config_name)
+        config_path = os.path.join(model_config_dir, f"{config_name}.csv",)
         config = json.load(open(config_path, "r"))
         model = DNABERT_RNN(bert, config)
         optimizer = AdamW(model.parameters(), lr=learning_rate, betas=(beta1, beta2), eps=epsilon, weight_decay=weight_decay)
