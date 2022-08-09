@@ -102,7 +102,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
 
-    training_config = json.load(open(args.get("training-config", False)), "r")
+    training_config = json.load(open(args.get("training-config", False), "r"))
     batch_size = args.get("batch-size", training_config.get("batch_size"), 1)
     num_epochs = args.get("num-epochs", training_config.get("num_epochs"), 1)
     gene_dir = training_config.get("gene_dir", False)
