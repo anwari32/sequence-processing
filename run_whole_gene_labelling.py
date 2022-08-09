@@ -134,6 +134,7 @@ if __name__ == "__main__":
     bert = bert_for_masked_lm.bert
     tokenizer = BertTokenizer.from_pretrained(pretrained)
 
+    
     for config_name, resume_run_id in zip(model_config_names, resume_run_ids):
         config_path = os.path.join(model_config_dir, f"{config_name}.json",)
         config = json.load(open(config_path, "r"))
