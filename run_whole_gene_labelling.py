@@ -27,7 +27,7 @@ from utils.seqlab import preprocessing_kmer
 from utils.utils import create_loss_weight
 from utils.metrics import accuracy_and_error_rate
 
-def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False):
+def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False):
     training_index_df = pd.read_csv(training_index_path)
     training_genes = []
     for i, r in training_index_df.iterrows():
@@ -44,9 +44,9 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     
     training_log_path = os.path.join(save_dir, "training_log.csv")
     validation_log_path = os.path.join(save_dir, "validation_log.csv")
-    training_log = open(training_log_path, "x")
+    training_log = open(training_log_path, "x") if not os.path.exists(training_log_path) else open(training_log_path, "w")
     training_log.write("epoch,step,loss\n")
-    validation_log = open(validation_log_path, "x")
+    validation_log = open(validation_log_path, "x") if not os.path.exists(validation_log_path) else open(validation_log_path, "w")
     validation_log.write("epoch,step,sequence,prediction,target,accuracy,error_rate\n")
 
     num_labels = model.num_labels
@@ -54,7 +54,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     for epoch in tqdm(range(start_epoch, num_epochs), total=(num_epochs-start_epoch), desc="Training "):
         model.train()
         for training_gene_file in training_genes:
-            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size)
             loss_weight = None
             if use_weighted_loss:
                 loss_weight = create_loss_weight(training_gene_file)
@@ -67,6 +67,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     prediction, hidden_output = model(input_ids, attention_masks, hidden_output)
                     loss = criterion(prediction.view(-1, num_labels), labels.view(-1))
                 training_log.write(f"{epoch},{step},{loss.item()}")
+                wandb.log({"loss": loss.item()})
                 loss.backward()
                 optimizer.step()
             optimizer.zero_grad()
@@ -74,7 +75,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         
         model.eval()
         for validation_gene_file in validation_genes:
-            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size)
             hidden_output = None
             gene_labelling = []
             for step, batch in enumerate(dataloader):
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     device_list = args.get("device-list", [])
     use_weighted_loss = args.get("use-weighted-loss", False)
     run_name = args.get("run-name", "genlab")
-    resume_run_ids = args.get("resume-run_ids", [None for a in model_config_names])
+    resume_run_ids = args.get("resume-run-ids", [None for a in model_config_names])
     project_name = args.get("project-name", "pilot-project")
 
     gene_dirpath = str(Path(PureWindowsPath(gene_dir)))
@@ -134,7 +135,6 @@ if __name__ == "__main__":
     bert_for_masked_lm = BertForMaskedLM.from_pretrained(pretrained)
     bert = bert_for_masked_lm.bert
     tokenizer = BertTokenizer.from_pretrained(pretrained)
-
     
     for config_name, resume_run_id in zip(model_config_names, resume_run_ids):
         config_path = os.path.join(model_config_dir, f"{config_name}.json",)
@@ -162,7 +162,7 @@ if __name__ == "__main__":
                 epoch = checkpoint.get("epoch")
                 start_epoch = epoch + 1
 
-        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, num_epochs, start_epoch, batch_size, use_weighted_loss)
+        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs, start_epoch, batch_size, use_weighted_loss)
         run.finish()
 
 

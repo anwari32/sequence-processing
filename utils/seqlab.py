@@ -6,6 +6,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
 from data_preparation import str_kmer
 from tqdm import tqdm
+import os
 
 Label_Begin = '[CLS]'
 Label_End = '[SEP]'
@@ -175,7 +176,8 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disa
     if disable_tqdm:
         enumerator = zip(sequences, labels)
     else:
-        enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc="Preparing Data ")
+        fname = os.path.basename(csv_file).split('.')[0]
+        enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc=f"Preparing Data {fname}")
     for seq, label in enumerator:
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
