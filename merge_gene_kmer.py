@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 if __name__ == "__main__":
     gene_dir = os.path.join("workspace", "genlab", "seqlab.strand-positive.kmer.stride-510")
-    dest_dir = os.path.join("data", "gene_dir")
+    dest_dir = os.path.join("data", "gene_dir_c510_k3")
     chr_dirnames = [d for d in os.listdir(gene_dir) if os.path.isdir(os.path.join(gene_dir, d))]
     for chr_dirname in tqdm(chr_dirnames, total=len(chr_dirnames), desc="Processing"):
         chr_dir = os.path.join(gene_dir, chr_dirname)

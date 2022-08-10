@@ -1,8 +1,8 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "training_index": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_index.training.sample.csv",
-    "validation_index": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_index.validation.sample.csv",
-    "test_index": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\gene_test_index.csv",
+    "training_index": "index\\gene_index.training.sample.csv",
+    "validation_index": "index\\gene_index.validation.sample.csv",
+    "test_index": "index\\gene_test_index.csv",
     "gene_dir": "workspace\\genlab\\seqlab.strand-positive.kmer.stride-510\\",
     "num_epochs": 10,
     "batch_size": 1,
