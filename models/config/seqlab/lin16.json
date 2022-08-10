@@ -1,5 +1,5 @@
 {
-    "pretrained": "pretrained\\3-new-12w-0",
+    "pretrained": "pretrained\\6-new-12w-0",
     "linear" : {
         "num_labels": 8,
         "num_layers": 16,

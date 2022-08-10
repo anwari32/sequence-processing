@@ -25,7 +25,7 @@ if __name__ == "__main__":
                 sequence_kmer = r["sequence"].split(" ")
                 label_kmer = r["label"].split(" ")
                 complete_sequence.append(merge_kmer(sequence_kmer))
-                complete_sequence.append(merge_kmer(label_kmer))
+                complete_label.append(merge_kmer(label_kmer))
             complete_sequence = "".join(complete_sequence)
             complete_label = "".join(complete_label)
             ndf = pd.DataFrame(data={'sequence': [complete_sequence], 'label': [complete_label]})

@@ -30,7 +30,6 @@ def generate_bundle_with_marker(src_index, target_bundle):
 
 if __name__ == "__main__":
     # Gene sequential labelling.
-
     # Create 10% and 25% sample of gene indices.
     workspace_dir = os.path.join("workspace", "genlab", "seqlab.strand-positive.kmer.stride-510")
     gene_train_index = os.path.join(workspace_dir, "gene_train_index.csv")
