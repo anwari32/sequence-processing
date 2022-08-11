@@ -182,7 +182,7 @@ chr1,CFHR3.csv
 chr1,CFHR4.csv
 chr1,CFHR5.csv
 chr1,CGN.csv
-chr1,CH17-125A10.csv
+chr1,CH17-125A10.2.csv
 chr1,CHD1L.csv
 chr1,CHI3L2.csv
 chr1,CHIA.csv
@@ -393,7 +393,7 @@ chr1,GPR89B.csv
 chr1,GPSM2.csv
 chr1,GPX7.csv
 chr1,GRHL3.csv
-chr1,GS1-204I12.csv
+chr1,GS1-204I12.4.csv
 chr1,GSTM1.csv
 chr1,GSTM2.csv
 chr1,GSTM4.csv
@@ -4162,7 +4162,7 @@ chr3,UBA5.csv
 chr3,UBE2E1.csv
 chr3,UBE2E2.csv
 chr3,UBXN7-AS1.csv
-chr3,UC.csv
+chr3,UC.134.csv
 chr3,UMPS.csv
 chr3,UPK1B.csv
 chr3,USP13.csv
@@ -5131,12 +5131,12 @@ chr5,CREBRF.csv
 chr5,CRHBP.csv
 chr5,CSF2.csv
 chr5,CSNK1G3.csv
-chr5,CTB-1I21.csv
-chr5,CTB-3M24.csv
-chr5,CTB-49A3.csv
-chr5,CTB-99A3.csv
-chr5,CTC-338M12.csv
-chr5,CTD-2194D22.csv
+chr5,CTB-1I21.1.csv
+chr5,CTB-3M24.3.csv
+chr5,CTB-49A3.2.csv
+chr5,CTB-99A3.1.csv
+chr5,CTC-338M12.4.csv
+chr5,CTD-2194D22.4.csv
 chr5,CTNNA1.csv
 chr5,CTXN3.csv
 chr5,CWC27.csv
@@ -7250,7 +7250,7 @@ chr7,GPR146.csv
 chr7,GPR22.csv
 chr7,GRM3.csv
 chr7,GRM8-AS1.csv
-chr7,GS1-124K5.csv
+chr7,GS1-124K5.4.csv
 chr7,GSTK1.csv
 chr7,GTF2I.csv
 chr7,GTF2IRD1.csv
@@ -8177,7 +8177,7 @@ chr8,GPIHBP1.csv
 chr8,GPT.csv
 chr8,GRHL2.csv
 chr8,GRINA.csv
-chr8,GS1-24F4.csv
+chr8,GS1-24F4.2.csv
 chr8,GSDMD.csv
 chr8,HAS2-AS1.csv
 chr8,HGH1.csv
@@ -10361,7 +10361,7 @@ chr11,C11orf97.csv
 chr11,C2CD2L.csv
 chr11,CABP4.csv
 chr11,CALCB.csv
-chr11,CAND1.csv
+chr11,CAND1.11.csv
 chr11,CAPN1.csv
 chr11,CAPN5.csv
 chr11,CAPRIN1.csv
@@ -17757,8 +17757,8 @@ chr21,BTG3-AS1.csv
 chr21,C21orf62-AS1.csv
 chr21,CBR1.csv
 chr21,CBR3.csv
-chr21,CH507-145C22.csv
-chr21,CH507-9B2.csv
+chr21,CH507-145C22.1.csv
+chr21,CH507-9B2.8.csv
 chr21,CHAF1B.csv
 chr21,CHODL.csv
 chr21,CLDN14-AS1.csv
@@ -18206,8 +18206,8 @@ chr22,LINC02554.csv
 chr22,LINC02556.csv
 chr22,LINC02558.csv
 chr22,LINC02559.csv
-chr22,LL22NC01-81G9.csv
-chr22,LL22NC03-63E9.csv
+chr22,LL22NC01-81G9.3.csv
+chr22,LL22NC03-63E9.3.csv
 chr22,LOC100506472.csv
 chr22,LOC100996598.csv
 chr22,LOC101927183.csv
@@ -18634,8 +18634,8 @@ chr23,GPRASP1.csv
 chr23,GPRASP2.csv
 chr23,GRIA3.csv
 chr23,GRPR.csv
-chr23,GS1-594A7.csv
-chr23,GS1-600G8.csv
+chr23,GS1-594A7.3.csv
+chr23,GS1-600G8.3.csv
 chr23,GSPT2.csv
 chr23,GYG2.csv
 chr23,H2AB1.csv
@@ -18692,7 +18692,7 @@ chr23,LINC01546.csv
 chr23,LINC01560.csv
 chr23,LINC02243.csv
 chr23,LINC02601.csv
-chr23,LL0XNC01-250H12.csv
+chr23,LL0XNC01-250H12.3.csv
 chr23,LOC100506790.csv
 chr23,LOC101059915.csv
 chr23,LOC101927476.csv
