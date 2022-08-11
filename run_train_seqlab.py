@@ -222,6 +222,7 @@ if __name__ == "__main__":
             if os.path.exists(checkpoint_path):
                 checkpoint = torch.load(checkpoint_path)
                 model.load_state_dict(checkpoint["model"])
+                model.to(device)
                 optimizer.load_state_dict(checkpoint["optimizer"])
                 scheduler.load_state_dict(checkpoint["scheduler"])
                 start_epoch = int(checkpoint["epoch"]) + 1
