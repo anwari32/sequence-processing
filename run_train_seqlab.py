@@ -224,7 +224,9 @@ if __name__ == "__main__":
                 model.load_state_dict(checkpoint["model"])
                 model.to(device)
                 optimizer.load_state_dict(checkpoint["optimizer"])
+                optimizer.load_state_dict(optimizer.state_dict())
                 scheduler.load_state_dict(checkpoint["scheduler"])
+                scheduler.load_state_dict(scheduler.state_dict())
                 start_epoch = int(checkpoint["epoch"]) + 1
 
         wandb.run.name = runname
