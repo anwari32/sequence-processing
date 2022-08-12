@@ -1,5 +1,4 @@
 import json
-from tkinter import Label
 from Bio import SeqIO
 from tqdm import tqdm
 import os
