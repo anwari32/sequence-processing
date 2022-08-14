@@ -2,7 +2,7 @@
 
 from genericpath import isdir
 import os
-from data_preparation import chunk_string, str_kmer
+from utils.utils import chunk_string, str_kmer
 import pandas as pd
 from tqdm import tqdm
 from getopt import getopt

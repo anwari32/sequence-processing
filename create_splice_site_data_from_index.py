@@ -7,7 +7,7 @@ from tqdm import tqdm
 from getopt import getopt
 
 def parse(argv):
-    
+    raise NotImplementedError()
 
 if __name__ == "__main__":
 

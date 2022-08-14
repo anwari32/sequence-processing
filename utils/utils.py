@@ -1,3 +1,4 @@
+from array import array
 import json
 from Bio import SeqIO
 from tqdm import tqdm
@@ -10,6 +11,39 @@ from transformers import BertForMaskedLM
 from models.mtl import DNABERT_MTL
 
 from pathlib import Path, PureWindowsPath
+
+def kmer(seq, length, window_size=1):
+    """
+    Convert string `seq` into array of fixed `length` token (kmer).
+    @param      seq (string):
+    @param      length (int):
+    @param      window_size (int): stride.
+    @return     (array of string): array of kmer.
+    """
+    if length > len(seq):
+        return [seq]
+    else:
+        return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
+
+def str_kmer(seq: str, length: int, window_size=1):
+    """
+    Convert string `seq` into array of fixed `length` token (kmer) and convert the array into string.
+    @param      seq : string
+    @param      length : int
+    @param      window_size : int | None -> 1
+    @return     str
+    """
+    kmer_sequences = kmer(seq, length, window_size=window_size)
+    return ' '.join(kmer_sequences)
+
+def chunk_string(seq, length):
+    """
+    Chunk string `seq` into fixed `length` parts.
+    @param      seq (string): string to break.
+    @param      length (int): size of each chunk.
+    @return     (array of string): array of `seq` parts.
+    """
+    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
 def break_sequence(sequence, chunk_size=16):
     len_seq = len(sequence)
@@ -367,5 +401,12 @@ def create_loss_weight(csv_path):
             w.append(min_value / count_dict[k])
     print(f"Label Weight {w}")
     return torch.Tensor(w)
-    
+
+def is_exists_splice_site_in_sequence(target_list, list=['iiE', 'iEi', 'Eii', 'iEE', 'EEi', 'EiE']):
+    # Check if at leats one element of list exists in target_list.
+    found = False
+    for elem in list:
+        if elem in target_list:
+            found = True
+    return found
 
