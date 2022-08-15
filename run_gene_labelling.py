@@ -17,38 +17,7 @@ from tqdm import tqdm
 import pathlib
 from models.genlab import DNABERT_RNN
 from utils.utils import create_loss_weight
-
-def parse_args(argvs):
-    opts, args = getopt(argvs, "m:t:c:d:r:p:w:", [
-        "training-config=", "model-config=", "model-config-dir=", "device=", "device-list=", "run-name=", "project-name=", "batch-size=", "num-epochs=", "resume-run-ids=", "loss-weight=", "use-weighted-loss"
-    ])
-    output = {}
-    for o, a in opts:
-        if o in ["-t", "--training-config"]:
-            output["training-config"] = a
-        elif o in ["-d", "--device"]:
-            output["device"] = a
-        elif o in ["--device-list"]:
-            output["device-list"] = a.split(",")
-        elif o in ["-m", "--model-config-dir"]:
-            output["model-config-dir"] = a
-        elif o in ["-c", "--model-config"]:
-            output["model-config"] = a.split(",")
-        elif o in ["--run-name"]:
-            output["run-name"] = a
-        elif o in ["--project-name"]:
-            output["project-name"] = a
-        elif o in ["--batch-size"]:
-            output["batch-size"] = int(a)
-        elif o in ["--num-epochs"]:
-            output["num-epochs"]= int(a)
-        elif o in ["--resume-run-ids"]:
-            output["resume-run-ids"] = a.split(",")
-        elif o in ["-w", "--use-weighted-loss"]:
-            output["use-weighted-loss"] = True
-        else:
-            raise ValueError(f"Argument {o} not recognized.")
-    return output
+from utils.cli import parse_args
 
 def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, num_epochs, device, save_dir, wandb, start_epoch=0, device_list=[], criterion_weight=None):
     model.to(device)
