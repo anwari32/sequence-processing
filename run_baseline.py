@@ -114,7 +114,7 @@ if __name__ == "__main__":
     )
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.01)
     training_config = json.load(open(training_config_path, "r"))
-    training_data_path = training_config.get("training_data", False)
+    training_data_path = training_config.get("train_data", False)
     validation_data_path = training_config.get("validation_data", False)
     pretrained_path = str(Path(PureWindowsPath(training_config.get("pretrained", os.path.join("pretrained", "3-new-12w-0")))))
     tokenizer = BertTokenizer.from_pretrained(pretrained_path)
