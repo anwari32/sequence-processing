@@ -6,13 +6,15 @@ import pandas as pd
 from tqdm import tqdm
 
 def parse_args(argv):
-    opts, _ = getopt(argv, "i:g:", ["index=", "gene-dir="])
+    opts, _ = getopt(argv, "i:g:d:", ["index=", "gene-dir=", "dest-dir="])
     output = {}
     for o, a in opts:
         if o in ["-i", "--index"]:
             output["index"] = a
         elif o in ["-g", "--gene-dir"]:
             output["gene-dir"] = a
+        elif o in ["-d", "--dest-dir"]:
+            output["dest-dir"] = a
         else:
             raise ValueError(f"Argument {o} not recognized.")
     
@@ -46,5 +48,6 @@ if __name__ == "__main__":
 
     generate_gene_bundle_from_index(
         args.get("index"),
-        args.get("gene-dir")
+        args.get("gene-dir"),
+        args.get("dest-dir")
     )
