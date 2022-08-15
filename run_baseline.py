@@ -20,25 +20,67 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     if loss_weight:
         loss_weight = loss_weight.to(device)
     criterion = torch.nn.CrossEntropyLoss(weight=loss_weight)
+
+    wandb.define_metric("epoch")
+    wandb.define_metric("training/epoch_loss", step_metric="epoch")
+    wandb.define_metric("validation/loss", step_metric="epoch")
+    wandb.define_metric("validation/accuracy", step_metric="epoch")
+
+    training_log_path = os.path.join(save_dir, "training_log.csv")
+    training_log = open(training_log_path, "x")
+    training_log.write("epoch,step,loss\n")
+    validation_log_path = os.path.join(save_dir, "validation_log.csv")
+    validation_log = open(validation_log_path, "x")
+    validation_log.write("epoch,step,input,prediction,target,loss\n")
+
     for epoch in range(start_epoch, num_epochs):
         model.train()
+        epoch_loss = 0
         for step, batch in enumerate(train_dataloader):
-            input_ids, attention_mask = tuple(t.to(device) for t in batch)
+            input_ids, attention_mask, target_labels = tuple(t.to(device) for t in batch)
             with torch.amp.auto_grad():
                 pred = model(input_ids)
-                loss = criterion(pred.view(-1, num_labels), target_label.view(-1))
+                loss = criterion(pred.view(-1, num_labels), target_labels.view(-1))
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+            wandb.log({"loss": loss.item()})
+            epoch_loss += loss.item()
+            training_log.write(f"{epoch},{step},{loss.item()}\n")
+        wandb.log({"training/epoch_loss": epoch_loss, "epoch": epoch})
         scheduler.step()
 
         model.eval()
         for step, batch in enumerate(eval_dataloader):
-            input_ids, attention_mask, target_label = tuple(t.to(device) for t in batch)
+            input_ids, attention_mask, target_labels = tuple(t.to(device) for t in batch)
             with torch.no_grad():
-                pred = model(input_ids)
-                loss = criterion(pred.view(-1, num_labels), target_label.view(-1))
-        
+                predictions = model(input_ids)
+                loss = criterion(predictions.view(-1, num_labels), target_labels.view(-1))
+            for input_id, pred, label in zip(input_ids, predictions, target_labels):
+                q = input_id[1:] # Remove CLS token from input
+                q = [a for a in q if a >= 0] # Remove padding token.
+                p = pred[1:] # Remove CLS token from prediction.
+                p = p[0:len(q)] # Remove padding prediction. 
+                pval, p = torch.max(p, 1)               
+                l = label[1:] # Remove CLS token from label
+                l = l[0:len(q)] # Remove padding label.
+                accuracy = 0
+                for i, j in zip(p, l):
+                    accuracy += (1 if i == j else 0)
+                accuracy = accuracy / len(q) * 100
+                qlist = q.tolist()
+                qlist = [str(a) for a in qlist]
+                qlist = " ".join(qlist)
+                plist = p.tolist()
+                plist = [str(a) for a in plist]
+                plist = " ".join(plist)
+                llist = l.tolist()
+                llist = [str(a) for a in llist]
+                llist = " ".join(llist)
+                validation_log.write(f"{epoch},{step},{qlist},{plist},{llist}\n")
+            
+        training_log.close()
+        validation_log.close()
         torch.save({
             "model": model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict(),
             "optimizer": optimizer.state_dict(),
@@ -106,3 +148,5 @@ if __name__ == "__main__":
         start_epoch,
         device_list,
         loss_weight)
+
+    run.finish()
