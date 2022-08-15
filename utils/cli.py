@@ -3,6 +3,20 @@ from pathlib import Path, PureWindowsPath
 
 
 def parse_args(argvs):
+    """
+    return Object containing
+    -   training-config
+    -   device
+    -   resume-run-ids
+    -   model-config-dir
+    -   model-config-names
+    -   batch-size
+    -   num-epochs
+    -   run-name
+    -   device-list
+    -   project-name
+    -   use-weighted-loss
+    """
     opts, arguments = getopt(argvs, "t:d:r:m:c:b:e:n:l:p:w",
     [
         "training-config=",
