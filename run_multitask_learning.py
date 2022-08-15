@@ -6,6 +6,7 @@ from torch.cuda import device_count as cuda_device_count, get_device_name
 from torch.nn import BCELoss, CrossEntropyLoss
 from utils.mtl import preprocessing_batches, preprocessing
 from torch.optim import AdamW
+import torch
 import os
 from utils.model import init_mtl_model
 from utils.utils import save_checkpoint, save_json_config

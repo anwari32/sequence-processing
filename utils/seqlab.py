@@ -176,7 +176,8 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disa
     if disable_tqdm:
         enumerator = zip(sequences, labels)
     else:
-        fname = os.path.basename(csv_file).split('.')[0]
+        fname = os.path.basename(csv_file).split('.')[:-1]
+        fname = ' '.join(fname)
         enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc=f"Preparing Data {fname}")
     for seq, label in enumerator:
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
@@ -199,6 +200,8 @@ def preprocessing_gene_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size,
     if disable_tqdm:
         enumerator = zip(sequences, labels, markers)
     else:
+        fname = os.path.basename(csv_file).split('.')[:-1]
+        fname = ' '.join(fname)
         enumerator = tqdm(zip(sequences, labels, markers), total=df.shape[0], desc="Preparing Data")
     for seq, label, marker in enumerator:
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)

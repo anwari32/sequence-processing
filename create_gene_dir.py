@@ -2,7 +2,7 @@
 
 from genericpath import isdir
 import os
-from utils.utils import chunk_string, str_kmer
+from utils.utils import chunk_string, kmer, str_kmer
 import pandas as pd
 from tqdm import tqdm
 from getopt import getopt
@@ -30,15 +30,17 @@ def create_gene_dir(original_gene_dir, target_gene_dir, chunk_size, kmer_size):
             df = pd.read_csv(p)
             for i, r in df.iterrows():
                 complete_sequence = r["sequence"]
+                complete_sequence = kmer(complete_sequence, 3)
                 complete_label = r["label"]
+                complete_label = kmer(complete_label, 3)
 
                 sequence_chunks = chunk_string(complete_sequence, chunk_size)
                 label_chunks = chunk_string(complete_label, chunk_size)
 
                 for seq_chunk, label_chunk in zip(sequence_chunks, label_chunks):
-                    seq_chunk_kmer = str_kmer(seq_chunk, kmer_size)
-                    label_chunk_kmer = str_kmer(label_chunk, kmer_size)
-                    dest_file.write(f"{seq_chunk_kmer},{label_chunk_kmer}\n")
+                    seq = " ".join(seq_chunk)
+                    lab = " ".join(label_chunk)
+                    dest_file.write(f"{seq},{seq}\n")
             
             dest_file.close()
 
