@@ -28,7 +28,7 @@ if __name__ == "__main__":
         source_df = pd.read_csv(p)
         p10_df = source_df.sample(frac=0.1, random_state=1337)
         p25_df = source_df.sample(frac=0.25, random_state=1337)
-        psample_df = source_df.sample(n=0.0001, random_state=1337)
+        psample_df = source_df.sample(frac=0.0001, random_state=1337)
         p10_df.to_csv(q, index=False)
         p25_df.to_csv(r, index=False)
         psample_df.to_csv(s, index=False)
