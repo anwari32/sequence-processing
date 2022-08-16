@@ -40,7 +40,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         for step, batch in enumerate(train_dataloader):
             input_ids, attention_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
             with torch.cuda.amp.autocast():
-                pred = model(input_ids)
+                _input_ids = input.reshape(input_ids.shape[0], input_ids.shape[1], 1)
+                pred = model(_input_ids)
                 loss = criterion(pred.view(-1, num_labels), target_labels.view(-1))
             loss.backward()
             optimizer.step()
