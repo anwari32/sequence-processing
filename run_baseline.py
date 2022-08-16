@@ -53,7 +53,7 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
 
         model.eval()
         for step, batch in enumerate(eval_dataloader):
-            input_ids, attention_mask, target_labels = tuple(t.to(device) for t in batch)
+            input_ids, attention_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
             with torch.no_grad():
                 predictions = model(input_ids)
                 loss = criterion(predictions.view(-1, num_labels), target_labels.view(-1))
