@@ -40,7 +40,7 @@ def create_gene_dir(original_gene_dir, target_gene_dir, chunk_size, kmer_size):
                 for seq_chunk, label_chunk in zip(sequence_chunks, label_chunks):
                     seq = " ".join(seq_chunk)
                     lab = " ".join(label_chunk)
-                    dest_file.write(f"{seq},{seq}\n")
+                    dest_file.write(f"{seq},{lab}\n")
             
             dest_file.close()
 
