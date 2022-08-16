@@ -125,7 +125,7 @@ if __name__ == "__main__":
     train_dataloader, eval_dataloader = preprocessing_kmer(training_data_path, tokenizer, batch_size), preprocessing_kmer(validation_data_path, tokenizer, batch_size)
     loss_weight = create_loss_weight(training_data_path) if use_weighted_loss else None
     
-    run_id = wandb.util.generate_id()
+    run_id = args.get("resume-run-ids")[0] if args.get("resume-run-ids")[0] else wandb.util.generate_id()
     runname = f"{run_name}-{run_id}"
     save_dir = os.path.join("run", runname)
     checkpoint_dir = os.path.join(save_dir, "latest")
@@ -134,9 +134,9 @@ if __name__ == "__main__":
     start_epoch = 0
     if run.resumed:
         checkpoint = torch.load(checkpoint_path)
-        model = torch.load(checkpoint.get("model"))
-        optimizer = torch.load(checkpoint.get("optimizer"))
-        scheduler = torch.load(checkpoint.get("scheduler"))
+        model.load_state_dict(torch.load(checkpoint.get("model")))
+        optimizer.load_state_dict(torch.load(checkpoint.get("optimizer")))
+        scheduler.load_state_dict(torch.load(checkpoint.get("scheduler")))
         epoch = int(checkpoint.get("epoch"))
         start_epoch = epoch + 1
 
