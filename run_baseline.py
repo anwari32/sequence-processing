@@ -130,7 +130,7 @@ if __name__ == "__main__":
     save_dir = os.path.join("run", runname)
     checkpoint_dir = os.path.join(save_dir, "latest")
     checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pth")
-    run = wandb.init(id=run_id, project_name=project_name, name=runname, reinit=True, resume="allow")
+    run = wandb.init(id=run_id, project=project_name, name=runname, reinit=True, resume="allow")
     start_epoch = 0
     if run.resumed:
         checkpoint = torch.load(checkpoint_path)
