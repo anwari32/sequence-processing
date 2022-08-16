@@ -4,14 +4,31 @@
 import pandas as pd
 import os
 from tqdm import tqdm
+import sys
+from getopt import getopt
+
+def parse_args(argv):
+    opts, arguments = getopt(argv, "s:d:", ["source-bundle=", "destination-bundle-dir="])
+    outputs = {}
+    for o, a in opts:
+        if o in ["-s", "--source-bundle"]:
+            outputs["source-bundle"] = a
+        elif o in ["-d", "--destination-bundle-dir"]:
+            outputs["destination-bundle-dir"] = a
+        else:
+            raise ValueError(f"Argument {o} not recognized.")
+    return outputs
 
 if __name__ == "__main__":
-
-    path = os.path.join("workspace", "seqlab", "seqlab.strand-positive.kmer.stride-510")
-    bundle_path = os.path.join(path, "bundle.csv")
-    splice_site_bundle_path = os.path.join(path, "splice_site_bundle.csv")
-    intron_bundle_path = os.path.join(path, "intron_bundle.csv")
-    exon_bundle_path = os.path.join(path, "exon_bundle.csv")
+    args = parse_args(sys.argv[1:])
+    
+    # path = os.path.join("workspace", "seqlab", "seqlab.strand-positive.kmer.stride-510")
+    # bundle_path = os.path.join(path, "bundle.csv")
+    bundle_path = args.get("source-bundle", False)
+    destination_bundle_dir_path = args.get("destination-bundle-dir", False)
+    splice_site_bundle_path = os.path.join(destination_bundle_dir_path, "splice_site_bundle.csv")
+    intron_bundle_path = os.path.join(destination_bundle_dir_path, "intron_bundle.csv")
+    exon_bundle_path = os.path.join(destination_bundle_dir_path, "exon_bundle.csv")
 
     for a in [splice_site_bundle_path, intron_bundle_path, exon_bundle_path]:
         if os.path.exists(a):
@@ -51,9 +68,9 @@ if __name__ == "__main__":
         a.close()
 
     # Split data into train, validation, and test data.
-    splice_site_train_bundle_path = os.path.join(path, "splice_site_train_bundle.csv")
-    splice_site_validation_bundle_path = os.path.join(path, "splice_site_validation_bundle.csv")
-    splice_site_test_bundle_path = os.path.join(path, "splice_site_test_bundle.csv")
+    splice_site_train_bundle_path = os.path.join(destination_bundle_dir_path, "splice_site_train_bundle.csv")
+    splice_site_validation_bundle_path = os.path.join(destination_bundle_dir_path, "splice_site_validation_bundle.csv")
+    splice_site_test_bundle_path = os.path.join(destination_bundle_dir_path, "splice_site_test_bundle.csv")
     splice_site_df = pd.read_csv(splice_site_bundle_path)
 
     splice_site_train_df = splice_site_df.sample(frac=0.8)
@@ -64,3 +81,5 @@ if __name__ == "__main__":
     splice_site_train_df.to_csv(splice_site_train_bundle_path, index=False)
     splice_site_val_df.to_csv(splice_site_validation_bundle_path, index=False)
     splice_site_test_df.to_csv(splice_site_test_bundle_path, index=False)
+
+

@@ -9,16 +9,19 @@ from utils.utils import create_loss_weight
 from models.baseline import Baseline
 from utils.seqlab import preprocessing_kmer
 from transformers import BertTokenizer
+from tqdm import tqdm
 
 def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_size, num_epochs, device, save_dir, wandb, start_epoch=0, device_list=[], loss_weight=None):
     model.to(device)
     num_labels = model.num_labels
     if len(device_list) > 0:
         torch.nn.DataParallel(device_list)
-    os.makedirs(save_dir, exist_ok=True)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
     checkpoint_dir = os.path.join(save_dir, "latest")
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    if loss_weight:
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir, exist_ok=True)
+    if loss_weight != None:
         loss_weight = loss_weight.to(device)
     criterion = torch.nn.CrossEntropyLoss(weight=loss_weight)
 
@@ -32,12 +35,15 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     training_log.write("epoch,step,loss\n")
     validation_log_path = os.path.join(save_dir, "validation_log.csv")
     validation_log = open(validation_log_path, "x")
-    validation_log.write("epoch,step,input,prediction,target,loss\n")
+    validation_log.write("epoch,step,input,prediction,target,loss,accuracy\n")
+    
+    len_train_dataloader = len(train_dataloader)
+    len_eval_dataloader = len(eval_dataloader)
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
         epoch_loss = 0
-        for step, batch in enumerate(train_dataloader):
+        for step, batch in tqdm(enumerate(train_dataloader), total=len_train_dataloader, desc=f"Training {epoch + 1}/{num_epochs}"):
             input_ids, attention_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
             with torch.cuda.amp.autocast():
                 input_ids = input_ids.reshape(input_ids.shape[0], input_ids.shape[1], 1)
@@ -54,43 +60,50 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         scheduler.step()
 
         model.eval()
-        for step, batch in enumerate(eval_dataloader):
+        for step, batch in tqdm(enumerate(eval_dataloader), total=len_eval_dataloader, desc=f"Validation {epoch + 1}/{num_epochs}"):
             input_ids, attention_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
+            input_ids = input_ids.reshape(input_ids.shape[0], input_ids.shape[1], 1)
             input_ids = input_ids.float()
             with torch.no_grad():
                 predictions = model(input_ids)
                 loss = criterion(predictions.view(-1, num_labels), target_labels.view(-1))
             for input_id, pred, label in zip(input_ids, predictions, target_labels):
-                q = input_id[1:] # Remove CLS token from input
+                q = input_id.view(-1).tolist()
+                q = q[1:] # Remove CLS token from input
                 q = [a for a in q if a >= 0] # Remove padding token.
-                p = pred[1:] # Remove CLS token from prediction.
+                qlist = [str(int(a)) for a in q]
+                qlist = " ".join(qlist)
+
+                pval, p = torch.max(pred, 1)
+                p = p.tolist()
+                p = p[1:] # Remove CLS token from prediction.
                 p = p[0:len(q)] # Remove padding prediction. 
-                pval, p = torch.max(p, 1)               
-                l = label[1:] # Remove CLS token from label
+                plist = [str(a) for a in p]
+                plist = " ".join(plist)
+
+                l = label.tolist()
+                l = l[1:] # Remove CLS token from label
                 l = l[0:len(q)] # Remove padding label.
+                llist = [str(a) for a in l]
+                llist = " ".join(llist)
+
                 accuracy = 0
                 for i, j in zip(p, l):
                     accuracy += (1 if i == j else 0)
                 accuracy = accuracy / len(q) * 100
-                qlist = q.tolist()
-                qlist = [str(a) for a in qlist]
-                qlist = " ".join(qlist)
-                plist = p.tolist()
-                plist = [str(a) for a in plist]
-                plist = " ".join(plist)
-                llist = l.tolist()
-                llist = [str(a) for a in llist]
-                llist = " ".join(llist)
-                validation_log.write(f"{epoch},{step},{qlist},{plist},{llist}\n")
+                validation_log.write(f"{epoch},{step},{qlist},{plist},{llist},{accuracy}\n")
+                wandb.log({"validation/accuracy": accuracy, "epoch": epoch})
             
-        training_log.close()
-        validation_log.close()
         torch.save({
             "model": model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
             "epoch": epoch,
-        }, checkpoint_dir)
+        }, os.path.join(checkpoint_dir, "checkpoint.pth"))
+    
+    training_log.close()
+    validation_log.close()
+
             
 
 if __name__ == "__main__":
