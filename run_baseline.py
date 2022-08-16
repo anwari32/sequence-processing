@@ -39,7 +39,7 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         epoch_loss = 0
         for step, batch in enumerate(train_dataloader):
             input_ids, attention_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
-            with torch.amp.auto_grad():
+            with torch.cuda.amp.auto_grad():
                 pred = model(input_ids)
                 loss = criterion(pred.view(-1, num_labels), target_labels.view(-1))
             loss.backward()
