@@ -52,7 +52,7 @@ if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
 
     # index_dir = os.path.join("index")
-    index_dir = args.get("index-dir")
+    index_dir = args.get("index-dir", False)
     srcs = [
         os.path.join(index_dir, "gene_train_index.10.csv"),
         os.path.join(index_dir, "gene_train_index.25.csv"),
@@ -64,7 +64,6 @@ if __name__ == "__main__":
         os.path.join(index_dir, "gene_test_index.25.csv"),
         os.path.join(index_dir, "gene_test_index.csv"),
     ]
-    # workspace_dir = os.path.join("workspace", "genlab", "genlab-3")
     workspace_dir = args.get("destination-dir")
     dests = [
         os.path.join(workspace_dir, "gene_train_index_bundle.10.csv"),

@@ -140,6 +140,7 @@ if __name__ == "__main__":
     train_dataloader, eval_dataloader = preprocessing_kmer(training_data_path, tokenizer, batch_size), preprocessing_kmer(validation_data_path, tokenizer, batch_size)
     loss_weight = create_loss_weight(training_data_path) if use_weighted_loss else None
     
+    os.environ["WANDB_MODE"] = "offline" if args.get("offline", False) else "online"
     run_id = args.get("resume-run-ids")[0] if args.get("resume-run-ids") else wandb.util.generate_id()
     runname = f"{run_name}-{run_id}"
     save_dir = os.path.join("run", runname)

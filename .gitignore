@@ -27,3 +27,4 @@ models/dnabert-3
 tmux*
 .idea
 master
+.workspace

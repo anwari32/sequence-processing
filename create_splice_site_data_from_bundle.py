@@ -54,15 +54,12 @@ if __name__ == "__main__":
 
     for i, r in tqdm(bundle_df.iterrows(), total=bundle_df.shape[0], desc="Processing :"):
         arr_labels = r["label"].split(" ")
-        if at_least_one_exists(splice_sites, arr_labels):
-            # raise NotImplementedError("TODO: write sequence into splice site bundle.")
-            splice_site_bundle.write(f"{r['sequence']},{r['label']}\n")
-        elif all([a == "iii" for a in arr_labels]):
-        #raise NotImplementedError("TODO: write sequence into intron bundle.")
+        if all([a == "iii" for a in arr_labels]):
             intron_bundle.write(f"{r['sequence']},{r['label']}\n")
         elif all([a == "EEE" for a in arr_labels]):
-            #raise NotImplementedError("TODO: write sequence into exon bundle.")
             exon_bundle.write(f"{r['sequence']},{r['label']}\n")
+        else:
+            splice_site_bundle.write(f"{r['sequence']},{r['label']}\n")
         
     for a in [splice_site_bundle, intron_bundle, exon_bundle]:
         a.close()
