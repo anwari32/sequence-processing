@@ -4,7 +4,7 @@ class Baseline(torch.nn.Module):
     """
     Baseline architecture for sequential labelling.
     """
-    def __init__(self, config=None):
+    def __init__(self, bert=None, config=None):
         super().__init__()
         self.num_labels = config.get("num_labels", 8) if config else 8
         self.num_layers = config.get("num_layers", 1) if config else 1

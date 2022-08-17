@@ -47,7 +47,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     training_log = open(training_log_path, "x") if not os.path.exists(training_log_path) else open(training_log_path, "w")
     training_log.write("epoch,step,loss\n")
     validation_log = open(validation_log_path, "x") if not os.path.exists(validation_log_path) else open(validation_log_path, "w")
-    validation_log.write("epoch,step,sequence,prediction,target,accuracy,error_rate\n")
+    validation_log.write("epoch,step,sequence,prediction,target,accuracy,loss\n")
 
     num_labels = model.num_labels
     model.to(device)
@@ -100,6 +100,9 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         }
         torch.save(checkpoint, checkpoint_path)
         torch.save(checkpoint, save_path)
+
+    training_log.close()
+    validation_log.close()
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])

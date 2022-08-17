@@ -3,10 +3,11 @@ import sys
 import json
 from torch.cuda import device_count as cuda_device_count, get_device_name
 from torch.optim import AdamW
+from models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
 from utils.model import init_seqlab_model
-from transformers import BertTokenizer
+from transformers import BertTokenizer, BertForMaskedLM
 import os
 import wandb
 from datetime import datetime
@@ -21,94 +22,72 @@ import traceback
 if __name__ == "__main__":
     print("Command Parameters.")
     args = parse_args(sys.argv[1:])
-    for key in args.keys():
-        print(f"- {key} {args[key]}")
 
-    # Make sure input config parameters are valid.
-    if "training_config" not in args.keys():
-        print("Please provide training config.")
-        sys.exit(2)
-
-    if not os.path.exists(args["training_config"]):
-        print(f"Training config not found at {args['training_config']}")
-        sys.exit(2)
-    
-    if "model_config" not in args.keys() and "model_config_dir" not in args.keys() and "model_config_names" not in args.keys():
-        print(f"Model config not found at {args['model_config']}")
-        sys.exit(2)
-
-    # Make sure input parameters are valid.
-    if not "force-cpu" in args.keys():
-        if args["device"] == "cpu":
-            print(f"Don't use CPU for training")
-            sys.exit(2)
-        cuda_device_count = cuda_device_count()
-        if cuda_device_count > 1 and args["device"] == "cuda":
-            print(f"There are more than one CUDA devices. Please choose one.")
-            sys.exit(2)
-    
-    # Run name is made required. If there is None then Error shall be there.
-    if not "run_name" in args.keys():
-        print("Run name is required.")
-        print("`--run-name=<runname>`")
-        sys.exit(2)
-
-    training_config_path = args["training_config"]
+    training_config_path = args.get("training-config", False)
     training_config = json.load(open(training_config_path, "r"))
 
     # Override batch size and epoch if given in command.
-    epoch_size = training_config["num_epochs"] if "num_epochs" not in args.keys() else args["num_epochs"]
-    batch_size = training_config["batch_size"] if "batch_size" not in args.keys() else args["batch_size"]
+    epoch_size = args.get("num-epochs", training_config.get("num_epochs", 1))
+    batch_size = args.get("batch-size", training_config.get("batch_size", 1))
 
-    training_filepath = str(Path(PureWindowsPath(training_config["train_data"])))
-    validation_filepath = str(Path(PureWindowsPath(training_config["validation_data"])))
-    print(f"Preparing Training Data {training_filepath}")
+    training_filepath = str(Path(PureWindowsPath(training_config.get("train_data", False))))
+    validation_filepath = str(Path(PureWindowsPath(training_config.get("validation_data", False))))
+    pretrained = str(Path(PureWindowsPath(training_config["pretrained"]))) if "pretrained" in training_config.keys() else os.path.join("pretrained", "3-new-12w-0")
+    tokenizer = BertTokenizer.from_pretrained(pretrained)
     dataloader = preprocessing(
         training_filepath,# csv_file, 
-        BertTokenizer.from_pretrained(str(Path(PureWindowsPath(training_config["pretrained"])))), # tokenizer
+        tokenizer, # tokenizer
         batch_size, # training_config["batch_size"], #batch_size,
         do_kmer=False
         )
     n_train_data = len(dataloader)
-    print(f"Preparing Validation Data {validation_filepath}")
     eval_dataloader = preprocessing(
         validation_filepath,# csv_file, 
-        BertTokenizer.from_pretrained(str(Path(PureWindowsPath(training_config["pretrained"])))), # tokenizer
+        tokenizer, # tokenizer
         batch_size, #1,
         do_kmer=False
     )
     n_validation_data = len(eval_dataloader)
 
     # All training devices are CUDA GPUs.
-    device = args["device"]
+    device = args.get("device", False)
     device_name = get_device_name(device)
     device_names = ""
     device_list = []
-    if "device_list" in args.keys():
-        print(f"# GPU: {len(args['device_list'])}")
-        device_list = args["device_list"]
+    if "device-list" in args.keys():
+        print(f"# GPU: {len(args.get('device-list'))}")
+        device_list = args.get("device-list")
         device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
 
     # Run name may be the same. So append current datetime to differentiate.
     # Create this folder if not exist.
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_config_names = args.get("model-config-names", False)
+    model_config_dir = args.get("model-config-dir", False)
     model_config_list = []
-    if "model_config_dir" in args.keys() and "model_config_names" in args.keys():
-        model_config_list = [os.path.join(args["model_config_dir"], f"{n}.json") for n in args["model_config_names"]]
+    if "model-config-dir" in args.keys() and "model-config-names" in args.keys():
+        model_config_list = [os.path.join(model_config_dir, f"{n}.json") for n in model_config_names]
         if not all([os.path.exists(p) for p in model_config_list]):
             raise FileNotFoundError("Path to model config not found")
     else:
-        if not os.path.exists(args["model_config"]):
+        if not os.path.exists(args.get("model-config", False)):
             raise FileNotFoundError("Path to model config not found")
-        model_config_list.append(args["model_config"])
+        model_config_list.append(args.get("model-config", False))
 
-    args["disable_wandb"] = True if "disable_wandb" in args.keys() else False
-    os.environ["WANDB_MODE"] = "offline" if args["disable_wandb"] else "online"
-    project_name = args.get("project_name", "thesis")    
+    project_name = args.get("project_name", "sequence-labelling")    
     use_weighted_loss = args.get("use-weighted-loss", False)
     loss_weight = create_loss_weight(training_filepath) if use_weighted_loss else None
-    resume_run_ids = args.get("resume-run-id", [None for a in model_config_list])
-    model_config_names = ", ".join(args["model_config_names"])
+    resume_run_ids = args.get("resume-run-id", [])
+    
+    n_config_names = len(model_config_names)
+    n_resume_run_ids = len(resume_run_ids)
+    if (n_resume_run_ids < n_config_names):
+        delta = n_config_names - n_resume_run_ids
+        for i in range(delta):
+            resume_run_ids.append(None)
+
+    model_config_names = ", ".join(model_config_names)
+    run_name = args.get("run_name", "sequence-labelling")
 
     print(f"~~~~~Training Sequential Labelling~~~~~")
     print(f"# Training Data {n_train_data}")
@@ -125,10 +104,15 @@ if __name__ == "__main__":
         if isinstance(cfg_name, list):
             cfg_name = ".".join(cfg_name)
         print(f"Training model with config {cfg_name}")
-        run_name = args.get("run_name")
         
+        pretrained = os.path.join("pretrained", "3-new-12w-0")
+        if "pretrained" in training_config.keys():
+            pretrained = str(Path(PureWindowsPath(training_config.get("pretrained", False))))
         lr = training_config["optimizer"]["learning_rate"]
-        model = init_seqlab_model(cfg_path)
+        _config = json.load(open(cfg_path, "r"))
+        _bert = BertForMaskedLM.from_pretrained(pretrained)
+        _bert = _bert.bert
+        model = DNABERT_SL(_bert, _config)
         optimizer = AdamW(model.parameters(), 
             lr=training_config["optimizer"]["learning_rate"], 
             betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
@@ -140,7 +124,9 @@ if __name__ == "__main__":
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 
         # Prepare wandb.
-        run_id = resume_run_id if resume_run_id else wandb.util.generate_id()
+        os.environ["WANDB_MODE"] = "offline" if args.get("offline", False) else "online"
+        run_id = resume_run_id if resume_run_id != None else wandb.util.generate_id()
+        runname = f"{run_name}-{cfg_name}-{run_id}"
         run = wandb.init(project=project_name, entity="anwari32", config={
             "device": device,
             "device_list": device_names,
@@ -150,30 +136,27 @@ if __name__ == "__main__":
             "num_epochs": epoch_size,
             "batch_size": batch_size,
             "training_date": cur_date
-        }, reinit=True, resume='allow', id=run_id) 
-        
-        runname = f"{run_name}-{cfg_name}-{run_id}"
+        }, reinit=True, resume='allow', id=run_id, name=runname) 
+        wandb.watch(model)
+
         save_dir = os.path.join("run", runname)
+        checkpoint_dir = os.path.join(save_dir, "latest")
+        checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pth")
         print(f"Save Directory {save_dir}")
+        print(f"Checkpoint Directory {checkpoint_dir}")
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
-
-        checkpoint_path = os.path.join("run", runname, "latest", "checkpoint.pth")
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir, exist_ok=True)
+        
         start_epoch = 0
-        if wandb.run.resumed:
+        if run.resumed:
             if os.path.exists(checkpoint_path):
-                checkpoint = torch.load(checkpoint_path)
+                checkpoint = torch.load(checkpoint_path, map_location=device)
                 model.load_state_dict(checkpoint["model"])
-                model.to(device)
                 optimizer.load_state_dict(checkpoint["optimizer"])
-                optimizer.load_state_dict(optimizer.state_dict())
                 scheduler.load_state_dict(checkpoint["scheduler"])
-                scheduler.load_state_dict(scheduler.state_dict())
                 start_epoch = int(checkpoint["epoch"]) + 1
-
-        wandb.run.name = runname
-        wandb.run.save()
-        wandb.watch(model)
 
         # Save current model config in run folder.
         model_config = json.load(open(cfg_path, "r"))
@@ -207,7 +190,6 @@ if __name__ == "__main__":
             save_dir,
             loss_function,
             device=device, 
-            loss_strategy="sum",
             wandb=wandb,
             device_list=device_list,
             eval_dataloader=eval_dataloader,    

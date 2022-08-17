@@ -16,6 +16,7 @@ def parse_args(argvs):
     -   device-list
     -   project-name
     -   use-weighted-loss
+    -   offline
     """
     opts, arguments = getopt(argvs, "t:d:r:m:c:b:e:n:l:p:w",
     [
@@ -29,7 +30,11 @@ def parse_args(argvs):
         "run-name=",
         "device-list=",
         "project-name=",
-        "use-weighted-loss"
+        "use-weighted-loss",
+        "baseline",
+        "sequence",
+        "whole",
+        "offline"
     ])
     output = {}
     for o, a in opts:
@@ -55,6 +60,14 @@ def parse_args(argvs):
             output["project-name"] = a
         elif o in ["-w", "--use-weighted-loss"]:
             output["use-weighted-loss"] = True
+        elif o in ["--baseline"]:
+            output["model"] = "baseline"
+        elif o in ["--sequence"]:
+            output["model"] = "sequence"
+        elif o in ["--whole"]:
+            output["model"] = "recurrent"
+        elif o in ["--offline"]:
+            output["offline"] = True
         else:
             raise ValueError(f"Option {o} is not recognized.")
     return output

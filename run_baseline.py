@@ -105,7 +105,6 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     validation_log.close()
 
             
-
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
     training_config_path = args.get("training-config", False)
@@ -113,8 +112,6 @@ if __name__ == "__main__":
     resume_run_ids = args.get("resume-run-ids", False)
     model_config_dir = args.get("model-config-dir", False)
     model_config_names = args.get("model-config-names", False)
-    batch_size = args.get("batch-size", 1)
-    num_epochs = args.get("num-epochs", 1)
     run_name = args.get("run-name", "baseline")
     device_list = args.get("device-list", [])
     project_name = args.get("project-name", "baseline")
@@ -130,6 +127,8 @@ if __name__ == "__main__":
     )
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.01)
     training_config = json.load(open(training_config_path, "r"))
+    batch_size = args.get("batch-size", training_config.get("batch_size", 1))
+    num_epochs = args.get("num-epochs", training_config.get("num_epochs_size", 1))
     training_data_path = training_config.get("train_data", False)
     if training_data_path:
         training_data_path = str(Path(PureWindowsPath(training_data_path)))

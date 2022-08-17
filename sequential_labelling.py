@@ -7,7 +7,7 @@ from torch.cuda.amp import autocast, GradScaler
 import wandb
 from models.seqlab import DNABERT_SL
 
-def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device, loss_strategy="sum"):
+def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device):
     # Make sure model and data are in the same device.
     model.to(device)
     batch_input_ids.to(device)
@@ -35,7 +35,7 @@ def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function
         batch_loss = loss_function(prediction.view(-1, num_labels), batch_labels.view(-1))
     return batch_loss
 
-def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, loss_strategy, wandb=None):
+def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, wandb=None):
 
     model.eval()
     avg_accuracy = 0
@@ -76,7 +76,7 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
         
     return avg_accuracy, avg_loss
 
-def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', loss_strategy="sum", wandb=None, device_list=[], eval_dataloader=None, training_counter=0):
+def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size, save_dir, loss_function, device='cpu', wandb=None, device_list=[], eval_dataloader=None, training_counter=0):
 
     # Writing training log.
     log_path = os.path.join(save_dir, "log.csv")
@@ -119,7 +119,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
         model.train()
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1}/{epoch_size}]"):
             input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
-            batch_loss = forward(model, input_ids, attention_mask, label, loss_function, device, loss_strategy)
+            batch_loss = forward(model, input_ids, attention_mask, label, loss_function, device)
             lr = optimizer.param_groups[0]['lr']
             epoch_loss += batch_loss
 
