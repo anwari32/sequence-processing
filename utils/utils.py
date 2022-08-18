@@ -410,3 +410,9 @@ def is_exists_splice_site_in_sequence(target_list, list=['iiE', 'iEi', 'Eii', 'i
             found = True
     return found
 
+def is_intron(labels):
+    return all([a == "iii" for a in labels])
+
+def is_exon(labels):
+    return all([a == "EEE" for a in labels])
+
