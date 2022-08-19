@@ -5,6 +5,7 @@ import os
 import sys
 import pandas as pd
 from getopt import getopt
+from tqdm import tqdm
 
 def parse_args(argv):
     opts, _ = getopt(argv, "s:d:", ["source-log=", "destination-dir="])
@@ -29,6 +30,6 @@ if __name__ == "__main__":
     epochs = df["epoch"].unique()
     fname = os.path.basename(source_log).split('.')[:-1]
     fname = '.'.join(fname)
-    for epoch in epochs:
+    for epoch in tqdm(epochs, total=len(epochs), desc="Processing log at epoch"):
         ndf = df[df["epoch"] == epoch]
         ndf.to_csv(os.path.join(dest_dir, f"{dest_dir}.{epoch}.csv"), index=False)
