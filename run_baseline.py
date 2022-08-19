@@ -69,21 +69,15 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 loss = criterion(predictions.view(-1, num_labels), target_labels.view(-1))
             for input_id, pred, label in zip(input_ids, predictions, target_labels):
                 q = input_id.view(-1).tolist()
-                q = q[1:] # Remove CLS token from input
-                q = [a for a in q if a >= 0] # Remove padding token.
                 qlist = [str(int(a)) for a in q]
                 qlist = " ".join(qlist)
 
                 pval, p = torch.max(pred, 1)
                 p = p.tolist()
-                p = p[1:] # Remove CLS token from prediction.
-                p = p[0:len(q)] # Remove padding prediction. 
                 plist = [str(a) for a in p]
                 plist = " ".join(plist)
 
                 l = label.tolist()
-                l = l[1:] # Remove CLS token from label
-                l = l[0:len(q)] # Remove padding label.
                 llist = [str(a) for a in l]
                 llist = " ".join(llist)
 
@@ -91,7 +85,7 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 for i, j in zip(p, l):
                     accuracy += (1 if i == j else 0)
                 accuracy = accuracy / len(q) * 100
-                validation_log.write(f"{epoch},{step},{qlist},{plist},{llist},{accuracy}\n")
+                validation_log.write(f"{epoch},{step},{qlist},{plist},{llist},{accuracy},{loss.item()}\n")
                 wandb.log({"validation/accuracy": accuracy, "epoch": epoch})
             
         torch.save({
