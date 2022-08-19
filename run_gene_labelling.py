@@ -143,7 +143,7 @@ if __name__ == "__main__":
     project_name = args.get("project-name", "gene-sequential-labelling")
     run_name = args.get("run-name", "gene-seqlab")
     model_config_dir = args.get("model-config-dir", None)
-    model_configs = args.get("model-config", None)
+    model_configs = args.get("model-config-names", None)
     model_config_names = ", ".join(model_configs)
     device = args.get("device", None)
     device_list = args.get("device-list", [])
