@@ -12,9 +12,9 @@ def parse_args(argv):
     outputs = {}
     for o, a in opts:
         if o in ["-s", "--source-log"]:
-            o["source-log"] = a 
+            outputs["source-log"] = a 
         elif o in ["-d", "--destination-dir"]:
-            o["destination-dir"] = a
+            outputs["destination-dir"] = a
         else:
             raise ValueError(f"Argument {o} not recognized.")
 
