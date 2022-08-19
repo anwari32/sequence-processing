@@ -4,7 +4,7 @@
     "validation_data": "workspace\\seqlab\\seqlab-3\\gene_validation_bundle.10.csv",
     "test_data": "workspace\\seqlab\\seqlab-3\\gene_test_bundle.10.csv",
     "freeze_bert": 0,
-    "num_epochs": 10,
+    "num_epochs": 20,
     "batch_size": 32,
     "optimizer": {
         "name": "adamw",
