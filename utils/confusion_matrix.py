@@ -26,7 +26,7 @@ def create_cf_matrix(df):
 
     return predictions, targets
 
-def create_confusion_matrix(csv_file, epoch=0):
+def create_confusion_matrix(csv_file, epoch=-1):
     # raise NotImplementedError("Function is not implemented.")
     df = pd.read_csv(csv_file)
     if epoch < 0:

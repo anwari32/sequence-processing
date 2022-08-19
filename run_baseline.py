@@ -119,7 +119,7 @@ if __name__ == "__main__":
         eps=1e-6,
         weight_decay=0.01
     )
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.01)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.1)
     training_config = json.load(open(training_config_path, "r"))
     batch_size = args.get("batch-size", training_config.get("batch_size", 1))
     num_epochs = args.get("num-epochs", training_config.get("num_epochs_size", 1))

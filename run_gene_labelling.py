@@ -25,19 +25,6 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
         criterion_weight = criterion_weight.to(device)
         # print("Criterion location ", criterion_weight.device)
     num_labels = model.num_labels
-
-    # loss_weight_10 = torch.Tensor([0.0001555761504390511, 0.9998775560181217, 0.0001555761504390511, 0.9969478696129899, 1.0, 0.9971913542557089, 0.0001555761504390511, 0.0019914280314346157])
-    # loss_weight_25 = torch.Tensor([0.00015717190553216775, 0.9999030960802364, 0.00015717190553216775, 0.9997093445720099, 1.0, 1.0, 0.00015717190553216775, 0.0020191783293449415])
-    # loss_weight = torch.Tensor([0.0001583913443766686, 1.0, 0.0001583913443766686, 1.0, 0.9999639301688068, 0.9999639301688068, 0.0001583913443766686, 0.0020260445716651057])
-
-    # criterion = None
-    # if loss_weight == "10":
-    #    criterion = CrossEntropyLoss(weight=loss_weight_10)
-    # elif loss_weight == "25":
-    #    criterion = CrossEntropyLoss(weight=loss_weight_25)
-    # elif loss_weight == "100":
-    #    criterion = CrossEntropyLoss(weight=loss_weight)
-    # else:
     criterion = CrossEntropyLoss(weight=criterion_weight)
     
     n_train_data = len(train_dataloader)
