@@ -10,6 +10,7 @@ from models.baseline import Baseline
 from utils.seqlab import preprocessing_kmer
 from transformers import BertTokenizer
 from tqdm import tqdm
+import numpy as np
 
 def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_size, num_epochs, device, save_dir, wandb, start_epoch=0, device_list=[], loss_weight=None):
     model.to(device)
@@ -60,6 +61,10 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         scheduler.step()
 
         model.eval()
+        cf_metric_name = f"cf_matrix/confusion-matrix-{wandb.run.name}-{epoch}"
+        wandb.define_metric(cf_metric_name, step_metric="epoch")
+        y_test = []
+        y_pred = []
         for step, batch in tqdm(enumerate(eval_dataloader), total=len_eval_dataloader, desc=f"Validation {epoch + 1}/{num_epochs}"):
             input_ids, attention_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
             input_ids = input_ids.reshape(input_ids.shape[0], input_ids.shape[1], 1)
@@ -80,14 +85,29 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 l = label.tolist()
                 llist = [str(a) for a in l]
                 llist = " ".join(llist)
-
+                
+                filtered_label = l[1:]
+                filtered_label = [a for a in filtered_label if a > 0]
+                filtered_pred = p[1:]
+                filtered_pred = p[0:len(filtered_label)]
+                y_test = np.concatenate((y_test, filtered_label))
+                y_pred = np.concatenate((y_pred, filtered_pred))
+                
                 accuracy = 0
                 for i, j in zip(p, l):
                     accuracy += (1 if i == j else 0)
                 accuracy = accuracy / len(q) * 100
                 validation_log.write(f"{epoch},{step},{qlist},{plist},{llist},{accuracy},{loss.item()}\n")
                 wandb.log({"validation/accuracy": accuracy, "epoch": epoch})
-            
+
+        wandb.log({
+            cf_metric_name: wandb.plot.confusion_matrix(
+                probs=None,
+                y_true=y_test, 
+                preds=y_pred,
+                class_names=[c for c in range(8)])
+            })
+
         torch.save({
             "model": model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict(),
             "optimizer": optimizer.state_dict(),
