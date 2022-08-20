@@ -150,6 +150,18 @@ if __name__ == "__main__":
         epoch = int(checkpoint.get("epoch"))
         start_epoch = epoch + 1
 
+    print("Running Baseline")
+    print(f"Scenario {run.name}")
+    print(f"Num epocs {num_epochs}")
+    print(f"Batch size {batch_size}")
+    print(f"Start epoch {start_epoch}")
+    print(f"Save Dir {save_dir}")
+    str_device_list = [torch.cuda.get_device_name(d) for d in device_list]
+    str_device_list = ', '.join(str_device_list)
+    print(f"Device(s) {torch.cuda.get_device_name(device)} {str_device_list}")
+    str_loss_weight = loss_weight if use_weighted_loss else ""
+    print(f"Use weighted loss {use_weighted_loss} {str_loss_weight}")
+
     train(model, 
         optimizer, 
         scheduler,
