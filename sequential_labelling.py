@@ -7,39 +7,11 @@ from torch.cuda.amp import autocast, GradScaler
 import wandb
 from models.seqlab import DNABERT_SL
 
-def forward(model, batch_input_ids, batch_attn_mask, batch_labels, loss_function, device):
-    # Make sure model and data are in the same device.
-    model.to(device)
-    batch_input_ids.to(device)
-    batch_attn_mask.to(device)
-    batch_labels.to(device)
-
-    with autocast():
-        prediction, bert_output = model(batch_input_ids, batch_attn_mask)
-
-        # Since loss function can only works without batch dimension, I need to loop the loss for each tokens in batch dimension.
-        batch_loss = None
-        #for pred, labels in zip(prediction, batch_labels):
-        #    loss = loss_function(pred, labels)
-        #    if batch_loss == None:
-        #        batch_loss = loss
-        #    else:
-        #        batch_loss += loss
-        #if loss_strategy in ["average", "avg"]:
-        #    batch_loss = batch_loss/batch_input_ids.shape[0]
-        num_labels = utils.seqlab.NUM_LABELS
-        #if isinstance(model, torch.nn.DataParallel):
-        #    num_labels = model.module.seqlab_head.num_labels
-        #else:
-        #    num_labels = model.seqlab.num_labels
-        batch_loss = loss_function(prediction.view(-1, num_labels), batch_labels.view(-1))
-    return batch_loss
-
-def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoch, loss_fn, wandb=None):
-
+def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb):
     model.eval()
     avg_accuracy = 0
     avg_loss = 0
+    eval_log = os.path.join(save_dir, f"validation_log.{epoch}.csv")
     eval_log_file = None
     if os.path.exists(eval_log):
         eval_log_file = open(eval_log, "a")
@@ -57,9 +29,6 @@ def evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, num_epoc
                 batch_loss += loss
                 accuracy = 0
                 pscores, pindices = torch.max(pred, 1)
-                #print(pscores)
-                #print(pindices)
-                #print(label)
                 pindices_str = [str(a) for a in pindices.tolist()]
                 label_str = [str(a) for a in label.tolist()]
                 for idx, lab in zip(pindices_str, label_str):
@@ -118,19 +87,14 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
         epoch_loss = 0
         model.train()
         for step, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader), desc=f"Epoch [{epoch + 1}/{epoch_size}]"):
-            input_ids, attention_mask, input_type_ids, label = tuple(t.to(device) for t in batch)    
-            batch_loss = forward(model, input_ids, attention_mask, label, loss_function, device)
-            lr = optimizer.param_groups[0]['lr']
-            epoch_loss += batch_loss
-
-            if scaler:
-                scaler.scale(batch_loss).backward()
-            else:
-                batch_loss.backward()                
-
-            scaler.step(optimizer)
-            scaler.update()
             optimizer.zero_grad()
+            input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)    
+            with autocast():
+                prediction, bert_output = model(input_ids, attention_mask)
+                batch_loss = loss_function(prediction.view(-1, 8), batch_labels.view(-1))
+            batch_loss.backward()
+            epoch_loss += batch_loss
+            optimizer.step()
 
             wandb.log({"batch_loss": batch_loss})
             log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
@@ -145,27 +109,18 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
         # After an epoch, evaluate.
         if eval_dataloader != None:
             model.eval()
-            eval_log = os.path.join(os.path.dirname(log_path), "eval_log.csv")
-            avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, eval_log, epoch, epoch_size, loss_function, wandb)
-
+            avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, epoch_size, loss_function, wandb)
             best_accuracy = best_accuracy if best_accuracy > avg_accuracy else avg_accuracy
-            validation_log = {
+            wandb.log({
                 VALIDATION_ACCURACY: avg_accuracy,
                 VALIDATION_LOSS: avg_loss.item(),
                 VALIDATION_EPOCH: epoch
-            }
-            wandb.log(validation_log)
+            })
 
             # Save trained model if this epoch produces better model.
             # EDIT 6 June 2022: Save for each epoch. 
+            # EDIT 21 August 2022: Save just the latest epoch to save disk space.
             _model = model.module if isinstance(model, torch.nn.DataParallel) else model
-            save_checkpoint(_model, optimizer, scheduler, {
-                "loss": epoch_loss.item(), # Take the value only, not whole tensor structure.
-                "epoch": epoch,
-                "avg_accuracy": avg_accuracy,
-                "avg_loss": avg_loss.item(),
-                "best_accuracy": best_accuracy,
-            }, os.path.join(save_dir, f"checkpoint-{epoch}"))
             latest_dir = os.path.join(save_dir, "latest")
             latest_model = os.path.join(latest_dir, "checkpoint.pth")
             if not os.path.exists(latest_dir):
