@@ -50,7 +50,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     # Writing training log.
     log_path = os.path.join(save_dir, "log.csv")
     log_file = open(log_path, 'x')
-    log_file.write('epoch,step,batch_loss,epoch_loss,learning_rate\n')
+    log_file.write('epoch,step,batch_loss,epoch_loss\n')
 
     model.to(device)
 
@@ -95,7 +95,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             batch_loss.backward()
             epoch_loss += batch_loss
             optimizer.step()
-
+            lr = optimizer.param_groups[0]['lr']
             wandb.log({"batch_loss": batch_loss})
             log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
         
