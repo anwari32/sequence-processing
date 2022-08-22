@@ -87,7 +87,7 @@ if __name__ == "__main__":
             resume_run_ids.append(None)
 
     model_config_names = ", ".join(model_config_names)
-    run_name = args.get("run_name", "sequence-labelling")
+    run_name = args.get("run-name", "sequence-labelling")
 
     print(f"~~~~~Training Sequential Labelling~~~~~")
     print(f"# Training Data {n_train_data}")

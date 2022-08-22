@@ -30,14 +30,10 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
     n_train_data = len(train_dataloader)
     n_validation_data = len(validation_dataloader)
     training_log_path = os.path.join(save_dir, "training_log.csv")
-    validation_log_path = os.path.join(save_dir, "validation_log.csv")
-    for p in [training_log_path, validation_log_path]:
-        if os.path.exists(p):
-            os.remove(p)
+    if os.path.exists(training_log_path):
+        os.remove(training_log_path)
     training_log = open(training_log_path, "x")
-    validation_log = open(validation_log_path, "x")
     training_log.write("epoch,step,sequence,prediction,target,loss\n")
-    validation_log.write("epoch,step,sequence,prediction,target,loss,accuracy\n")
 
     wandb.define_metric("epoch")
     wandb.define_metric("accuracy", step_metric="epoch")
@@ -61,7 +57,7 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
                 batch_loss = criterion(prediction.view(-1, num_labels), labels.view(-1))
             batch_loss.backward()
             wandb.log({"train/batch_loss": batch_loss.item(), "learning_rate": scheduler.optimizer.param_groups[0]['lr']})
-            optimizer.step()                
+            optimizer.step()
             for inputs, pred, label, m in zip(input_ids, prediction, labels, markers):
                 pred_vals, pred_indices = torch.max(pred, 1)
                 pred_list = " ".join([str(a) for a in pred_indices.tolist()])
@@ -82,6 +78,12 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
         hidden_units = None
         mark = None
         average_accuracy = 0
+    
+        validation_log_path = os.path.join(save_dir, f"validation_log.{epoch}.csv")
+        if os.path.exists(validation_log_path):
+            os.remove(validation_log_path)
+        validation_log = open(validation_log_path, "x")
+        validation_log.write("epoch,step,sequence,prediction,target,loss,accuracy\n")
         for step, batch in tqdm(enumerate(validation_dataloader), total=n_validation_data, desc=f"Validating {epoch + 1}/{num_epochs}"):
             input_ids, attention_mask, token_type_ids, labels, markers = tuple(t.to(device) for t in batch)
             if mark == None:
@@ -124,9 +126,10 @@ def train(model, optimizer, scheduler, train_dataloader, validation_dataloader, 
         for p in [checkpoint_dir, backup_dir]:
             os.makedirs(p, exist_ok=True)
         
-        torch.save(model.state_dict(), os.path.join(backup_dir, "model.pth"))
-        torch.save(optimizer.state_dict(), os.path.join(backup_dir, "optimizer.pth"))
-        torch.save(scheduler.state_dict(), os.path.join(backup_dir, "scheduler.pth"))
+        # EDIT 21 August 2022: Remove saving model, optimizer, and scheduler for each epoch to save disk space.
+        #torch.save(model.state_dict(), os.path.join(backup_dir, "model.pth"))
+        #torch.save(optimizer.state_dict(), os.path.join(backup_dir, "optimizer.pth"))
+        #torch.save(scheduler.state_dict(), os.path.join(backup_dir, "scheduler.pth"))
         torch.save({
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),

@@ -26,17 +26,18 @@ def create_cf_matrix(df):
 
     return predictions, targets
 
-def create_confusion_matrix(csv_file, epoch=-1):
+def create_confusion_matrix(csv_file, epoch=-1, frac=1):
     # raise NotImplementedError("Function is not implemented.")
     df = pd.read_csv(csv_file)
     if epoch < 0:
         # Select max epoch from csv file.
         epoch = max((df["epoch"]).unique())
 
+    df = df.sample(frac=frac)
     df = df[df["epoch"] == epoch]
     predictions = np.array([], int)
     targets = np.array([], int)
-    for i, r in tqdm(df.iterrows(), total=df.shape[0], desc="Processing : "):
+    for i, r in tqdm(df.iterrows(), total=df.shape[0], desc="Processing"):
         target = r["target"].split(' ')
         target = [int(a) for a in target]
         target = target[1:] # Discard CLS token label.
