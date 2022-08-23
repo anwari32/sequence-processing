@@ -31,6 +31,9 @@ if __name__ == "__main__":
     exon_bundle_path = os.path.join(destination_bundle_dir_path, "exon_bundle.csv")
 
     for a in [splice_site_bundle_path, intron_bundle_path, exon_bundle_path]:
+        adirname = os.path.dirname(a)
+        if not os.path.exists(adirname):
+            os.makedirs(adirname, exist_ok=True)
         if os.path.exists(a):
             os.remove(a)
 
