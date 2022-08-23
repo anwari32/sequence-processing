@@ -23,11 +23,11 @@ def generate_splice_site_all_pos_bundle(gene_index, source_gene_dir, bundle_dest
         os.remove(bundle_path)
     
     bundle_file = open(bundle_path, "x")
-    intron_file = open(intron_path, "x")
-    exon_file = open(exon_path, "x")
+    #intron_file = open(intron_path, "x")
+    #exon_file = open(exon_path, "x")
     bundle_file.write("sequence,label\n")
-    intron_file.write("sequence,label\n")
-    exon_file.write("sequence,label\n")
+    #intron_file.write("sequence,label\n")
+    #exon_file.write("sequence,label\n")
 
     index_df = pd.read_csv(gene_index)
     for _, r in tqdm(index_df.iterrows(), total=index_df.shape[0], desc="Processing Gene"):
@@ -42,14 +42,16 @@ def generate_splice_site_all_pos_bundle(gene_index, source_gene_dir, bundle_dest
                 arr_sublabel = kmer(sublabel, kmer_size)
                 subsequence = sequence[i:i+chunk_size]
                 # if is_exists_splice_site_in_sequence(arr_sublabel):
-                if is_intron(arr_sublabel):
-                    intron_file.write(f"{str_kmer(subsequence, kmer_size)},{' '.join(arr_sublabel)}\n")
-                elif is_exon(arr_sublabel):
-                    exon_file.write(f"{str_kmer(subsequence, kmer_size)},{' '.join(arr_sublabel)}\n")
-                elif not is_intron(arr_sublabel) and not is_exon(arr_sublabel):
+                #if is_intron(arr_sublabel):
+                #    intron_file.write(f"{str_kmer(subsequence, kmer_size)},{' '.join(arr_sublabel)}\n")
+                #elif is_exon(arr_sublabel):
+                #    exon_file.write(f"{str_kmer(subsequence, kmer_size)},{' '.join(arr_sublabel)}\n")
+                #elif not is_intron(arr_sublabel) and not is_exon(arr_sublabel):
+                #    bundle_file.write(f"{str_kmer(subsequence, kmer_size)},{' '.join(arr_sublabel)}\n")
+                #else:
+                #    raise ValueError(f"Label sequence {arr_sublabel} not recognized.")
+                if not is_intron(arr_sublabel) and not is_exon(arr_sublabel):
                     bundle_file.write(f"{str_kmer(subsequence, kmer_size)},{' '.join(arr_sublabel)}\n")
-                else:
-                    raise ValueError(f"Label sequence {arr_sublabel} not recognized.")
                     
     bundle_file.close()        
 

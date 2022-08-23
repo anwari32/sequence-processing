@@ -34,14 +34,6 @@ if __name__ == "__main__":
         if os.path.exists(a):
             os.remove(a)
 
-    def at_least_one_exists(list, target_list):
-        # Check if at leats one element of list exists in target_list.
-        found = False
-        for elem in list:
-            if elem in target_list:
-                found = True
-        return found
-
     splice_sites = ['iiE', 'iEi', 'Eii', 'iEE', 'EEi', 'EiE']
 
     bundle_df = pd.read_csv(bundle_path)
