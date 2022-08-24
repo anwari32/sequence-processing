@@ -14,8 +14,9 @@ def generate_splice_site_all_pos_bundle(gene_index, source_gene_dir, bundle_dest
     """
     os.makedirs(bundle_dest_dir, exist_ok=True)
     index_name = os.path.basename(gene_index)
-    index_name = index_name.split('.')[0]
-    bundle_path = os.path.join(bundle_dest_dir, f"{index_name}_splice_site_all_pos.csv")
+    index_name = index_name.split('.')[:-1]
+    index_name = '.'.join(index_name)
+    bundle_path = os.path.join(bundle_dest_dir, f"{index_name}_ss_all_pos.csv")
     intron_path = os.path.join(bundle_dest_dir, f"{index_name}_intron.csv")
     exon_path = os.path.join(bundle_dest_dir, f"{index_name}_exon.csv")
 
