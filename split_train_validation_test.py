@@ -14,9 +14,11 @@ def parse_args(argv):
         else:
             raise ValueError(f"Argument {o} not recognized.")
 
+    return outputs
+
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
-    fsource = args.get("bundle", False)
+    fsource = args.get("source", False)
 
     df = pd.read_csv(fsource)
     train_df = df.sample(frac=0.8, random_state=1337)
