@@ -26,7 +26,8 @@ if __name__ == "__main__":
     test_df = validation_df.sample(frac=0.5, random_state=1337)
     validation_df = validation_df.drop(test_df.index)
 
-    fname = fsource.split('.')[:-1]
+    filename = os.path.basename(fsource)
+    fname = filename.split('.')[:-1]
     fname = '.'.join(fname)
     dirname = args.get("destination-dir", False)
     train_path = os.path.join(dirname, f"{fname}_train.csv")
