@@ -1,8 +1,8 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "train_data": "workspace\\seqlab\\seqlab-3\\gene_index.10_ss_all_pos.train.csv",
-    "validation_data": "workspace\\seqlab\\seqlab-3\\gene_index.10_ss_all_pos.validation.csv",
-    "test_data": "workspace\\seqlab\\seqlab-3\\gene_index.10_ss_all_pos.test.csv",
+    "train_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-10\\ss_compiled_train.csv",
+    "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-10\\ss_compiled_validation.csv",
+    "test_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-10\\ss_compiled_test.csv",
     "freeze_bert": 0,
     "num_epochs": 10,
     "batch_size": 32,
