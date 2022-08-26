@@ -51,11 +51,15 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     validation_log.write("epoch,step,sequence,prediction,target,accuracy,loss\n")
 
     num_labels = model.num_labels
+    num_training_genes = len(training_genes)
+    num_validation_genes = len(validation_genes)
     model.to(device)
     wandb.define_metric("epoch")
-    for epoch in tqdm(range(start_epoch, num_epochs), total=(num_epochs-start_epoch), desc="Training "):
+    # for epoch in tqdm(range(start_epoch, num_epochs), total=(num_epochs-start_epoch), desc="Training "):
+    for epoch in range(start_epoch, num_epochs):
         model.train()
-        for training_gene_file in training_genes:
+        # for training_gene_file in training_genes:
+        for training_gene_file in tqdm(training_genes, total=num_training_genes, desc=f"Training at Epoch {epoch + 1}/{num_epochs}"):
             dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
             loss_weight = None
             if use_weighted_loss:
@@ -80,7 +84,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         model.eval()
         sequential_labels = [k for k in Label_Dictionary.keys() if Label_Dictionary[k] >= 0]
         sequential_label_indices = [k for k in range(8)]
-        for validation_gene_file in validation_genes:
+        # for validation_gene_file in validation_genes:
+        for validation_gene_file in tqdm(validation_genes, total=num_validation_genes, desc=f"Validating at Epoch {epoch + 1}/{num_epochs}"):
             dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size)
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
             for k in sequential_labels:
