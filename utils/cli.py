@@ -30,6 +30,7 @@ def parse_args(argvs):
         "run-name=",
         "device-list=",
         "project-name=",
+        "accumulate-gradient",
         "use-weighted-loss",
         "baseline",
         "sequence",
@@ -68,6 +69,8 @@ def parse_args(argvs):
             output["model"] = "recurrent"
         elif o in ["--offline"]:
             output["offline"] = True
+        elif o in ["accumulate-gradient"]:
+            output["accumulate-gradient"] = True
         else:
             raise ValueError(f"Option {o} is not recognized.")
     return output

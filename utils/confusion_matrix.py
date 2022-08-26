@@ -41,7 +41,7 @@ def create_confusion_matrix(csv_file, epoch=-1, frac=1):
         target = r["target"].split(' ')
         target = [int(a) for a in target]
         target = target[1:] # Discard CLS token label.
-        target = [a for a in target if a >= 0]
+        target = [a for a in target if a >= 0] # Discard padding token label.
         target = np.array(target, int)
         targets = np.concatenate((targets, target))
         prediction = r["prediction"].split(' ')

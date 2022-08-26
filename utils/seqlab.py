@@ -221,3 +221,43 @@ def preprocessing_gene_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size,
     dataloader = DataLoader(dataset, batch_size=1)
     
     return dataloader
+
+def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_size=1, disable_tqdm=False) -> DataLoader:
+    r"""
+    Creates dataloader based-on massive dataset.
+    Sequence and label in `csv_file` are parsed with sliding window with `window_size` = 512 and sliding one character.
+    * :attr:`csv_file`
+    * :attr:`tokenizer`
+    * :attr:`batch_size`
+    * :attr:`disable_tqdm`
+    """
+    
+    df = pd.read_csv(csv_file)
+    sequence = df.iloc[0, 0]
+    label = df.iloc[0, 1]
+    arr_input_ids = []
+    arr_attention_mask = []
+    arr_token_type_ids = []
+    arr_label_repr = []
+    for k in range(len(sequence) - 512):
+        subsequence = sequence[k:k+512]
+        subsequence_kmer = str_kmer(subsequence, 3, 1)
+        sublabel = label[k:512]
+        sublabel_kmer = str_kmer(sublabel, 3, 1)
+        input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(subsequence_kmer, sublabel_kmer, tokenizer)
+        arr_input_ids.append(input_ids)
+        arr_attention_mask.append(attention_mask)
+        arr_token_type_ids.append(token_type_ids)
+        arr_label_repr.append(label_repr)
+
+    dataset = TensorDataset(
+        tensor(arr_input_ids),
+        tensor(arr_attention_mask),
+        tensor(arr_token_type_ids),
+        tensor(arr_label_repr)
+    )
+    dataloader = DataLoader(dataset, batch_size=1)
+    return dataloader
+
+
+
