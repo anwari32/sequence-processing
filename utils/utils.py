@@ -379,6 +379,7 @@ def create_loss_weight(csv_path, verbose=False, ignorance_level=1):
             else:
                 w.append(min_ss / count_dict[k])
         except ZeroDivisionError:
+            print(f"gene file {csv_path}")
             print(f"error {k} => {count_dict[k]}")
 
     if verbose:
