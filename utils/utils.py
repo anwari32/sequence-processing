@@ -374,13 +374,14 @@ def create_loss_weight(csv_path, verbose=False, ignorance_level=1):
     w = []
     for k in count_dict.keys():
         try:
-            if count_dict[k] < min_ss:
+            if min_ss > count_dict[k]:
                 w.append(min_ss / (ignorance_level * max_value))
             else:
                 w.append(min_ss / count_dict[k])
         except ZeroDivisionError:
             print(f"gene file {csv_path}")
             print(f"error {k} => {count_dict[k]}")
+            w.append(0)
 
     if verbose:
         print(f"Label count {count_dict}")
