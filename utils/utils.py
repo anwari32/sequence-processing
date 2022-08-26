@@ -346,7 +346,7 @@ def save_config(obj, save_path):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     json.dump(obj, open(save_path, 'x'))
 
-def create_loss_weight(csv_path):
+def create_loss_weight(csv_path, verbose=False):
     from utils.seqlab import Label_Dictionary
     labels = []
     for k in Label_Dictionary.keys():
@@ -363,7 +363,6 @@ def create_loss_weight(csv_path):
         for token in sequence:
             count_dict[token] += 1
 
-    print(f"Label count {count_dict}")
     values = [count_dict[t] for t in count_dict.keys()]
     max_value = max(values)
     min_value = min([
@@ -378,7 +377,10 @@ def create_loss_weight(csv_path):
             w.append(min_value / max_value)
         else:
             w.append(min_value / count_dict[k])
-    print(f"Label Weight {w}")
+
+    if verbose:
+        print(f"Label count {count_dict}")
+        print(f"Label Weight {w}")
     return torch.Tensor(w)
 
 def is_exists_splice_site_in_sequence(target_list, list=['iiE', 'iEi', 'Eii', 'iEE', 'EEi', 'EiE']):

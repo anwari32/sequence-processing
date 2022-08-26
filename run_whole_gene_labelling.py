@@ -56,7 +56,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     for epoch in tqdm(range(start_epoch, num_epochs), total=(num_epochs-start_epoch), desc="Training "):
         model.train()
         for training_gene_file in training_genes:
-            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size)
+            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
             loss_weight = None
             if use_weighted_loss:
                 loss_weight = create_loss_weight(training_gene_file)
