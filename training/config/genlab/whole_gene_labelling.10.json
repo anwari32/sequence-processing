@@ -1,8 +1,8 @@
 {
     "pretrained": "pretrained\\3-new-12w-0",
-    "training_index": "index\\gene_train_index.sample.csv",
-    "validation_index": "index\\gene_validation_index.sample.csv",
-    "test_index": "index\\gene_test_index.csv",
+    "training_index": "index\\gene_train_index.10.csv",
+    "validation_index": "index\\gene_validation_index.10.csv",
+    "test_index": "index\\gene_test_index.10.csv",
     "gene_dir": "workspace\\genlab\\genlab-3\\gene_dir",
     "num_epochs": 5,
     "batch_size": 1,
