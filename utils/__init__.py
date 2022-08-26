@@ -1,2 +1,2 @@
-from seqlab import *
-from cli import *
+from .seqlab import *
+from .cli import *
