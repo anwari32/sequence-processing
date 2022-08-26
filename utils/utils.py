@@ -365,7 +365,7 @@ def create_loss_weight(csv_path, verbose=False):
 
     values = [count_dict[t] for t in count_dict.keys()]
     max_value = max(values)
-    min_value = min([
+    min_ss = min([
         count_dict['iiE'],
         count_dict['Eii'],
         count_dict['iEE'],
@@ -373,10 +373,13 @@ def create_loss_weight(csv_path, verbose=False):
     ])
     w = []
     for k in count_dict.keys():
-        if count_dict[k] < min_value:
-            w.append(min_value / max_value)
-        else:
-            w.append(min_value / count_dict[k])
+        try:
+            if count_dict[k] < min_ss:
+                w.append(min_ss / (2 * max_value))
+            else:
+                w.append(min_ss / count_dict[k])
+        except ZeroDivisionError:
+            print(f"error {k} => {count_dict[k]}")
 
     if verbose:
         print(f"Label count {count_dict}")
