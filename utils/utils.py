@@ -346,7 +346,7 @@ def save_config(obj, save_path):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     json.dump(obj, open(save_path, 'x'))
 
-def create_loss_weight(csv_path, verbose=False):
+def create_loss_weight(csv_path, verbose=False, ignorance_level=1):
     from utils.seqlab import Label_Dictionary
     labels = []
     for k in Label_Dictionary.keys():
@@ -375,7 +375,7 @@ def create_loss_weight(csv_path, verbose=False):
     for k in count_dict.keys():
         try:
             if count_dict[k] < min_ss:
-                w.append(min_ss / (2 * max_value))
+                w.append(min_ss / (ignorance_level * max_value))
             else:
                 w.append(min_ss / count_dict[k])
         except ZeroDivisionError:
