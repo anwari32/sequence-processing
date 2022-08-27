@@ -36,6 +36,8 @@ class Metrics:
         self.target = target
         self.labels = Label_Dictionary.keys()
         self.indices = [k for k in range(8)]
+        self.Trues = {}
+        self.Falses = {}
         for k in self.labels:
             self.Trues[k] = 0
             self.Falses[k] = 0 

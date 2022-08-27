@@ -109,6 +109,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     jlist = [e for e in jlist if e >= 0] # Remove other special tokens.
                     klist = k[1:] # Remove CLS token.
                     klist = [e for e in klist if e >= 0] # Remove other special tokens.
+
+                    # metrics.
                     metrics = Metrics(jlist, klist)
                     metrics.calculate()
                     for e in sequential_label_indices:
