@@ -89,9 +89,9 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
             for k in sequential_labels:
-                wandb.define_metric(f"validation-{gene_name}/{k}", step="epoch")
-            wandb.define_metric(f"validation-{gene_name}/accuracy", step="epoch")
-            wandb.define_metric(f"validation-{gene_name}/error_rate", step="epoch")
+                wandb.define_metric(f"validation-{gene_name}/{k}", step_metric="epoch")
+            wandb.define_metric(f"validation-{gene_name}/accuracy", step_metric="epoch")
+            wandb.define_metric(f"validation-{gene_name}/error_rate", step_metric="epoch")
             hidden_output = None
             gene_labelling = []
             for step, batch in enumerate(dataloader):
