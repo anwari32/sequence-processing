@@ -86,7 +86,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         sequential_label_indices = [k for k in range(8)]
         # for validation_gene_file in validation_genes:
         for validation_gene_file in tqdm(validation_genes, total=num_validation_genes, desc=f"Validating at Epoch {epoch + 1}/{num_epochs}"):
-            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size)
+            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
             for k in sequential_labels:
                 wandb.define_metric(f"validation-{gene_name}/{k}", step="epoch")
@@ -107,7 +107,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     validation_log.write(f"{epoch},{step},{ilist},{klist},{jlist},{accuracy},{error_rate}\n")
                     jlist = j[1:] # Remove CLS token.
                     jlist = [e for e in jlist if e >= 0] # Remove other special tokens.
-                    klist = k[j:] # Remove CLS token.
+                    klist = k[1:] # Remove CLS token.
                     klist = [e for e in klist if e >= 0] # Remove other special tokens.
                     metrics = Metrics(jlist, klist)
                     metrics.calculate()
