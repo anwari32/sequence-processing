@@ -74,14 +74,22 @@ class Metrics:
 
     def precission(self, label_index, percentage=False):
         label = Index_Dictionary[label_index]
-        ret = self.Trues[label] / (self.Falses[label] + self.Trues[label])
+        ret = 0
+        try:
+            ret = self.Trues[label] / (self.Falses[label] + self.Trues[label])
+        except ZeroDivisionError:
+            ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
 
     def recall(self, label_index, percentage=False):
         label = Index_Dictionary[label_index]
         not_labels = [a for a in self.Falses.key() if a != label]
         sum = np.sum([self.Falses[a] for a in not_labels])
-        ret = self.Trues[label] / (self.Trues[label] + sum)
+        ret = 0
+        try:
+            ret = self.Trues[label] / (self.Trues[label] + sum)
+        except ZeroDivisionError:
+            ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
         
         
