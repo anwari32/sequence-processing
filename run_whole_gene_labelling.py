@@ -24,7 +24,7 @@ from torch import no_grad
 from torch.cuda.amp import autocast
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
-from utils.seqlab import Label_Dictionary, preprocessing_kmer
+from utils.seqlab import Index_Dictionary, Label_Dictionary, preprocessing_kmer
 from utils.utils import create_loss_weight
 from utils.metrics import Metrics, accuracy_and_error_rate
 
@@ -117,7 +117,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     for e in sequential_label_indices:
                         precision = metrics.precission(e, True)
                         wandb.log({
-                            f"validation-{gene_name}/precision-{Label_Dictionary[e]}": precision
+                            f"validation-{gene_name}/precision-{Index_Dictionary[e]}": precision
                         })
                     wandb.log({
                         f"validation-{gene_name}/accuracy": accuracy,
