@@ -44,12 +44,9 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         validation_genes.append(os.path.join(gene_dir, chr_dir, g_file))
     
     training_log_path = os.path.join(save_dir, "training_log.csv")
-    validation_log_path = os.path.join(save_dir, "validation_log.csv")
     training_log = open(training_log_path, "x") if not os.path.exists(training_log_path) else open(training_log_path, "w")
     training_log.write("epoch,step,loss\n")
-    validation_log = open(validation_log_path, "x") if not os.path.exists(validation_log_path) else open(validation_log_path, "w")
-    validation_log.write("epoch,step,sequence,prediction,target,accuracy,loss\n")
-
+    
     num_labels = model.num_labels
     num_training_genes = len(training_genes)
     num_validation_genes = len(validation_genes)
@@ -84,6 +81,11 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         model.eval()
         sequential_labels = [k for k in Label_Dictionary.keys() if Label_Dictionary[k] >= 0]
         sequential_label_indices = [k for k in range(8)]
+        validation_log_path = os.path.join(save_dir, f"validation_log.{epoch}.csv")
+        if os.path.exists(validation_log_path):
+            os.remove(validation_log_path)
+        validation_log = open(validation_log_path, "x")
+        validation_log.write("epoch,step,sequence,prediction,target,accuracy,loss\n")
         # for validation_gene_file in validation_genes:
         for validation_gene_file in tqdm(validation_genes, total=num_validation_genes, desc=f"Validating at Epoch {epoch + 1}/{num_epochs}"):
             dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
@@ -93,7 +95,6 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             wandb.define_metric(f"validation-{gene_name}/accuracy", step_metric="epoch")
             wandb.define_metric(f"validation-{gene_name}/error_rate", step_metric="epoch")
             hidden_output = None
-            gene_labelling = []
             for step, batch in enumerate(dataloader):
                 input_ids, attention_masks, token_type_ids, labels = tuple(t.to(device) for t in batch)
                 with no_grad():
@@ -124,7 +125,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                         f"validation-{gene_name}/error_rate": error_rate
                     })
 
-
+        validation_log.close()
+        wandb.save(validation_log_path)
         checkpoint_path = os.path.join(save_dir, "latest", "checkpoint.pth")
         save_path = os.path.join(save_dir, f"checkpoint-{epoch}.pth")
         checkpoint = {
@@ -137,7 +139,6 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         torch.save(checkpoint, save_path)
 
     training_log.close()
-    validation_log.close()
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
