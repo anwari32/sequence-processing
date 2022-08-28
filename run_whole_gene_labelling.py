@@ -105,11 +105,11 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     klist = k.tolist()
                     accuracy, error_rate = accuracy_and_error_rate(i, j, k)
                     validation_log.write(f"{epoch},{step},{ilist},{klist},{jlist},{accuracy},{error_rate}\n")
-                    jlist = j[1:] # Remove CLS token.
-                    jlist = [e for e in jlist if e >= 0] # Remove other special tokens.
                     klist = k[1:] # Remove CLS token.
+                    jlist = j[1:] # Remove CLS token.
                     klist = [e for e in klist if e >= 0] # Remove other special tokens.
-
+                    jlist = jlist[0:len(klist)] # Remove other special tokens.
+                    
                     # metrics.
                     metrics = Metrics(jlist, klist)
                     metrics.calculate()
