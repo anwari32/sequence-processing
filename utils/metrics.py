@@ -48,6 +48,12 @@ class Metrics:
             self.Trues[k] = 0
             self.Falses[k] = 0 
         self.special_tokens = 0
+    
+    def get_label_counts(self):
+        return {
+            "Trues": self.Trues,
+            "Falses": self.Falses
+        } 
 
     def calculate(self):
         n_pred = len(self.prediction)
