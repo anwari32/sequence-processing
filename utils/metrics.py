@@ -1,5 +1,6 @@
 from utils.seqlab import Index_Dictionary, Label_Dictionary
 import numpy as np
+import torch
 
 def accuracy_and_error_rate(input_ids, prediction, target):
     if not (input_ids.shape == prediction.shape == target.shape):
@@ -32,6 +33,11 @@ class Metrics:
         * :attr:`prediction`
         * :attr:`target`
         """
+        if isinstance(prediction, torch.tensor):
+            raise TypeError(f"prediction type error. expected type Array found {type(prediction)}")
+        if isinstance(target, torch.tensor):
+            raise TypeError(f"target type error. expected type Array found {type(target)}")
+            
         self.prediction = prediction
         self.target = target
         self.labels = Label_Dictionary.keys()
