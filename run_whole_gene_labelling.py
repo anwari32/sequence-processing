@@ -109,6 +109,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     jlist = j[1:] # Remove CLS token.
                     klist = [e for e in klist if e >= 0] # Remove other special tokens.
                     jlist = jlist[0:len(klist)] # Remove other special tokens.
+                    print(klist)
+                    print(jlist)
                     
                     # metrics.
                     metrics = Metrics(jlist, klist)
