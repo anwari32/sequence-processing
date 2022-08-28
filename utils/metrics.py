@@ -33,11 +33,11 @@ class Metrics:
         * :attr:`prediction`
         * :attr:`target`
         """
-        if isinstance(prediction, torch.tensor):
+        if isinstance(prediction, torch.Tensor):
             raise TypeError(f"prediction type error. expected type Array found {type(prediction)}")
-        if isinstance(target, torch.tensor):
+        if isinstance(target, torch.Tensor):
             raise TypeError(f"target type error. expected type Array found {type(target)}")
-            
+
         self.prediction = prediction
         self.target = target
         self.labels = Label_Dictionary.keys()
