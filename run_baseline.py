@@ -93,10 +93,10 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 llist = [str(a) for a in l]
                 llist = " ".join(llist)
                 
-                filtered_label = l[1:]
-                filtered_label = [a for a in filtered_label if a > 0]
-                filtered_pred = p[1:]
-                filtered_pred = p[0:len(filtered_label)]
+                filtered_label = l[1:] # Remove CLS token.
+                filtered_label = [a for a in filtered_label if a >= 0] # Remove special tokens.
+                filtered_pred = p[1:] # Remove CLS token.
+                filtered_pred = p[0:len(filtered_label)] # Remove special tokens.
                 y_test = np.concatenate((y_test, filtered_label))
                 y_pred = np.concatenate((y_pred, filtered_pred))
                 
@@ -105,16 +105,17 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 for i, j in zip(p, l):
                     accuracy += (1 if i == j else 0)
                 accuracy = accuracy / len(q) * 100
-                metrics = Metrics(filtered_pred, filtered_label)
-                metrics.calculate()
-                for label_index in range(NUM_LABELS):
-                    label = Index_Dictionary[label_index]
-                    wandb.log({
-                        f"validation/{label}": metrics.precission(label_index, percentage=True),
-                        "epoch": epoch
-                    })
                 validation_log.write(f"{epoch},{step},{qlist},{plist},{llist},{accuracy},{loss.item()}\n")
                 wandb.log({"validation/accuracy": accuracy, "epoch": epoch})
+
+        metrics = Metrics(y_pred, y_test)
+        metrics.calculate()
+        for label_index in range(NUM_LABELS):
+            label = Index_Dictionary[label_index]
+            wandb.log({
+                f"validation/{label}": metrics.precission(label_index, percentage=True),
+                "epoch": epoch
+            })
 
         wandb.log({
             cf_metric_name: wandb.plot.confusion_matrix(
