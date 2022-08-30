@@ -7,10 +7,12 @@ import wandb
 from utils.cli import parse_args
 from utils.utils import create_loss_weight
 from models.baseline import Baseline
-from utils.seqlab import preprocessing_kmer
+from utils.seqlab import Index_Dictionary, preprocessing_kmer
 from transformers import BertTokenizer
 from tqdm import tqdm
 import numpy as np
+from utils.metrics import Metrics
+from utils.seqlab import NUM_LABELS
 
 def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_size, num_epochs, device, save_dir, wandb, start_epoch=0, device_list=[], loss_weight=None):
     model.to(device)
@@ -62,6 +64,9 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
 
         model.eval()
         cf_metric_name = f"cf_matrix/confusion-matrix-{wandb.run.name}-{epoch}"
+        for label_index in range(NUM_LABELS):
+            label = Index_Dictionary[label_index]
+            wandb.define_metric(f"validation/{label}", step_metric="epoch")
         wandb.define_metric(cf_metric_name, step_metric="epoch")
         y_test = []
         y_pred = []
@@ -97,6 +102,14 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 for i, j in zip(p, l):
                     accuracy += (1 if i == j else 0)
                 accuracy = accuracy / len(q) * 100
+                metrics = Metrics(filtered_pred, filtered_label)
+                metrics.calculate()
+                for label_index in range(NUM_LABELS):
+                    label = Index_Dictionary[label_index]
+                    wandb.log({
+                        f"validation/{label}": metrics.precission(label_index, percentage=True),
+                        "epoch": epoch
+                    })
                 validation_log.write(f"{epoch},{step},{qlist},{plist},{llist},{accuracy},{loss.item()}\n")
                 wandb.log({"validation/accuracy": accuracy, "epoch": epoch})
 
@@ -105,7 +118,7 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 probs=None,
                 y_true=y_test, 
                 preds=y_pred,
-                class_names=[c for c in range(8)])
+                class_names=[c for c in range(NUM_LABELS)])
             })
 
         torch.save({
@@ -114,6 +127,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
             "scheduler": scheduler.state_dict(),
             "epoch": epoch,
         }, os.path.join(checkpoint_dir, "checkpoint.pth"))
+
+        wandb.save(validation_log_path)
     
     training_log.close()
     validation_log.close()

@@ -222,13 +222,14 @@ def preprocessing_gene_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size,
     
     return dataloader
 
-def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_size=1, disable_tqdm=False) -> DataLoader:
+def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_size=1, dense=True, disable_tqdm=False) -> DataLoader:
     r"""
     Creates dataloader based-on massive dataset.
     Sequence and label in `csv_file` are parsed with sliding window with `window_size` = 512 and sliding one character.
     * :attr:`csv_file`
     * :attr:`tokenizer`
     * :attr:`batch_size`
+    * :attr:`dense`
     * :attr:`disable_tqdm`
     """
     

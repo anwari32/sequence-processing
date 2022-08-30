@@ -71,6 +71,13 @@ class Metrics:
             else:
                 self.Falses[target_label] += 1
 
+    def get_precision(self, percentage=False):
+        dummy = {}
+        for label_index in range(8):
+            precision = self.precission(label_index, percentage=percentage)
+            dummy[label_index] = precision
+        print(dummy)
+        return dummy
 
     def precission(self, label_index, percentage=False):
         label = Index_Dictionary[label_index]
