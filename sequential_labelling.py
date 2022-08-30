@@ -1,13 +1,19 @@
 import torch
 import os
 from tqdm import tqdm
+from utils.metrics import Metrics
 from utils.utils import save_checkpoint
 import utils.seqlab
 from torch.cuda.amp import autocast, GradScaler
 import wandb
 from models.seqlab import DNABERT_SL
+import numpy as np
 
 def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb):
+    for label_index in range(utils.seqlab.NUM_LABELS):
+        label = utils.seqlab.Index_Dictionary[label_index]
+        wandb.define_metric(f"validation/{label}", step_metric="epoch")
+
     model.eval()
     avg_accuracy = 0
     avg_loss = 0
@@ -18,8 +24,10 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
     else:
         eval_log_file = open(eval_log, "x")
         eval_log_file.write("epoch,step,accuracy,loss,prediction,target\n")
+    y_pred = []
+    y_target = []
     with torch.no_grad():
-        for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc=f"Evaluating {epoch + 1}/{num_epoch}"):
+        for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc=f"Evaluating {epoch + 1}/{num_epoch}"): 
             input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
             predictions, bert_output = model(input_ids, attention_mask)
             batch_loss = 0
@@ -37,11 +45,31 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
                 accuracy = accuracy / predictions.shape[1] * 100
                 batch_accuracy += accuracy
                 eval_log_file.write(f"{epoch},{step},{accuracy},{loss.item()},{' '.join(pindices_str)},{' '.join(label_str)}\n")
+                
+                pindices = pindices.tolist()[1:] # Remove CLS
+                label_indices = label.tolist()[1:] # Remove CLS
+                filtered_target = [a for a in label_indices if a >= 0] # Remove special tokens.
+                filtered_pred = pindices[0:len(filtered_target)] # Remove special tokens.
+                
+                y_pred = np.concatenate((y_pred, filtered_pred))
+                y_target = np.concatenate((y_target, filtered_target))
+
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
 
+    metrics = Metrics(y_pred, y_target)
+    metrics.calculate()
+    for label_index in range(utils.seqlab.NUM_LABELS):
+        label = utils.seqlab.Index_Dictionary[label_index]
+        precision = metrics.precission(label_index, percentage=True)
+        wandb.log({
+            f"validation/{label}": precision,
+            "epoch": epoch
+        })
+
     if eval_log_file != None:
         eval_log_file.close()
+    wandb.save(eval_log)
         
     return avg_accuracy, avg_loss
 

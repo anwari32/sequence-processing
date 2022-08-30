@@ -39,6 +39,9 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     
     len_train_dataloader = len(train_dataloader)
     len_eval_dataloader = len(eval_dataloader)
+    for label_index in range(NUM_LABELS):
+        label = Index_Dictionary[label_index]
+        wandb.define_metric(f"validation/{label}", step_metric="epoch")
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
@@ -61,9 +64,6 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
 
         model.eval()
         cf_metric_name = f"cf_matrix/confusion-matrix-{wandb.run.name}-{epoch}"
-        for label_index in range(NUM_LABELS):
-            label = Index_Dictionary[label_index]
-            wandb.define_metric(f"validation/{label}", step_metric="epoch")
         wandb.define_metric(cf_metric_name, step_metric="epoch")
         validation_log_path = os.path.join(save_dir, f"validation_log.{epoch}.csv")
         if os.path.exists(validation_log_path):
