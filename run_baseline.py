@@ -36,9 +36,6 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     training_log_path = os.path.join(save_dir, "training_log.csv")
     training_log = open(training_log_path, "x")
     training_log.write("epoch,step,loss\n")
-    validation_log_path = os.path.join(save_dir, "validation_log.csv")
-    validation_log = open(validation_log_path, "x")
-    validation_log.write("epoch,step,input,prediction,target,loss,accuracy\n")
     
     len_train_dataloader = len(train_dataloader)
     len_eval_dataloader = len(eval_dataloader)
@@ -68,6 +65,11 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
             label = Index_Dictionary[label_index]
             wandb.define_metric(f"validation/{label}", step_metric="epoch")
         wandb.define_metric(cf_metric_name, step_metric="epoch")
+        validation_log_path = os.path.join(save_dir, f"validation_log.{epoch}.csv")
+        if os.path.exists(validation_log_path):
+            os.remove(validation_log_path)
+        validation_log = open(validation_log_path, "x")
+        validation_log.write("epoch,step,input,prediction,target,loss,accuracy\n")
         y_test = []
         y_pred = []
         for step, batch in tqdm(enumerate(eval_dataloader), total=len_eval_dataloader, desc=f"Validation {epoch + 1}/{num_epochs}"):
@@ -98,6 +100,7 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 y_test = np.concatenate((y_test, filtered_label))
                 y_pred = np.concatenate((y_pred, filtered_pred))
                 
+                # metrics
                 accuracy = 0
                 for i, j in zip(p, l):
                     accuracy += (1 if i == j else 0)
@@ -120,6 +123,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 preds=y_pred,
                 class_names=[c for c in range(NUM_LABELS)])
             })
+        validation_log.close()
+        wandb.save(validation_log_path)
 
         torch.save({
             "model": model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict(),
@@ -127,11 +132,9 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
             "scheduler": scheduler.state_dict(),
             "epoch": epoch,
         }, os.path.join(checkpoint_dir, "checkpoint.pth"))
-
-        wandb.save(validation_log_path)
     
     training_log.close()
-    validation_log.close()
+
 
             
 if __name__ == "__main__":
