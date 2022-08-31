@@ -55,6 +55,10 @@ class Metrics:
             self.Trues[k] = 0
             self.Falses[k] = 0 
         self.special_tokens = 0
+
+    def print_cf(self):
+        for i in range(len(self.matrix)):
+            print(self.matrix[i])
     
     def get_label_counts(self):
         return {
@@ -109,10 +113,11 @@ class Metrics:
         
         
 if __name__ == "__main__":
-    rand_prediction = np.random.randint(0, 3, size=10)
-    rand_target = np.random.randint(0, 3, size=10)
+    rand_prediction = np.random.randint(0, 2, size=10)
+    rand_target = np.random.randint(0, 2, size=10)
     metrics = Metrics(rand_prediction, rand_target)
     metrics.calculate()
+    metrics.print_cf()
     print(f"prediction {rand_prediction}")
     print(f"target {rand_target}")
     print("Precision")
