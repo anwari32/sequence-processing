@@ -30,6 +30,7 @@ def parse_args(argvs):
         "run-name=",
         "device-list=",
         "project-name=",
+        "preprocessing-mode="
         "accumulate-gradient",
         "use-weighted-loss",
         "baseline",
@@ -69,8 +70,12 @@ def parse_args(argvs):
             output["model"] = "recurrent"
         elif o in ["--offline"]:
             output["offline"] = True
-        elif o in ["accumulate-gradient"]:
+        elif o in ["--accumulate-gradient"]:
             output["accumulate-gradient"] = True
+        elif o in ["--preprocessing-mode"]:
+            if a not in ["sparse", "dense"]:
+                raise ValueError(f"Argument {o} accepts either `sparse` or `dense` value. Found {a}")
+            output["preprocessing-mode"] = a
         else:
             raise ValueError(f"Option {o} is not recognized.")
     return output

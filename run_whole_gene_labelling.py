@@ -11,6 +11,7 @@ import os
 import json
 import torch
 import wandb
+import numpy as np
 
 from getopt import getopt
 from pathlib import Path, PureWindowsPath
@@ -24,11 +25,11 @@ from torch import no_grad
 from torch.cuda.amp import autocast
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
-from utils.seqlab import Index_Dictionary, Label_Dictionary, preprocessing_kmer
+from utils.seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary, preprocessing_kmer
 from utils.utils import create_loss_weight
 from utils.metrics import Metrics, accuracy_and_error_rate
 
-def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False, accumulate_gradient=False, packed_preprocessing=False):
+def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False, accumulate_gradient=False, preprocessing_mode="sparse"):
     training_index_df = pd.read_csv(training_index_path)
     training_genes = []
     for i, r in training_index_df.iterrows():
@@ -57,6 +58,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         model.train()
         # for training_gene_file in training_genes:
         for training_gene_file in tqdm(training_genes, total=num_training_genes, desc=f"Training at Epoch {epoch + 1}/{num_epochs}"):
+            # TODO: Enable preprocessing sparse and dense.
+            # currently works on certain formatted sequence.
             dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
             loss_weight = None
             if use_weighted_loss:
@@ -78,9 +81,10 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             optimizer.zero_grad() # Automatically reset gradient if a gene has finished.
         scheduler.step()
         
+        # validation.
         model.eval()
         sequential_labels = [k for k in Label_Dictionary.keys() if Label_Dictionary[k] >= 0]
-        sequential_label_indices = [k for k in range(8)]
+        sequential_label_indices = [k for k in range(NUM_LABELS)]
         validation_log_path = os.path.join(save_dir, f"validation_log.{epoch}.csv")
         if os.path.exists(validation_log_path):
             os.remove(validation_log_path)
@@ -92,9 +96,12 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
             for k in sequential_labels:
                 wandb.define_metric(f"validation-{gene_name}/precision-{k}", step_metric="epoch")
+                wandb.define_metric(f"validation-{gene_name}/recall-{k}", step_metric="epoch")
             wandb.define_metric(f"validation-{gene_name}/accuracy", step_metric="epoch")
             wandb.define_metric(f"validation-{gene_name}/error_rate", step_metric="epoch")
             hidden_output = None
+            y_target = []
+            y_pred = []
             for step, batch in enumerate(dataloader):
                 input_ids, attention_masks, token_type_ids, labels = tuple(t.to(device) for t in batch)
                 with no_grad():
@@ -111,19 +118,27 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                     klist = [e for e in klist if e >= 0] # Remove other special tokens.
                     jlist = jlist[0:len(klist)] # Remove other special tokens.
                     
-                    # metrics.
-                    metrics = Metrics(jlist, klist)
-                    metrics.calculate()
-                    print(f"label counts {metrics.get_label_counts()}")
-                    for e in sequential_label_indices:
-                        precision = metrics.precission(e, True)
-                        wandb.log({
-                            f"validation-{gene_name}/precision-{Index_Dictionary[e]}": precision
-                        })
-                    wandb.log({
-                        f"validation-{gene_name}/accuracy": accuracy,
-                        f"validation-{gene_name}/error_rate": error_rate
-                    })
+                    y_target = np.concatenate((y_target, klist))
+                    y_pred = np.concatenate((y_pred, jlist))
+
+            # metrics.
+            metrics = Metrics(y_pred, y_target)
+            metrics.calculate()
+            print(f"label counts {metrics.get_label_counts()}")
+            for e in sequential_label_indices:
+                token_label = Index_Dictionary[e]
+                precision = metrics.precission(e, True)
+                recall = metrics.recall(e, True)
+                wandb.log({
+                    f"validation-{gene_name}/precision-{token_label}": precision,
+                    f"validation-{gene_name}/recall-{token_label}": recall,
+                    "epoch": epoch
+                })
+            wandb.log({
+                f"validation-{gene_name}/accuracy": accuracy,
+                f"validation-{gene_name}/error_rate": error_rate,
+                "epoch": epoch
+            })
 
         validation_log.close()
         wandb.save(validation_log_path)
@@ -164,9 +179,9 @@ if __name__ == "__main__":
     use_weighted_loss = args.get("use-weighted-loss", False)
     run_name = args.get("run-name", "genlab")
     resume_run_ids = args.get("resume-run-ids", [None for a in model_config_names])
-    project_name = args.get("project-name", "pilot-project")
+    project_name = args.get("project-name", "whole-gene-labelling")
     accumulate_gradient = args.get("accumulate-gradient", False)
-    packed_preprocessing = args.get("packed-preprocessing", False)
+    preprocessing_mode = args.get("preprocessing-mode", "sparse") # Either dense or sparse.
 
     gene_dirpath = str(Path(PureWindowsPath(gene_dir)))
     training_index_path = str(Path(PureWindowsPath(training_index)))
@@ -193,7 +208,7 @@ if __name__ == "__main__":
     print(f"Epochs {num_epochs}")
     print(f"Use weighted loss {use_weighted_loss}")
     print(f"Accumulate Gradients {accumulate_gradient}")
-    print(f"Packed Preprocessing {packed_preprocessing}")
+    print(f"Preprocessing Mode {preprocessing_mode}")
 
     for config_name, resume_run_id in zip(model_config_names, resume_run_ids):
         config_path = os.path.join(model_config_dir, f"{config_name}.json",)
@@ -230,7 +245,7 @@ if __name__ == "__main__":
                 epoch = checkpoint.get("epoch")
                 start_epoch = epoch + 1
 
-        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs, start_epoch, batch_size, use_weighted_loss, accumulate_gradient)
+        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs, start_epoch, batch_size, use_weighted_loss, accumulate_gradient, preprocessing_mode)
         run.finish()
 
 

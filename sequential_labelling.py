@@ -12,7 +12,8 @@ import numpy as np
 def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb):
     for label_index in range(utils.seqlab.NUM_LABELS):
         label = utils.seqlab.Index_Dictionary[label_index]
-        wandb.define_metric(f"validation/{label}", step_metric="epoch")
+        wandb.define_metric(f"validation/precision-{label}", step_metric="epoch")
+        wandb.define_metric(f"validation/recall-{label}", step_metric="epoch")
 
     model.eval()
     avg_accuracy = 0
@@ -62,8 +63,10 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
     for label_index in range(utils.seqlab.NUM_LABELS):
         label = utils.seqlab.Index_Dictionary[label_index]
         precision = metrics.precission(label_index, percentage=True)
+        recall = metrics.recall(label_index, percentage=True)
         wandb.log({
-            f"validation/{label}": precision,
+            f"validation/precision-{label}": precision,
+            f"validation/recall-{label}": recall,
             "epoch": epoch
         })
 

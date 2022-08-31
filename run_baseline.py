@@ -41,7 +41,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     len_eval_dataloader = len(eval_dataloader)
     for label_index in range(NUM_LABELS):
         label = Index_Dictionary[label_index]
-        wandb.define_metric(f"validation/{label}", step_metric="epoch")
+        wandb.define_metric(f"validation/precision-{label}", step_metric="epoch")
+        wandb.define_metric(f"validation/recall-{label}", step_metric="epoch")
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
@@ -113,7 +114,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         for label_index in range(NUM_LABELS):
             label = Index_Dictionary[label_index]
             wandb.log({
-                f"validation/{label}": metrics.precission(label_index, percentage=True),
+                f"validation/precision-{label}": metrics.precission(label_index, percentage=True),
+                f"validation/recall-{label}": metrics.recall(label_index, percentage=True),
                 "epoch": epoch
             })
 
@@ -122,7 +124,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 probs=None,
                 y_true=y_test, 
                 preds=y_pred,
-                class_names=[c for c in range(NUM_LABELS)])
+                class_names=[c for c in range(NUM_LABELS)]),
+            "epoch": epoch
             })
         validation_log.close()
         wandb.save(validation_log_path)
