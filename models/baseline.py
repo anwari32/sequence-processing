@@ -8,7 +8,7 @@ class Baseline(torch.nn.Module):
         super().__init__()
         self.num_labels = config.get("num_labels", 8) if config else 8
         self.num_layers = config.get("num_layers", 1) if config else 1
-        self.hidden_size = config.get("hidden_size", 512) if config else 512
+        self.hidden_size = config.get("hidden_size", 768) if config else 768
         self.input_layer = torch.nn.Linear(1, self.hidden_size)
         self.hidden_layer = torch.nn.Sequential()
         for i in range(self.num_layers):
@@ -30,8 +30,10 @@ class Baseline(torch.nn.Module):
 
 
 if __name__ == "__main__":
-    input_ids = torch.randint(0, 69, (5,512,1)).float().to("cuda:0")
-    target_label = torch.randint(0, 8, (5,512)).to("cuda:0")
+    sequence_length = 512
+    sequence_dim = 1
+    input_ids = torch.randint(0, 69, (5, sequence_length, sequence_dim)).float().to("cuda:0")
+    target_label = torch.randint(0, 8, (5, sequence_length)).to("cuda:0")
     criterion = torch.nn.CrossEntropyLoss()
 
     model = Baseline()
