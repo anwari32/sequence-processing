@@ -4,7 +4,8 @@ from transformers import BertTokenizer
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
-from data_preparation import str_kmer
+
+from utils import str_kmer
 from tqdm import tqdm
 import os
 

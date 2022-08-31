@@ -1,4 +1,4 @@
-from utils.seqlab import Index_Dictionary, Label_Dictionary
+from seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
 import numpy as np
 import torch
 
@@ -39,6 +39,13 @@ class Metrics:
             raise TypeError(f"target type error. expected type Array found {type(target)}")
 
         self.prediction = prediction
+        self.matrix = []
+        for i in range(NUM_LABELS):
+            _m = []
+            for j in range(NUM_LABELS):
+                _m.append(0)    
+            self.matrix.append(_m)
+
         self.target = target
         self.labels = Label_Dictionary.keys()
         self.indices = [k for k in range(8)]
@@ -63,7 +70,8 @@ class Metrics:
         for p, t in zip(self.prediction, self.target):
             pred_label =  Index_Dictionary[p]
             target_label = Index_Dictionary[t]
-            
+            self.matrix[p][t] += 1
+
             if pred_label == "[CLS]/[SEP]/[III]":
                 self.special_tokens += 1
             elif pred_label == target_label:
@@ -90,8 +98,8 @@ class Metrics:
 
     def recall(self, label_index, percentage=False):
         label = Index_Dictionary[label_index]
-        not_labels = [a for a in self.Falses.key() if a != label]
-        sum = np.sum([self.Falses[a] for a in not_labels])
+        rows = self.matrix[label_index]
+        sum = np.sum([rows[i] for i in range(NUM_LABELS) if i != label_index])
         ret = 0
         try:
             ret = self.Trues[label] / (self.Trues[label] + sum)
@@ -101,8 +109,8 @@ class Metrics:
         
         
 if __name__ == "__main__":
-    rand_prediction = np.random.randint(0, 8, size=10)
-    rand_target = np.random.randomint(0, 8, size=10)
+    rand_prediction = np.random.randint(0, 3, size=10)
+    rand_target = np.random.randint(0, 3, size=10)
     metrics = Metrics(rand_prediction, rand_target)
     metrics.calculate()
     print(f"prediction {rand_prediction}")
