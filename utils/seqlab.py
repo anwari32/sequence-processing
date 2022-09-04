@@ -5,7 +5,7 @@ from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
 
-from utils import str_kmer
+from .utils import str_kmer
 from tqdm import tqdm
 import os
 

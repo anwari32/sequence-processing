@@ -1,4 +1,4 @@
-from seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
+from .seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
 import numpy as np
 import torch
 
