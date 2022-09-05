@@ -38,7 +38,7 @@ class Metrics:
         if isinstance(target, torch.Tensor):
             raise TypeError(f"target type error. expected type Array found {type(target)}")
 
-        self.prediction = prediction
+        self.prediction = [int(a) for a in prediction]
         self.matrix = []
         for i in range(NUM_LABELS):
             _m = []
@@ -46,7 +46,7 @@ class Metrics:
                 _m.append(0)    
             self.matrix.append(_m)
 
-        self.target = target
+        self.target = [int(a) for a in target]
         self.labels = Label_Dictionary.keys()
         self.indices = [k for k in range(8)]
         self.Trues = {}

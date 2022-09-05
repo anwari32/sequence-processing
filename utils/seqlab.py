@@ -5,7 +5,7 @@ from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
 
-from .utils import str_kmer
+from .utils import chunk_string, kmer, str_kmer
 from tqdm import tqdm
 import os
 
@@ -116,6 +116,7 @@ def _process_sequence(sequence, tokenizer):
     return input_ids, attention_mask, token_type_ids
 
 def _process_sequence_and_label(sequence, label, tokenizer):
+    input_ids, attention_mask, token_type_ids, label_repr = None, None, None, None
     input_ids, attention_mask, token_type_ids = _process_sequence(sequence, tokenizer)
     label_repr = _process_label(label)
     return input_ids, attention_mask, token_type_ids, label_repr
@@ -223,29 +224,43 @@ def preprocessing_gene_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size,
     
     return dataloader
 
-def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_size=1, dense=True, disable_tqdm=False) -> DataLoader:
+def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_size=1, dense=False, disable_tqdm=False) -> DataLoader:
     r"""
     Creates dataloader based-on massive dataset.
-    Sequence and label in `csv_file` are parsed with sliding window with `window_size` = 512 and sliding one character.
     * :attr:`csv_file`
     * :attr:`tokenizer`
     * :attr:`batch_size`
-    * :attr:`dense`
+    * :attr:`dense` - bool | None -> False
     * :attr:`disable_tqdm`
     """
-    
+
+    # Gene csv should contain only one row, but if it contains more
+    # joining sequence and label if gene dataframe contains more than one row.
+    complete_sequence = ""
+    complete_label = ""
     df = pd.read_csv(csv_file)
-    sequence = df.iloc[0, 0]
-    label = df.iloc[0, 1]
+    for i, r in df.iterrows():
+        complete_sequence = f"{complete_sequence}{r['sequence']}"
+        complete_label = f"{complete_label}{r['label']}"
+
     arr_input_ids = []
     arr_attention_mask = []
     arr_token_type_ids = []
     arr_label_repr = []
-    for k in range(len(sequence) - 512):
-        subsequence = sequence[k:k+512]
-        subsequence_kmer = str_kmer(subsequence, 3, 1)
-        sublabel = label[k:512]
-        sublabel_kmer = str_kmer(sublabel, 3, 1)
+
+    # Break long sequence into shorter sequences with kmer method.
+    chunked_sequences = []
+    chunked_labels = []
+    if dense:
+        chunked_sequences = kmer(complete_sequence, 512)
+        chunked_labels = kmer(complete_label, 512)
+    else:
+        chunked_sequences = chunk_string(complete_sequence, 512)
+        chunked_labels = chunk_string(complete_label, 512)
+    
+    for seq, lab in zip(chunked_sequences, chunked_labels):
+        subsequence_kmer = str_kmer(seq, 3, 1)
+        sublabel_kmer = str_kmer(lab, 3, 1)
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(subsequence_kmer, sublabel_kmer, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)

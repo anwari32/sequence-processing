@@ -10,9 +10,9 @@ import pandas as pd
 import os
 import json
 import torch
-import wandb
 import numpy as np
 
+import wandb
 from getopt import getopt
 from pathlib import Path, PureWindowsPath
 from sched import scheduler
@@ -25,7 +25,7 @@ from torch import no_grad
 from torch.cuda.amp import autocast
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
-from utils.seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary, preprocessing_kmer
+from utils.seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary, preprocessing_kmer, preprocessing_whole_sequence
 from utils.utils import create_loss_weight
 from utils.metrics import Metrics, accuracy_and_error_rate
 
@@ -60,7 +60,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         for training_gene_file in tqdm(training_genes, total=num_training_genes, desc=f"Training at Epoch {epoch + 1}/{num_epochs}"):
             # TODO: Enable preprocessing sparse and dense.
             # currently works on certain formatted sequence.
-            dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            # dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_whole_sequence(training_gene_file, tokenizer, batch_size, dense=(preprocessing_mode == "dense"))
             loss_weight = None
             if use_weighted_loss:
                 loss_weight = create_loss_weight(training_gene_file, ignorance_level=2)
@@ -92,7 +93,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         validation_log.write("epoch,step,sequence,prediction,target,accuracy,loss\n")
         # for validation_gene_file in validation_genes:
         for validation_gene_file in tqdm(validation_genes, total=num_validation_genes, desc=f"Validating at Epoch {epoch + 1}/{num_epochs}"):
-            dataloader = preprocessing_kmer(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_whole_sequence(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
             for k in sequential_labels:
                 wandb.define_metric(f"validation-{gene_name}/precision-{k}", step_metric="epoch")
@@ -124,7 +125,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             # metrics.
             metrics = Metrics(y_pred, y_target)
             metrics.calculate()
-            print(f"label counts {metrics.get_label_counts()}")
+            # print(f"label counts {metrics.get_label_counts()}")
             for e in sequential_label_indices:
                 token_label = Index_Dictionary[e]
                 precision = metrics.precission(e, True)

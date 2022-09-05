@@ -3,7 +3,7 @@
     "training_index": "index\\gene_train_index.csv",
     "validation_index": "index\\gene_validation_index.csv",
     "test_index": "index\\gene_test_index.csv",
-    "gene_dir": "workspace\\genlab\\genlab-3\\gene_dir",
+    "gene_dir": "workspace\\genlab\\genlab\\gene_dir",
     "num_epochs": 5,
     "batch_size": 1,
     "optimizer": {

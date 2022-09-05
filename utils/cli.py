@@ -18,7 +18,7 @@ def parse_args(argvs):
     -   use-weighted-loss
     -   offline
     """
-    opts, arguments = getopt(argvs, "t:d:r:m:c:b:e:n:l:p:w",
+    opts, arguments = getopt(argvs, "t:d:r:m:c:b:e:n:l:p:w:",
     [
         "training-config=",
         "device=",
@@ -32,11 +32,7 @@ def parse_args(argvs):
         "project-name=",
         "preprocessing-mode="
         "accumulate-gradient",
-        "use-weighted-loss",
-        "baseline",
-        "sequence",
-        "whole",
-        "offline"
+        "use-weighted-loss"
     ])
     output = {}
     for o, a in opts:
