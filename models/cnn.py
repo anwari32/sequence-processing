@@ -16,9 +16,9 @@ class CNN(torch.nn.Module):
     def __init__(self, config=None):
         super().__init__()
 
-        self.conv1 = torch.nn.Conv1d(4, 16, 7)
-        self.conv2 = torch.nn.Conv1d(16, 32, 6)
-        self.conv3 = torch.nn.Conv1d(32, 64, 6)
+        self.conv1 = torch.nn.Conv1d(4, 16, 3)
+        self.conv2 = torch.nn.Conv1d(16, 32, 3)
+        self.conv3 = torch.nn.Conv1d(32, 64, 3)
         self.relu = torch.nn.ReLU()
         self.max_pooling = torch.nn.MaxPool1d(2, stride=2)
         self.dropout = torch.nn.Dropout(p=0.2)
@@ -29,18 +29,18 @@ class CNN(torch.nn.Module):
 
     def forward(self, input_ids):
         output = self.conv1(input_ids)
-        output = self.relu(output)
-        output = self.max_pooling(output)
-        output = self.dropout(output)
-        output = self.conv2(output)
-        output = self.relu(output)
-        output = self.max_pooling(output)
-        output = self.dropout(output)
-        output = self.conv3(output)
-        output = self.relu(output)
-        output = self.max_pooling(output)
-        output = self.dropout(output)
-        output = self.flatten(output)
+        # output = self.relu(output)
+        # output = self.max_pooling(output)
+        # output = self.dropout(output)
+        # output = self.conv2(output)
+        # output = self.relu(output)
+        # output = self.max_pooling(output)
+        # output = self.dropout(output)
+        # output = self.conv3(output)
+        # output = self.relu(output)
+        # output = self.max_pooling(output)
+        # output = self.dropout(output)
+        # output = self.flatten(output)
         # output = self.hidden_layer(output)
         # output = self.relu(output)
         # output = self.classification_layer(output)
@@ -53,6 +53,8 @@ if __name__ == "__main__":
     batch_size = 5
     sequence_length = 512
     channel_size = 4
-    input_ids = torch.randn(channel_size, sequence_length)
+    input_ids = torch.randn(batch_size, sequence_length, channel_size)
+    input_ids = torch.transpose(input_ids, 1, 2)
+    print(input_ids, input_ids.shape)
     output = m(input_ids)
     print(output, output.shape)
