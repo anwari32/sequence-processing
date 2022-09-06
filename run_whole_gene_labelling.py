@@ -16,7 +16,7 @@ import wandb
 from getopt import getopt
 from pathlib import Path, PureWindowsPath
 from sched import scheduler
-from utils.cli import parse_args
+from utils import parse_args
 from models.genlab import DNABERT_RNN
 from transformers import BertForMaskedLM, BertTokenizer
 from torch.optim import AdamW
