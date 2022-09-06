@@ -261,7 +261,13 @@ def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_
     for seq, lab in zip(chunked_sequences, chunked_labels):
         subsequence_kmer = str_kmer(seq, 3, 1)
         sublabel_kmer = str_kmer(lab, 3, 1)
-        input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(subsequence_kmer, sublabel_kmer, tokenizer)
+        input_ids, attention_mask, token_type_ids, label_repr = None, None, None, None
+        try:
+            input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(subsequence_kmer, sublabel_kmer, tokenizer)
+        except KeyError:
+            print(f"Key Error {subsequence_kmer} \n {sublabel_kmer}")
+            print(f"at file {csv_file}")
+        
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)
         arr_token_type_ids.append(token_type_ids)
