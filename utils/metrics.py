@@ -1,4 +1,4 @@
-from .seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
+from seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
 import numpy as np
 import torch
 
@@ -39,6 +39,8 @@ class Metrics:
             raise TypeError(f"target type error. expected type Array found {type(target)}")
 
         self.prediction = [int(a) for a in prediction]
+        
+        # cf matrix. horizontal represents 'prediction', vertical represents 'target'.
         self.matrix = []
         for i in range(NUM_LABELS):
             _m = []
@@ -83,19 +85,13 @@ class Metrics:
             else:
                 self.Falses[pred_label] += 1
 
-    def get_precision(self, percentage=False):
-        dummy = {}
-        for label_index in range(8):
-            precision = self.precission(label_index, percentage=percentage)
-            dummy[label_index] = precision
-        print(dummy)
-        return dummy
-
     def precission(self, label_index, percentage=False):
         label = Index_Dictionary[label_index]
         ret = 0
         try:
-            ret = self.Trues[label] / (self.Falses[label] + self.Trues[label])
+            t_label = self.matrix[label_index][label_index]
+            f_label = np.sum([self.matrix[label_index][a] for a in range(NUM_LABELS) if a != label_index])
+            ret = t_label / (t_label + f_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
@@ -106,7 +102,9 @@ class Metrics:
         sum = np.sum([rows[i] for i in range(NUM_LABELS) if i != label_index])
         ret = 0
         try:
-            ret = self.Trues[label] / (self.Trues[label] + sum)
+            t_label = self.matrix[label_index][label_index]
+            f_non_label = np.sum([self.matrix[a][label_index] for a in range(NUM_LABELS) if a != label_index])
+            ret = t_label / (t_label + f_non_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
