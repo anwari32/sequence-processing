@@ -149,14 +149,20 @@ class DNABERT_RNN(nn.Module):
         self.rnn_name = "lstm"
         self.linear_num_layers = 1
         self.num_labels = 8
+        self.freeze_bert = False
         if config:
+            self.freeze_bert = config.get("freeze-bert", False)
             rnn_cfg = config["rnn"]
             self.rnn_name = rnn_cfg.get("rnn", False)
             self.rnn_num_layers = rnn_cfg.get("num_layers", 1)
             self.rnn_dropout = rnn_cfg.get("dropout", 0)
-
             lin_cfg = config["linear"]
             self.linear_num_layers = lin_cfg.get("num_layers", 1)
+        
+        if self.freeze_bert:
+            print("Freezing DNABERT")
+            for p in self.bert.parameters():
+                p.requires_grad = False
 
         self.rnn = RNNBlock(self.rnn_name, self.rnn_num_layers, self.rnn_dropout)
         self.linear = LinearBlock(self.linear_num_layers, self.num_labels)
