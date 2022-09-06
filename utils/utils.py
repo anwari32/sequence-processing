@@ -346,7 +346,7 @@ def save_config(obj, save_path):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     json.dump(obj, open(save_path, 'x'))
 
-def create_loss_weight(csv_path, verbose=False, ignorance_level=1):
+def create_loss_weight(csv_path, verbose=False, ignorance_level=1, kmer=0):
     from utils.seqlab import Label_Dictionary
     labels = []
     for k in Label_Dictionary.keys():
@@ -359,6 +359,8 @@ def create_loss_weight(csv_path, verbose=False, ignorance_level=1):
     df = pd.read_csv(csv_path)
     for i, r in df.iterrows():
         sequence = r["label"]
+        if kmer > 0:
+            sequence = str_kmer(sequence, kmer)
         sequence = sequence.split(" ") # Split sequence into array of tokens.
         for token in sequence:
             count_dict[token] += 1

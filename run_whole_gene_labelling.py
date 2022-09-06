@@ -64,7 +64,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             dataloader = preprocessing_whole_sequence(training_gene_file, tokenizer, batch_size, dense=(preprocessing_mode == "dense"))
             loss_weight = None
             if use_weighted_loss:
-                loss_weight = create_loss_weight(training_gene_file, ignorance_level=2)
+                loss_weight = create_loss_weight(training_gene_file, ignorance_level=2, kmer=3)
                 loss_weight = loss_weight.to(device)
             criterion = CrossEntropyLoss(weight=loss_weight)
             hidden_output = None
