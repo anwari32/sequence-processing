@@ -30,7 +30,7 @@ def parse_args(argvs):
         "run-name=",
         "device-list=",
         "project-name=",
-        "preprocessing-mode="
+        "preprocessing-mode=",
         "accumulate-gradient",
         "use-weighted-loss"
     ])
