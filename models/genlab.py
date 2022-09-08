@@ -151,7 +151,7 @@ class DNABERT_RNN(nn.Module):
         self.num_labels = 8
         self.freeze_bert = False
         if config:
-            self.freeze_bert = config.get("freeze-bert", False)
+            self.freeze_bert = config.get("freeze_bert", False)
             rnn_cfg = config["rnn"]
             self.rnn_name = rnn_cfg.get("rnn", False)
             self.rnn_num_layers = rnn_cfg.get("num_layers", 1)
