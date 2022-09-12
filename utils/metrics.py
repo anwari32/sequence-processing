@@ -1,3 +1,4 @@
+from msilib import init_database
 from .seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
 import numpy as np
 import torch
@@ -39,6 +40,7 @@ class Metrics:
             raise TypeError(f"target type error. expected type Array found {type(target)}")
 
         self.prediction = [int(a) for a in prediction]
+        self.target = [int(a) for a in target]
         
         # cf matrix. horizontal represents 'prediction', vertical represents 'target'.
         self.matrix = []
@@ -50,7 +52,8 @@ class Metrics:
 
         self.target = [int(a) for a in target]
         self.labels = Label_Dictionary.keys()
-        self.indices = [k for k in range(8)]
+        self.num_classes = NUM_LABELS
+        self.indices = [k for k in range(self.num_classes)]
         self.Trues = {}
         self.Falses = {}
         for k in self.labels:
@@ -60,7 +63,7 @@ class Metrics:
 
     def print_cf(self):
         for i in range(len(self.matrix)):
-            print(self.matrix[i])
+            print(np.asarray([self.matrix[p][i] for p in range(self.num_classes)]))
     
     def get_label_counts(self):
         return {
@@ -78,32 +81,39 @@ class Metrics:
             target_label = Index_Dictionary[t]
             self.matrix[p][t] += 1
 
-            if pred_label == "[CLS]/[SEP]/[III]":
-                self.special_tokens += 1
-            elif pred_label == target_label:
-                self.Trues[pred_label] += 1
-            else:
-                self.Falses[pred_label] += 1
+    def true_label(self, label_index):
+        r"""
+        Return number of occurences where predicted label is indeed target label.
+        """
+        return self.matrix[label_index][label_index]
+
+    def false_label(self, label_index):
+        r"""
+        Return number of occurences where predicted label is not target label hence false label.
+        """
+        return sum([self.matrix[label_index][a] for a in range(self.num_classes) if a != label_index])
+
+    def false_non_label(self, label_index):
+        r"""
+        Return number of occurences where target label is not predicted label hence false non label.
+        """
+        return sum([self.matrix[a][label_index] for a in range(self.num_classes) if a != label_index])
 
     def precission(self, label_index, percentage=False):
-        label = Index_Dictionary[label_index]
         ret = 0
         try:
-            t_label = self.matrix[label_index][label_index]
-            f_label = np.sum([self.matrix[label_index][a] for a in range(NUM_LABELS) if a != label_index])
-            ret = t_label / (t_label + f_label)
+            t_label = self.true_label(label_index)
+            f_label = self.false_label(label_index)
+            ret = t_label / (t_label + +f_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
 
     def recall(self, label_index, percentage=False):
-        label = Index_Dictionary[label_index]
-        rows = self.matrix[label_index]
-        sum = np.sum([rows[i] for i in range(NUM_LABELS) if i != label_index])
         ret = 0
         try:
-            t_label = self.matrix[label_index][label_index]
-            f_non_label = np.sum([self.matrix[a][label_index] for a in range(NUM_LABELS) if a != label_index])
+            t_label = self.true_label(label_index)
+            f_non_label = self.false_non_label(label_index)
             ret = t_label / (t_label + f_non_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
@@ -111,19 +121,14 @@ class Metrics:
         
         
 if __name__ == "__main__":
-    rand_prediction = np.random.randint(0, 2, size=10)
-    rand_target = np.random.randint(0, 2, size=10)
+    rand_prediction = [5, 2, 4, 2, 7, 1, 4, 3, 2, 6]
+    rand_target     = [3, 7, 7, 7, 1, 2, 7, 1, 2, 3]
+    print(f"Prediction  {np.asarray(rand_prediction)}")
+    print(f"Target      {np.asarray(rand_target)}")
     metrics = Metrics(rand_prediction, rand_target)
     metrics.calculate()
     metrics.print_cf()
-    print(f"prediction {rand_prediction}")
-    print(f"target {rand_target}")
-    print("Precision")
-    for k in metrics.indices:
-        print(f"{k} => {metrics.precission(k, True)}")
-    print("Recall")
-    for k in metrics.indices:
-        print(f"{k} => {metrics.recall(k, True)}")
-
-
+    for i in range(8):
+        print(f"Precission  [{i}]{metrics.precission(i)}")
+        print(f"Recall      [{i}]{metrics.recall(i)}")
 

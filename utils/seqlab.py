@@ -251,16 +251,20 @@ def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_
     # Break long sequence into shorter sequences with kmer method.
     chunked_sequences = []
     chunked_labels = []
+    complete_sequence_kmers = kmer(complete_sequence, 3, 1)
+    complete_label_kmers = kmer(complete_label, 3, 1)
     if dense:
-        chunked_sequences = kmer(complete_sequence, 512)
-        chunked_labels = kmer(complete_label, 512)
+        chunked_sequences = kmer(complete_sequence_kmers, 510, 1)
+        chunked_labels = kmer(complete_label_kmers, 510, 1)
     else:
-        chunked_sequences = chunk_string(complete_sequence, 512)
-        chunked_labels = chunk_string(complete_label, 512)
+        chunked_sequences = chunk_string(complete_sequence_kmers, 510)
+        chunked_labels = chunk_string(complete_label_kmers, 510)
     
+    chunked_sequences = [' '.join(s) for s in chunked_sequences]
+    chunked_labels = [' '.join(s) for s in chunked_labels]
     for seq, lab in zip(chunked_sequences, chunked_labels):
-        subsequence_kmer = str_kmer(seq, 3, 1)
-        sublabel_kmer = str_kmer(lab, 3, 1)
+        subsequence_kmer = seq
+        sublabel_kmer = lab
         input_ids, attention_mask, token_type_ids, label_repr = None, None, None, None
         try:
             input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(subsequence_kmer, sublabel_kmer, tokenizer)

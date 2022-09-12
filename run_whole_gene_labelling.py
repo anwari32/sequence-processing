@@ -90,16 +90,17 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
         if os.path.exists(validation_log_path):
             os.remove(validation_log_path)
         validation_log = open(validation_log_path, "x")
-        validation_log.write("epoch,step,sequence,prediction,target,accuracy,loss\n")
+        validation_log.write("epoch,step,chr,gene,sequence,prediction,target,accuracy,loss\n")
         # for validation_gene_file in validation_genes:
         for validation_gene_file in tqdm(validation_genes, total=num_validation_genes, desc=f"Validating at Epoch {epoch + 1}/{num_epochs}"):
-            dataloader = preprocessing_whole_sequence(validation_gene_file, tokenizer, batch_size, disable_tqdm=True)
+            dataloader = preprocessing_whole_sequence(validation_gene_file, tokenizer, batch_size, dense=(preprocessing_mode == "dense"))
+            chr_name = os.path.basename(os.path.dirname(validation_gene_file))
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
             for k in sequential_labels:
-                wandb.define_metric(f"validation-{gene_name}/precision-{k}", step_metric="epoch")
-                wandb.define_metric(f"validation-{gene_name}/recall-{k}", step_metric="epoch")
-            wandb.define_metric(f"validation-{gene_name}/accuracy", step_metric="epoch")
-            wandb.define_metric(f"validation-{gene_name}/error_rate", step_metric="epoch")
+                wandb.define_metric(f"validation-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
+                wandb.define_metric(f"validation-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
+            wandb.define_metric(f"validation-{chr_name}-{gene_name}/accuracy", step_metric="epoch")
+            wandb.define_metric(f"validation-{chr_name}-{gene_name}/error_rate", step_metric="epoch")
             hidden_output = None
             y_target = []
             y_pred = []
@@ -110,10 +111,13 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                 values, indices = torch.max(prediction, 2)
                 for i, j, k in zip(input_ids, indices, labels):
                     ilist = i.tolist()
+                    ilist_str = ' '.join([str(a) for a in ilist])
                     jlist = j.tolist()
+                    jlist_str = ' '.join([str(a) for a in jlist])
                     klist = k.tolist()
+                    klist_str = ' '.join([str(a) for a in klist])
                     accuracy, error_rate = accuracy_and_error_rate(i, j, k)
-                    validation_log.write(f"{epoch},{step},{ilist},{klist},{jlist},{accuracy},{error_rate}\n")
+                    validation_log.write(f"{epoch},{step},{chr_name},{gene_name},{ilist_str},{klist_str},{jlist_str},{accuracy},{error_rate}\n")
                     klist = klist[1:] # Remove CLS token.
                     jlist = jlist[1:] # Remove CLS token.
                     klist = [e for e in klist if e >= 0] # Remove other special tokens.
@@ -131,13 +135,13 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
                 precision = metrics.precission(e, True)
                 recall = metrics.recall(e, True)
                 wandb.log({
-                    f"validation-{gene_name}/precision-{token_label}": precision,
-                    f"validation-{gene_name}/recall-{token_label}": recall,
+                    f"validation-{chr_name}-{gene_name}/precision-{token_label}": precision,
+                    f"validation-{chr_name}-{gene_name}/recall-{token_label}": recall,
                     "epoch": epoch
                 })
             wandb.log({
-                f"validation-{gene_name}/accuracy": accuracy,
-                f"validation-{gene_name}/error_rate": error_rate,
+                f"validation-{chr_name}-{gene_name}/accuracy": accuracy,
+                f"validation-{chr_name}-{gene_name}/error_rate": error_rate,
                 "epoch": epoch
             })
 
