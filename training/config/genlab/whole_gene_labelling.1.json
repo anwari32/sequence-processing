@@ -1,0 +1,17 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "training_index": "index\\gene_train_index.1.csv",
+    "validation_index": "index\\gene_validation_index.1.csv",
+    "test_index": "index\\gene_test_index.1.csv",
+    "gene_dir": "workspace\\genlab\\genlab\\gene_dir",
+    "num_epochs": 5,
+    "batch_size": 1,
+    "optimizer": {
+        "name": "adamw",
+        "learning_rate": 4e-4,
+        "epsilon": 1e-6,
+        "beta1": 0.98,
+        "beta2": 0.9,
+        "weight_decay": 0.01
+    }
+}
