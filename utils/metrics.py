@@ -1,4 +1,3 @@
-from msilib import init_database
 from .seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
 import numpy as np
 import torch
