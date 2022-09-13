@@ -103,7 +103,7 @@ class Metrics:
         try:
             t_label = self.true_label(label_index)
             f_label = self.false_label(label_index)
-            ret = t_label / (t_label + +f_label)
+            ret = t_label / (t_label + f_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
