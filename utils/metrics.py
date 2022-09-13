@@ -98,7 +98,7 @@ class Metrics:
         """
         return sum([self.matrix[a][label_index] for a in range(self.num_classes) if a != label_index])
 
-    def precission(self, label_index, percentage=False):
+    def precision(self, label_index, percentage=False):
         ret = 0
         try:
             t_label = self.true_label(label_index)
@@ -117,6 +117,15 @@ class Metrics:
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
+
+    def accuracy_and_error_rate(self):
+        if len(self.prediction) != len(self.target):
+            raise ValueError(f"size mismatch. found {len(self.prediction)} and {len(self.target)}")
+        accuracy = 0
+        for i, j in zip(self.prediction, self.target):
+            accuracy = accuracy + (1 if i == j else 0)
+        accuracy = accuracy / len(self.prediction)
+        return accuracy, (1 - accuracy)
         
         
 if __name__ == "__main__":

@@ -46,11 +46,13 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     
     training_log_path = os.path.join(save_dir, "training_log.csv")
     training_log = open(training_log_path, "x") if not os.path.exists(training_log_path) else open(training_log_path, "w")
-    training_log.write("epoch,step,loss\n")
+    training_log.write("epoch,step,loss,accuracy,error_rate\n")
     
     num_labels = model.num_labels
     num_training_genes = len(training_genes)
     num_validation_genes = len(validation_genes)
+    sequential_labels = [k for k in Label_Dictionary.keys() if Label_Dictionary[k] >= 0]
+    sequential_label_indices = [k for k in range(NUM_LABELS)]
     model.to(device)
     wandb.define_metric("epoch")
     # for epoch in tqdm(range(start_epoch, num_epochs), total=(num_epochs-start_epoch), desc="Training "):
@@ -62,30 +64,89 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             # currently works on certain formatted sequence.
             # dataloader = preprocessing_kmer(training_gene_file, tokenizer, batch_size, disable_tqdm=True)
             dataloader = preprocessing_whole_sequence(training_gene_file, tokenizer, batch_size, dense=(preprocessing_mode == "dense"))
+            chr_name = os.path.basename(os.path.dirname(training_gene_file))
+            gene_name = '.'.join(os.path.basename(training_gene_file).split('.')[:-1])
+            
+            # training metrics
+            wandb.define_metric(f"training-{chr_name}-{gene_name}/loss", step_metric="epoch")
+            for k in sequential_labels:
+                wandb.define_metric(f"training-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
+                wandb.define_metric(f"training-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
+            wandb.define_metric(f"training-{chr_name}-{gene_name}/accuracy", step_metric="epoch")
+            wandb.define_metric(f"training-{chr_name}-{gene_name}/error_rate", step_metric="epoch")
+
+            # loss weight
             loss_weight = None
             if use_weighted_loss:
                 loss_weight = create_loss_weight(training_gene_file, ignorance_level=2, kmer=3)
                 loss_weight = loss_weight.to(device)
             criterion = CrossEntropyLoss(weight=loss_weight)
             hidden_output = None
+            y_prediction = []
+            y_target = []
             for step, batch in enumerate(dataloader):
                 input_ids, attention_masks, token_type_ids, labels = tuple(t.to(device) for t in batch)
                 with autocast():
                     prediction, hidden_output = model(input_ids, attention_masks, hidden_output)
                     loss = criterion(prediction.view(-1, num_labels), labels.view(-1))
-                training_log.write(f"{epoch},{step},{loss.item()}")
+                prediction_values, prediction_indices = torch.max(prediction, 2)
+                y_prediction_at_step = []
+                y_target_at_step = []
+                for p, t in zip(prediction_indices, labels):
+                    plist = p.tolist()
+                    tlist = t.tolist()
+                    plist = plist[1:] # Remove CLS token.
+                    tlist = tlist[1:] # Remove CLS token.
+                    tlist = [a for a in tlist if a >= 0] # Remove special tokens.
+                    plist = plist[0:len(tlist)] # Remove special tokens.
+
+                    # Y for whole gene.
+                    y_prediction = np.concatenate((y_prediction, plist))
+                    y_target = np.concatenate((y_target, tlist))
+
+                    # Y for this step.
+                    y_prediction_at_step = np.concatenate((y_prediction_at_step, plist))
+                    y_target_at_step = np.concatenate((y_target_at_step, tlist))
+
+                # metric at step
+                metric_at_step = Metrics(y_prediction_at_step, y_target_at_step)
+                metric_at_step.calculate()
+                for k in sequential_label_indices:
+                    token_label = Index_Dictionary[k]
+                    wandb.log({f"precision-{token_label}": metric_at_step.precision(k, True)})
+                    wandb.log({f"recall-{token_label}": metric_at_step.recall(k, True)})
+                acc_at_step, error_rate_at_step = metric_at_step.accuracy_and_error_rate()
+                training_log.write(f"{epoch},{step},{loss.item()},{acc_at_step},{error_rate_at_step}")
                 wandb.log({"loss": loss.item()})
+                wandb.log({"accuracy": acc_at_step})
+                wandb.log({"error_rate": error_rate_at_step})
                 loss.backward()
                 optimizer.step()
                 if not accumulate_gradient:
                     optimizer.zero_grad() # Reset gradient if not accumulate gradient.
             optimizer.zero_grad() # Automatically reset gradient if a gene has finished.
+
+            # metric at gene
+            metric_at_gene = Metrics(y_prediction, y_target)
+            metric_at_gene.calculate()
+            for k in sequential_label_indices:
+                token_label = Index_Dictionary[k]
+                wandb.log({
+                    f"training-{chr_name}-{gene_name}/precision-{token_label}": metric_at_step.precision(k, True),
+                    f"training-{chr_name}-{gene_name}/recall-{token_label}": metric_at_step.recall(k, True),
+                    "epoch":epoch
+                })
+            gene_acc, gene_error_rate = metric_at_gene.accuracy_and_error_rate()
+            wandb.log({
+                f"training-{chr_name}-{gene_name}/accuracy": gene_acc, 
+                f"training-{chr_name}-{gene_name}/error_rate": gene_error_rate,
+                "epoch": epoch
+            })
+
         scheduler.step()
         
         # validation.
         model.eval()
-        sequential_labels = [k for k in Label_Dictionary.keys() if Label_Dictionary[k] >= 0]
-        sequential_label_indices = [k for k in range(NUM_LABELS)]
         validation_log_path = os.path.join(save_dir, f"validation_log.{epoch}.csv")
         if os.path.exists(validation_log_path):
             os.remove(validation_log_path)
@@ -132,7 +193,7 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             # print(f"label counts {metrics.get_label_counts()}")
             for e in sequential_label_indices:
                 token_label = Index_Dictionary[e]
-                precision = metrics.precission(e, True)
+                precision = metrics.precision(e, True)
                 recall = metrics.recall(e, True)
                 wandb.log({
                     f"validation-{chr_name}-{gene_name}/precision-{token_label}": precision,
