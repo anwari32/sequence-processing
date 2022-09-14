@@ -3,15 +3,15 @@ import os
 from tqdm import tqdm
 from utils.metrics import Metrics
 from utils.utils import save_checkpoint
-import utils.seqlab
+from utils.seqlab import NUM_LABELS, Label_Dictionary, Index_Dictionary
 from torch.cuda.amp import autocast, GradScaler
 import wandb
 from models.seqlab import DNABERT_SL
 import numpy as np
 
 def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb):
-    for label_index in range(utils.seqlab.NUM_LABELS):
-        label = utils.seqlab.Index_Dictionary[label_index]
+    for label_index in range(NUM_LABELS):
+        label =Index_Dictionary[label_index]
         wandb.define_metric(f"validation/precision-{label}", step_metric="epoch")
         wandb.define_metric(f"validation/recall-{label}", step_metric="epoch")
 
@@ -60,9 +60,9 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
 
     metrics = Metrics(y_pred, y_target)
     metrics.calculate()
-    for label_index in range(utils.seqlab.NUM_LABELS):
-        label = utils.seqlab.Index_Dictionary[label_index]
-        precision = metrics.precission(label_index, percentage=True)
+    for label_index in range(NUM_LABELS):
+        label = Index_Dictionary[label_index]
+        precision = metrics.precision(label_index, percentage=True)
         recall = metrics.recall(label_index, percentage=True)
         wandb.log({
             f"validation/precision-{label}": precision,
@@ -88,12 +88,6 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = torch.nn.DataParallel(model, device_list)
-        print(f"Main Device {device}")
-        print(f"Device List {device_list}")
-    else:
-        print(f"Device {device}")
-
-    scaler = GradScaler()
 
     TRAINING_EPOCH = "train/epoch"
     TRAINING_LOSS = "train/loss"
@@ -122,6 +116,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)    
             with autocast():
                 prediction, bert_output = model(input_ids, attention_mask)
+                prediction_vals, prediction_indices = torch.max(prediction, 2)
                 batch_loss = loss_function(prediction.view(-1, 8), batch_labels.view(-1))
             batch_loss.backward()
             epoch_loss += batch_loss
@@ -129,6 +124,25 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             lr = optimizer.param_groups[0]['lr']
             wandb.log({"batch_loss": batch_loss})
             log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
+
+            y_prediction_at_step = []
+            y_target_at_step = []
+            for p, t in zip(prediction_indices, batch_labels):
+                plist = p.tolist()
+                tlist = t.tolist()
+                plist = plist[1:] # remove CLS token.
+                tlist = tlist[1:] # remove CLS token.
+                tlist = [a for a in tlist if a >= 0] # remove special tokens.
+                plist = plist[0:len(tlist)] # remove special tokens.
+                y_prediction_at_step = np.concatenate((y_prediction_at_step, plist))
+                y_target_at_step = np.concatenate((y_target_at_step, tlist))
+            
+            metrics_at_step = Metrics(y_prediction_at_step, y_target_at_step)
+            metrics_at_step.calculate()
+            for label_index in range(NUM_LABELS):
+                label = Index_Dictionary[label_index]
+                wandb.log({f"precision-{label}": metrics_at_step.precision(label_index)})
+                wandb.log({f"recall-{label}": metrics_at_step.recall(label_index)})
         
         # Move scheduler to epoch loop.
         scheduler.step()

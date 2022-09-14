@@ -6,7 +6,6 @@ from torch.optim import AdamW
 from models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
-from utils.model import init_seqlab_model
 from transformers import BertTokenizer, BertForMaskedLM
 import os
 import wandb

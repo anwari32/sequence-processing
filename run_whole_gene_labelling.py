@@ -29,7 +29,10 @@ from utils.seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary, preproc
 from utils.utils import create_loss_weight
 from utils.metrics import Metrics, accuracy_and_error_rate
 
-def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False, accumulate_gradient=False, preprocessing_mode="sparse"):
+def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False, accumulate_gradient=False, preprocessing_mode="sparse", device_list=[]):
+    if len(device_list) > 0:
+        model = torch.nn.DataParallel(model, device_ids=device_list)
+    
     training_index_df = pd.read_csv(training_index_path)
     training_genes = []
     for i, r in training_index_df.iterrows():
@@ -68,12 +71,12 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             gene_name = '.'.join(os.path.basename(training_gene_file).split('.')[:-1])
             
             # training metrics
-            wandb.define_metric(f"training-{chr_name}-{gene_name}/loss", step_metric="epoch")
-            for k in sequential_labels:
-                wandb.define_metric(f"training-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
-                wandb.define_metric(f"training-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
-            wandb.define_metric(f"training-{chr_name}-{gene_name}/accuracy", step_metric="epoch")
-            wandb.define_metric(f"training-{chr_name}-{gene_name}/error_rate", step_metric="epoch")
+            # wandb.define_metric(f"training-{chr_name}-{gene_name}/loss", step_metric="epoch")
+            # for k in sequential_labels:
+            #     wandb.define_metric(f"training-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
+            #     wandb.define_metric(f"training-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
+            # wandb.define_metric(f"training-{chr_name}-{gene_name}/accuracy", step_metric="epoch")
+            # wandb.define_metric(f"training-{chr_name}-{gene_name}/error_rate", step_metric="epoch")
 
             # loss weight
             loss_weight = None
@@ -127,21 +130,22 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             optimizer.zero_grad() # Automatically reset gradient if a gene has finished.
 
             # metric at gene
-            metric_at_gene = Metrics(y_prediction, y_target)
-            metric_at_gene.calculate()
-            for k in sequential_label_indices:
-                token_label = Index_Dictionary[k]
-                wandb.log({
-                    f"training-{chr_name}-{gene_name}/precision-{token_label}": metric_at_step.precision(k, True),
-                    f"training-{chr_name}-{gene_name}/recall-{token_label}": metric_at_step.recall(k, True),
-                    "epoch":epoch
-                })
-            gene_acc, gene_error_rate = metric_at_gene.accuracy_and_error_rate()
-            wandb.log({
-                f"training-{chr_name}-{gene_name}/accuracy": gene_acc, 
-                f"training-{chr_name}-{gene_name}/error_rate": gene_error_rate,
-                "epoch": epoch
-            })
+            # metric_at_gene = Metrics(y_prediction, y_target)
+            # metric_at_gene.calculate()
+            # gene_acc, gene_error_rate = metric_at_gene.accuracy_and_error_rate()
+            
+            # for k in sequential_label_indices:
+            #     token_label = Index_Dictionary[k]
+            #     wandb.log({
+            #         f"training-{chr_name}-{gene_name}/precision-{token_label}": metric_at_step.precision(k, True),
+            #         f"training-{chr_name}-{gene_name}/recall-{token_label}": metric_at_step.recall(k, True),
+            #         "epoch":epoch
+            #     })
+            # wandb.log({
+            #     f"training-{chr_name}-{gene_name}/accuracy": gene_acc, 
+            #     f"training-{chr_name}-{gene_name}/error_rate": gene_error_rate,
+            #     "epoch": epoch
+            # })
 
         scheduler.step()
         
@@ -157,6 +161,8 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             dataloader = preprocessing_whole_sequence(validation_gene_file, tokenizer, batch_size, dense=(preprocessing_mode == "dense"))
             chr_name = os.path.basename(os.path.dirname(validation_gene_file))
             gene_name = '.'.join(os.path.basename(validation_gene_file).split('.')[:-1])
+            
+            # TODO: detailed metrics are too much, better get an overview.
             for k in sequential_labels:
                 wandb.define_metric(f"validation-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
                 wandb.define_metric(f"validation-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
@@ -207,17 +213,20 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             })
 
         validation_log.close()
-        wandb.save(validation_log_path)
         checkpoint_path = os.path.join(save_dir, "latest", "checkpoint.pth")
         save_path = os.path.join(save_dir, f"checkpoint-{epoch}.pth")
         checkpoint = {
-            "model": model.state_dict(),
+            "model": model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
             "epoch": epoch
         }
         torch.save(checkpoint, checkpoint_path)
         torch.save(checkpoint, save_path)
+        wandb.save(checkpoint_path)
+        wandb.save(save_path)
+        wandb.save(validation_log_path)
+
 
     training_log.close()
 
@@ -311,7 +320,7 @@ if __name__ == "__main__":
                 epoch = checkpoint.get("epoch")
                 start_epoch = epoch + 1
 
-        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs, start_epoch, batch_size, use_weighted_loss, accumulate_gradient, preprocessing_mode)
+        train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs, start_epoch, batch_size, use_weighted_loss, accumulate_gradient, preprocessing_mode, device_list=device_list)
         run.finish()
 
 

@@ -28,18 +28,23 @@ class Metrics:
     Make sure to use CLEAN prediction and target indices;
     prediction and target indices must contain ONLY labels.
     """
-    def __init__(self, prediction, target):
+    def __init__(self, prediction=[], target=[]):
         r"""
-        * :attr:`prediction`
-        * :attr:`target`
+        * :attr:`prediction`    (Array | None -> None)
+        * :attr:`target`        (Array | None -> None)
         """
-        if isinstance(prediction, torch.Tensor):
-            raise TypeError(f"prediction type error. expected type Array found {type(prediction)}")
-        if isinstance(target, torch.Tensor):
-            raise TypeError(f"target type error. expected type Array found {type(target)}")
+        if len(prediction) > 0 and len(target) > 0:
+            if isinstance(prediction, torch.Tensor):
+                raise TypeError(f"prediction type error. expected type Array found {type(prediction)}")
+            if isinstance(target, torch.Tensor):
+                raise TypeError(f"target type error. expected type Array found {type(target)}")
 
-        self.prediction = [int(a) for a in prediction]
-        self.target = [int(a) for a in target]
+            self.prediction = [int(a) for a in prediction]
+            self.target = [int(a) for a in target]
+        
+        else:
+            self.prediction = []
+            self.target = []
         
         # cf matrix. horizontal represents 'prediction', vertical represents 'target'.
         self.matrix = []
@@ -70,32 +75,51 @@ class Metrics:
             "Falses": self.Falses
         } 
 
-    def calculate(self):
-        n_pred = len(self.prediction)
-        n_target = len(self.target)
+    def calculate(self, y_prediction=[], y_target=[]):
+        n_pred = len(self.prediction) if len(y_prediction) == 0 else len(y_prediction)
+        n_target = len(self.target) if len(y_target) == 0 else len(y_target)
+        self.prediction.extend(y_prediction)
+        self.target.extend(y_target)
         if n_pred != n_target:
             raise ValueError(f"Prediction and target are not the same size. Found {n_pred} and {n_target}")
+        # for p, t in zip(self.prediction, self.target):
+        yp = y_prediction if y_prediction else self.prediction
+        yt = y_target if y_target else self.target
+        for p, t in zip(yp, yt):
+            self.matrix[p][t] += 1
+
+    def recalculate(self):
+        r"""
+        Recompute confusion matrix based on latest internal `prediction` and `target` attribute state.
+        """    
+        for i in range(NUM_LABELS):
+            for j in range(NUM_LABELS):
+                self.matrix[i][j]=0
         for p, t in zip(self.prediction, self.target):
-            pred_label =  Index_Dictionary[p]
-            target_label = Index_Dictionary[t]
             self.matrix[p][t] += 1
 
     def true_label(self, label_index):
         r"""
         Return number of occurences where predicted label is indeed target label.
         """
+        if label_index >= NUM_LABELS or label_index < 0:
+            raise IndexError(f"label index out of bounds {label_index}")
         return self.matrix[label_index][label_index]
 
     def false_label(self, label_index):
         r"""
         Return number of occurences where predicted label is not target label hence false label.
         """
+        if label_index >= NUM_LABELS or label_index < 0:
+            raise IndexError(f"label index out of bounds {label_index}")
         return sum([self.matrix[label_index][a] for a in range(self.num_classes) if a != label_index])
 
     def false_non_label(self, label_index):
         r"""
         Return number of occurences where target label is not predicted label hence false non label.
         """
+        if label_index >= NUM_LABELS or label_index < 0:
+            raise IndexError(f"label index out of bounds {label_index}")
         return sum([self.matrix[a][label_index] for a in range(self.num_classes) if a != label_index])
 
     def precision(self, label_index, percentage=False):

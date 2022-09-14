@@ -1,5 +1,5 @@
 from torch import nn
-from models.lstm import LSTM_Block
+from .lstm import LSTM_Block
 import utils.seqlab
 
 class SeqLabBlock(nn.Module):
