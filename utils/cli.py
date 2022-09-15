@@ -32,7 +32,11 @@ def parse_args(argvs):
         "project-name=",
         "preprocessing-mode=",
         "accumulate-gradient",
-        "use-weighted-loss"
+        "use-weighted-loss",
+        "lr=",
+        "epsilon=",
+        "beta1=",
+        "beta2="
     ])
     output = {}
     for o, a in opts:
@@ -68,6 +72,14 @@ def parse_args(argvs):
             output["offline"] = True
         elif o in ["--accumulate-gradient"]:
             output["accumulate-gradient"] = True
+        elif o in ["--lr"]:
+            output["lr"] = float(a)
+        elif o in ["--epsilon"]:
+            output["epsilon"] = float(a)
+        elif o in ["--beta1"]:
+            output["beta1"] = float(a)
+        elif o in ["--beta2"]:
+            output["beta2"] = float(a)
         elif o in ["--preprocessing-mode"]:
             if a not in ["sparse", "dense"]:
                 raise ValueError(f"Argument {o} accepts either `sparse` or `dense` value. Found {a}")
