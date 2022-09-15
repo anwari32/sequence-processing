@@ -30,6 +30,7 @@ from utils.utils import create_loss_weight
 from utils.metrics import Metrics, accuracy_and_error_rate
 
 def train(model, optimizer, scheduler, gene_dir, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs=1, start_epoch = 0, batch_size=1, use_weighted_loss=False, accumulate_gradient=False, preprocessing_mode="sparse", device_list=[]):
+    num_labels = model.num_labels
     if len(device_list) > 0:
         model = torch.nn.DataParallel(model, device_ids=device_list)
     
@@ -51,7 +52,6 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
     training_log = open(training_log_path, "x") if not os.path.exists(training_log_path) else open(training_log_path, "w")
     training_log.write("epoch,step,loss,accuracy,error_rate\n")
     
-    num_labels = model.num_labels
     num_training_genes = len(training_genes)
     num_validation_genes = len(validation_genes)
     sequential_labels = [k for k in Label_Dictionary.keys() if Label_Dictionary[k] >= 0]
