@@ -37,3 +37,5 @@ if __name__ == "__main__":
     train_df.to_csv(train_path, index=False)
     validation_df.to_csv(validation_path, index=False)
     test_df.to_csv(test_path, index=False)
+
+    print(f"{train_path}\n{validation_path}\n{test_path}")

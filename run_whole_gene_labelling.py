@@ -71,12 +71,12 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             gene_name = '.'.join(os.path.basename(training_gene_file).split('.')[:-1])
             
             # training metrics
-            # wandb.define_metric(f"training-{chr_name}-{gene_name}/loss", step_metric="epoch")
-            # for k in sequential_labels:
-            #     wandb.define_metric(f"training-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
-            #     wandb.define_metric(f"training-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
-            # wandb.define_metric(f"training-{chr_name}-{gene_name}/accuracy", step_metric="epoch")
-            # wandb.define_metric(f"training-{chr_name}-{gene_name}/error_rate", step_metric="epoch")
+            wandb.define_metric(f"training-{chr_name}-{gene_name}/loss", step_metric="epoch")
+            for k in sequential_labels:
+                wandb.define_metric(f"training-{chr_name}-{gene_name}/precision-{k}", step_metric="epoch")
+                wandb.define_metric(f"training-{chr_name}-{gene_name}/recall-{k}", step_metric="epoch")
+            wandb.define_metric(f"training-{chr_name}-{gene_name}/accuracy", step_metric="epoch")
+            wandb.define_metric(f"training-{chr_name}-{gene_name}/error_rate", step_metric="epoch")
 
             # loss weight
             loss_weight = None
@@ -130,22 +130,22 @@ def train(model, optimizer, scheduler, gene_dir, training_index_path, validation
             optimizer.zero_grad() # Automatically reset gradient if a gene has finished.
 
             # metric at gene
-            # metric_at_gene = Metrics(y_prediction, y_target)
-            # metric_at_gene.calculate()
-            # gene_acc, gene_error_rate = metric_at_gene.accuracy_and_error_rate()
+            metric_at_gene = Metrics(y_prediction, y_target)
+            metric_at_gene.calculate()
+            gene_acc, gene_error_rate = metric_at_gene.accuracy_and_error_rate()
             
-            # for k in sequential_label_indices:
-            #     token_label = Index_Dictionary[k]
-            #     wandb.log({
-            #         f"training-{chr_name}-{gene_name}/precision-{token_label}": metric_at_step.precision(k, True),
-            #         f"training-{chr_name}-{gene_name}/recall-{token_label}": metric_at_step.recall(k, True),
-            #         "epoch":epoch
-            #     })
-            # wandb.log({
-            #     f"training-{chr_name}-{gene_name}/accuracy": gene_acc, 
-            #     f"training-{chr_name}-{gene_name}/error_rate": gene_error_rate,
-            #     "epoch": epoch
-            # })
+            for k in sequential_label_indices:
+                token_label = Index_Dictionary[k]
+                wandb.log({
+                    f"training-{chr_name}-{gene_name}/precision-{token_label}": metric_at_step.precision(k, True),
+                    f"training-{chr_name}-{gene_name}/recall-{token_label}": metric_at_step.recall(k, True),
+                    "epoch":epoch
+                })
+            wandb.log({
+                f"training-{chr_name}-{gene_name}/accuracy": gene_acc, 
+                f"training-{chr_name}-{gene_name}/error_rate": gene_error_rate,
+                "epoch": epoch
+            })
 
         scheduler.step()
         
