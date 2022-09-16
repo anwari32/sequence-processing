@@ -336,7 +336,7 @@ def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
     return True
 
 def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False, do_expand=False, kmer_size=3, expand_size=512, region='exon', limit_index=0, random=True, random_seed=1337):
-    """
+    r"""
     Generate sequence labelling from given chromosome index and chromosome fasta.
     This function reads chr index to get all exon ranges and create labelling based on the index.
     After that sequence and its label sequence will be written into `target_csv`.

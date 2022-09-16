@@ -98,6 +98,12 @@ class Metrics:
         for p, t in zip(self.prediction, self.target):
             self.matrix[p][t] += 1
 
+    def extend(self, y_pred, y_target):
+        self.prediction.extend(y_pred)
+        self.target.extend(y_target)
+        for p, t in zip(y_pred, y_target):
+            self.matrix[p][t] += 1
+
     def true_label(self, label_index):
         r"""
         Return number of occurences where predicted label is indeed target label.

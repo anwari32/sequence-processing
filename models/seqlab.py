@@ -86,6 +86,11 @@ class DNABERT_SL(nn.Module):
         self.seqlab_head = SeqLabHead(config)
         self.activation = nn.Softmax(dim=2)
 
+        freeze = config.get("freeze_bert", False)
+        if freeze:
+            for param in self.bert.parameters():
+                param.requires_grad = False
+
     # def forward(self, input_ids, attention_masks, token_type_ids):
     # No need to include `token_type_ids`` since this is single sequence-related prediction.
     # `token_type_ids` is used for next sentence prediction where input contains two sentence.
