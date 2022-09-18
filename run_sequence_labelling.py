@@ -87,6 +87,7 @@ if __name__ == "__main__":
 
     model_config_names = ", ".join(model_config_names)
     run_name = args.get("run-name", "sequence-labelling")
+    learning_rate = args.get("lr", None)
 
     print(f"~~~~~Training Sequential Labelling~~~~~")
     print(f"# Training Data {n_train_data}")
@@ -97,6 +98,7 @@ if __name__ == "__main__":
     print(f"Model Configs {model_config_names}")
     print(f"Epochs {epoch_size}")
     print(f"Use weighted loss {use_weighted_loss}")
+    print(f"Initial Learning Rate {learning_rate}")
 
     for cfg_path, resume_run_id in zip(model_config_list, resume_run_ids):
         cfg_name = os.path.basename(cfg_path).split(".")[0:-1] # Get filename without extension.
@@ -107,14 +109,20 @@ if __name__ == "__main__":
         pretrained = os.path.join("pretrained", "3-new-12w-0")
         if "pretrained" in training_config.keys():
             pretrained = str(Path(PureWindowsPath(training_config.get("pretrained", False))))
-        lr = training_config["optimizer"]["learning_rate"]
+        
         _config = json.load(open(cfg_path, "r"))
         _bert = BertForMaskedLM.from_pretrained(pretrained)
         _bert = _bert.bert
         model = DNABERT_SL(_bert, _config)
+        if learning_rate == None:
+            learning_rate = training_config["optimizer"]["learning_rate"]
+
         optimizer = AdamW(model.parameters(), 
-            lr=training_config["optimizer"]["learning_rate"], 
-            betas=(training_config["optimizer"]["beta1"], training_config["optimizer"]["beta1"]),
+            lr=learning_rate, 
+            betas=(
+                training_config["optimizer"]["beta1"], 
+                training_config["optimizer"]["beta1"]
+            ),
             eps=training_config["optimizer"]["epsilon"],
             weight_decay=training_config["optimizer"]["weight_decay"]
         )
@@ -134,7 +142,8 @@ if __name__ == "__main__":
             "validation_data": n_validation_data,
             "num_epochs": epoch_size,
             "batch_size": batch_size,
-            "training_date": cur_date
+            "training_date": cur_date,
+            "initial_learning_rate": learning_rate,
         }, reinit=True, resume='allow', id=run_id, name=runname) 
         wandb.watch(model)
 

@@ -16,6 +16,7 @@ def parse_args(argvs):
     -   device-list
     -   project-name
     -   use-weighted-loss
+    -   lr
     -   offline
     """
     opts, arguments = getopt(argvs, "t:d:r:m:c:b:e:n:l:p:w:",
