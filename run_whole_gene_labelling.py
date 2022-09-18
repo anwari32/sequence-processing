@@ -284,6 +284,7 @@ if __name__ == "__main__":
     print(f"Use weighted loss {use_weighted_loss}")
     print(f"Accumulate Gradients {accumulate_gradient}")
     print(f"Preprocessing Mode {preprocessing_mode}")
+    print(f"Initial Learning Rate {learning_rate}")
 
     for config_name, resume_run_id in zip(model_config_names, resume_run_ids):
         config_path = os.path.join(model_config_dir, f"{config_name}.json",)

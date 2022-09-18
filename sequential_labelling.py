@@ -10,6 +10,7 @@ from models.seqlab import DNABERT_SL
 import numpy as np
 
 def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb):
+    wandb.define_metric("epoch")
     for label_index in range(NUM_LABELS):
         label =Index_Dictionary[label_index]
         wandb.define_metric(f"validation/precision-{label}", step_metric="epoch")
