@@ -63,8 +63,8 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
     metrics.calculate()
     for label_index in range(NUM_LABELS):
         label = Index_Dictionary[label_index]
-        precision = metrics.precision(label_index, percentage=True)
-        recall = metrics.recall(label_index, percentage=True)
+        precision = metrics.precision(label_index)
+        recall = metrics.recall(label_index)
         wandb.log({
             f"validation/precision-{label}": precision,
             f"validation/recall-{label}": recall,
@@ -143,8 +143,8 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             metrics_at_step.calculate()
             for label_index in range(NUM_LABELS):
                 label = Index_Dictionary[label_index]
-                wandb.log({f"precision-{label}": metrics_at_step.precision(label_index)})
-                wandb.log({f"recall-{label}": metrics_at_step.recall(label_index)})
+                wandb.log({f"training/precision-{label}": metrics_at_step.precision(label_index)})
+                wandb.log({f"training/recall-{label}": metrics_at_step.recall(label_index)})
         
         # Move scheduler to epoch loop.
         scheduler.step()
