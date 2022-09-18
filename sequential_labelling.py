@@ -93,6 +93,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     TRAINING_EPOCH = "train/epoch"
     TRAINING_LOSS = "train/loss"
     TRAINING_EPOCH_LOSS = "train/epoch_loss"
+    wandb.define_metric("epoch")
     wandb.define_metric(TRAINING_EPOCH)
     wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
     wandb.define_metric(TRAINING_EPOCH_LOSS, step_metric=TRAINING_EPOCH)
