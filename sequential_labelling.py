@@ -125,6 +125,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             optimizer.step()
             lr = optimizer.param_groups[0]['lr']
             wandb.log({"batch_loss": batch_loss})
+            wandb.log({f"training/learning_rate": lr})
             log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
 
             y_prediction_at_step = []
@@ -145,6 +146,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
                 label = Index_Dictionary[label_index]
                 wandb.log({f"training/precision-{label}": metrics_at_step.precision(label_index)})
                 wandb.log({f"training/recall-{label}": metrics_at_step.recall(label_index)})
+            
         
         # Move scheduler to epoch loop.
         scheduler.step()
