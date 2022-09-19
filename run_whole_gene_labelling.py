@@ -13,6 +13,7 @@ import torch
 import numpy as np
 
 import wandb
+from datetime import datetime
 from getopt import getopt
 from pathlib import Path, PureWindowsPath
 from sched import scheduler
@@ -320,8 +321,13 @@ if __name__ == "__main__":
                 scheduler.load_state_dict(torch.load(checkpoint.get("scheduler")))
                 epoch = checkpoint.get("epoch")
                 start_epoch = epoch + 1
-
+        start_time = datetime.now()
+        print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
+        print(f"Starting epoch {start_epoch}")
         train(model, optimizer, scheduler, gene_dirpath, training_index_path, validation_index_path, tokenizer, save_dir, wandb, num_epochs, start_epoch, batch_size, use_weighted_loss, accumulate_gradient, preprocessing_mode, device_list=device_list)
         run.finish()
+        end_time = datetime.now()
+        running_time = end_time - start_time
+        print(f"Start Time {start_time}\nFinish Time {end_time}\nTraining Duration {running_time}")
 
 
