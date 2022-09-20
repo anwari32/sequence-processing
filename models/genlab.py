@@ -74,14 +74,13 @@ class RNNBlock(nn.Module):
             )
     
     def forward(self, input, hidden_units):
+        # TODO: Enable batch processing here!
         # Somehow I need to match hidden state (h) and cell state (c) dimension to input dimension.
         # Case: input dimension (1, 512, 768), h dimension (4, 4, 768) and c dimension (4, 4, 768).
         # Input (1, 512, 768) requires h and c (4, 1, 768).
         # Proposed treatment: adjust h and c dimension.
 
         # if self.last_hn_cn != None:
-
-
         #     hn, cn = None, None
         #     if isinstance(self.rnn, nn.LSTM):
         #         hn = hidden_units[0]
