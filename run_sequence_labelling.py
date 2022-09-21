@@ -73,7 +73,7 @@ if __name__ == "__main__":
             raise FileNotFoundError("Path to model config not found")
         model_config_list.append(args.get("model-config", False))
 
-    project_name = args.get("project-name", training_config.get("name", "sequence-labelling"))
+    project_name = args.get("project-name", "sequence-labelling")
     use_weighted_loss = args.get("use-weighted-loss", False)
     loss_weight = create_loss_weight(training_filepath) if use_weighted_loss else None
     resume_run_ids = args.get("resume-run-id", [])
@@ -86,7 +86,7 @@ if __name__ == "__main__":
             resume_run_ids.append(None)
 
     model_config_names = ", ".join(model_config_names)
-    run_name = args.get("run-name", "sequence-labelling")
+    run_name = args.get("run-name", training_config.get("name", "sequence-labelling"))
     learning_rate = args.get("lr", None)
 
     print(f"~~~~~Training Sequential Labelling~~~~~")
