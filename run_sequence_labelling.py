@@ -2,7 +2,7 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count, get_device_name
-from torch.optim import AdamW, SGD
+from torch.optim import AdamW, SGD, RMSprop
 from models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
@@ -73,7 +73,7 @@ if __name__ == "__main__":
             raise FileNotFoundError("Path to model config not found")
         model_config_list.append(args.get("model-config", False))
 
-    project_name = args.get("project-name", "sequence-labelling")    
+    project_name = training_config.get("name", args.get("project-name", "sequence-labelling"))
     use_weighted_loss = args.get("use-weighted-loss", False)
     loss_weight = create_loss_weight(training_filepath) if use_weighted_loss else None
     resume_run_ids = args.get("resume-run-id", [])
@@ -114,27 +114,51 @@ if __name__ == "__main__":
         _bert = BertForMaskedLM.from_pretrained(pretrained)
         _bert = _bert.bert
         model = DNABERT_SL(_bert, _config)
-        if learning_rate == None:
-            learning_rate = training_config["optimizer"]["learning_rate"]
 
-        optimizer_name = training_config["optimizer"]["name"]
+        optimizer_config = training_config.get("optimizer", None)
+        
         optimizer = None
-        if optimizer_name == "sgd":
-            optimizer = SGD(model.parameters(),
-                lr=learning_rate,
-                momentum=training_config["optimizer"]["beta1"], 
-                weight_decay=training_config["optimizer"]["weight_decay"]
+        if not optimizer_config:
+            optimizer = AdamW(model.parameters(), 
+                lr=4e-6, 
+                betas=(
+                    0.98, 
+                    0.9
+                ),
+                eps=1e-6,
+                weight_decay=0.01
             )
         else:
-            optimizer = AdamW(model.parameters(), 
-                lr=learning_rate, 
-                betas=(
-                    training_config["optimizer"]["beta1"], 
-                    training_config["optimizer"]["beta1"]
-                ),
-                eps=training_config["optimizer"]["epsilon"],
-                weight_decay=training_config["optimizer"]["weight_decay"]
-            )
+            optimizer_name = optimizer_config.get("name", None)
+            if learning_rate == None:
+                learning_rate = optimizer_config["learning_rate"]
+
+            if optimizer_name == "sgd":
+                optimizer = SGD(model.parameters(),
+                    lr=learning_rate,
+                    momentum=optimizer_config.get("momentum", 0), 
+                    weight_decay=optimizer_config.get("weight_decay", 0)
+                )
+            elif optimizer_name == "rmsprop":
+                optimizer = RMSprop(
+                    model.parameters(),
+                    lr=learning_rate,
+                    alpha=optimizer_config.get("alpha", 0.99),
+                    eps=optimizer_config.get("epsilon", 1e-8),
+                    momentum=optimizer_config.get("momentum", 0),
+                    weight_decay=optimizer_config.get("weight_decay", 0)
+                )
+            else:
+                # Initialize AdamW parameters based on DNABERT training implementation.
+                optimizer = AdamW(model.parameters(), 
+                    lr=learning_rate, 
+                    betas=(
+                        optimizer_config.get("beta1", 0.98), 
+                        optimizer_config.get("beta2", 0.9)
+                    ),
+                    eps=optimizer_config.get("epsilon", 1e-6),
+                    weight_decay=optimizer_config.get("weight_decay", 0.01)
+                )
 
         training_steps = len(dataloader) * epoch_size
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)

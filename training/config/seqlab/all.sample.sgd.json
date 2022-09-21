@@ -1,5 +1,5 @@
 {
-    "name": "all-sample-adamw",
+    "name": "all-sample-sgd",
     "pretrained": "pretrained\\3-new-12w-0",
     "train_data": "workspace\\seqlab\\seqlab-3\\gene_train_bundle.sample.csv",
     "validation_data": "workspace\\seqlab\\seqlab-3\\gene_validation_bundle.sample.csv",
@@ -8,11 +8,12 @@
     "num_epochs": 10,
     "batch_size": 32,
     "optimizer": {
-        "name": "adamw",
+        "name": "sgd",
         "learning_rate": 4e-4,
         "epsilon": 1e-6,
         "beta1": 0.9,
         "beta2": 0.98,
-        "weight_decay": 0.01
+        "weight_decay": 0.01,
+        "momentum": 0.9
     }
 }

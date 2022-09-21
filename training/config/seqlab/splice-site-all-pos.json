@@ -1,4 +1,5 @@
 {
+    "name": "ssa-adamw",
     "pretrained": "pretrained\\3-new-12w-0",
     "train_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-10\\ss_compiled_train.csv",
     "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-10\\ss_compiled_validation.csv",
@@ -10,8 +11,8 @@
         "name": "adamw",
         "learning_rate": 4e-4,
         "epsilon": 1e-6,
-        "beta1": 0.98,
-        "beta2": 0.9,
+        "beta1": 0.9,
+        "beta2": 0.98,
         "weight_decay": 0.010
     }
 }
