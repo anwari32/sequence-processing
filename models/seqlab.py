@@ -48,6 +48,7 @@ class SeqLabHead(nn.Module):
                 )
         #self.hidden_layers = [nn.Linear(d[0], d[1]) for d in dims_ins_outs]
         #self.norm_layer = [nn.LayerNorm(d[0]) for d in dims_ins_outs]
+        self.dropout = nn.Dropout(p=self.dropout)
         self.classifier = nn.Linear(in_features=self.dim, out_features=self.num_labels)
         #for i in range(0, len(self.hidden_layers)):
         #    linear_layer = self.hidden_layers[i]
@@ -63,6 +64,7 @@ class SeqLabHead(nn.Module):
     def forward(self, input):
         x = input
         x = self.linear(x)
+        x = self.dropout(x)
         x = self.classifier(x)
         return x
 
