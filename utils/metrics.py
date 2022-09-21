@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 from .seqlab import NUM_LABELS, Index_Dictionary, Label_Dictionary
 import numpy as np
 import torch
@@ -23,8 +24,20 @@ def accuracy_and_error_rate(input_ids, prediction, target):
     accuracy = accuracy / input_ids_len
     return accuracy, (1 - accuracy)
 
+def cleanup_prediction(prediction, target):
+    _psize = np.asarray(prediction).size
+    _tsize = np.asarray(target).size
+    if _psize != _tsize:
+        raise ValueError(f"prediction and target are not in same size. Found {_psize} and {_tsize}")
+    cp = prediction[1:] # Remove CLS token at first index.
+    ct = target[1:] # Remove CLS token at first index.
+    ct = [a for a in ct if a >= 0] # Remove special tokens indicated by negative number.
+    cp = cp[0:len(ct)] # Remove any prediction on special tokens by matching the size of cp tp ct.
+    
+    return cp, ct
+
 class Metrics:
-    r"""
+    """
     Make sure to use CLEAN prediction and target indices;
     prediction and target indices must contain ONLY labels.
     """
