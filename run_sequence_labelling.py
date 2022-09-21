@@ -2,7 +2,7 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count, get_device_name
-from torch.optim import AdamW
+from torch.optim import AdamW, SGD
 from models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
@@ -117,15 +117,24 @@ if __name__ == "__main__":
         if learning_rate == None:
             learning_rate = training_config["optimizer"]["learning_rate"]
 
-        optimizer = AdamW(model.parameters(), 
-            lr=learning_rate, 
-            betas=(
-                training_config["optimizer"]["beta1"], 
-                training_config["optimizer"]["beta1"]
-            ),
-            eps=training_config["optimizer"]["epsilon"],
-            weight_decay=training_config["optimizer"]["weight_decay"]
-        )
+        optimizer_name = training_config["optimizer"]["name"]
+        optimizer = None
+        if optimizer_name == "sgd":
+            optimizer = SGD(model.parameters(),
+                lr=learning_rate,
+                momentum=training_config["optimizer"]["beta1"], 
+                weight_decay=training_config["optimizer"]["weight_decay"]
+            )
+        else:
+            optimizer = AdamW(model.parameters(), 
+                lr=learning_rate, 
+                betas=(
+                    training_config["optimizer"]["beta1"], 
+                    training_config["optimizer"]["beta1"]
+                ),
+                eps=training_config["optimizer"]["epsilon"],
+                weight_decay=training_config["optimizer"]["weight_decay"]
+            )
 
         training_steps = len(dataloader) * epoch_size
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
