@@ -63,17 +63,17 @@ class SeqLabHead(nn.Module):
     
     def forward(self, input):
         x = input
-        x = self.linear(x)
-        x = self.dropout(x)
+        x = self.dropout(x) # Dropout after BERT layer.
+        x = self.linear(x) # Continue to linear layer.
         x = self.classifier(x)
         return x
 
 class DNABERT_SL(nn.Module):
-    """
+    r"""
     Core architecture of sequential labelling.
     """
     def __init__(self, bert, config):
-        """
+        r"""
         This model uses BERT as its feature extraction layer.
         This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.
         @param  bert_pretrained_path (string): Path to DNABERT pretrained.
