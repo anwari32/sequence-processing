@@ -6,7 +6,7 @@
         "input_dim": 768,
         "hidden_dim": 768,
         "norm_layer": 0,
-        "dropout": 0
+        "dropout": 0.1
     },
     "freeze_bert": true
 }

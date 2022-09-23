@@ -6,7 +6,7 @@ from torch.optim import AdamW, SGD, RMSprop
 from models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
-from transformers import BertTokenizer, BertForMaskedLM
+from transformers import BertTokenizer, BertForMaskedLM, BertConfig
 import os
 import wandb
 from datetime import datetime
@@ -111,6 +111,7 @@ if __name__ == "__main__":
             pretrained = str(Path(PureWindowsPath(training_config.get("pretrained", False))))
         
         _config = json.load(open(cfg_path, "r"))
+        bert_config = BertConfig.from_pretrained(pretrained)
         _bert = BertForMaskedLM.from_pretrained(pretrained)
         _bert = _bert.bert
         model = DNABERT_SL(_bert, _config)
