@@ -24,7 +24,7 @@ class Hidden(nn.Module):
         self.dim = 768
         self.input_dim = 768
         self.norm_layer = False
-        self.dropout = 0
+        self.dropout_prob = 0.1
         self.num_blocks = 1
         self.num_labels = 8
         
@@ -35,18 +35,18 @@ class Hidden(nn.Module):
             self.input_dim = linear_config.get("input_dim", 768)
             self.dim = linear_config.get("hidden_dim", 768)
             self.norm_layer = (linear_config.get("norm_layer") > 0) 
-            self.dropout= linear_config.get("dropout", 0.1)
+            self.dropout_prob = linear_config.get("dropout", 0.1)
         
-        self.dropout = nn.Dropout(p=self.dropout)
+        self.dropout = nn.Dropout(p=self.dropout_prob)
         self.linear = nn.Sequential()
         for i in range(self.num_blocks):
             if i > 0:
                 self.linear.add_module(
-                    "hidden-block-{}".format(i), HiddenBlock(self.dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
+                    "hidden-block-{}".format(i), HiddenBlock(self.dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout_prob)
                 )
             else:
                 self.linear.add_module(
-                    "hidden-block-{}".format(i), HiddenBlock(self.input_dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
+                    "hidden-block-{}".format(i), HiddenBlock(self.input_dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout_prob)
                 )
         self.classifier = nn.Linear(in_features=self.dim, out_features=self.num_labels)
     
