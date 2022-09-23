@@ -42,11 +42,11 @@ class Hidden(nn.Module):
         for i in range(self.num_blocks):
             if i > 0:
                 self.linear.add_module(
-                    "seq2seq_block-{}".format(i), HiddenBlock(self.dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
+                    "hidden-block-{}".format(i), HiddenBlock(self.dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
                 )
             else:
                 self.linear.add_module(
-                    "seq2seq_block-{}".format(i), HiddenBlock(self.input_dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
+                    "hidden-block-{}".format(i), HiddenBlock(self.input_dim, self.dim, norm_layer=self.norm_layer, prob=self.dropout)
                 )
         self.classifier = nn.Linear(in_features=self.dim, out_features=self.num_labels)
     
