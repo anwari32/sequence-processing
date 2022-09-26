@@ -13,8 +13,8 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
     wandb.define_metric("epoch")
     for label_index in range(NUM_LABELS):
         label =Index_Dictionary[label_index]
-        wandb.define_metric(f"validation/precision-{label}", step_metric="epoch")
-        wandb.define_metric(f"validation/recall-{label}", step_metric="epoch")
+        wandb.define_metric(f"epocs/precision-{label}", step_metric="epoch")
+        wandb.define_metric(f"epoch/recall-{label}", step_metric="epoch")
 
     model.eval()
     avg_accuracy = 0
@@ -52,6 +52,17 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
                 label_indices = label.tolist()[1:] # Remove CLS
                 filtered_target = [a for a in label_indices if a >= 0] # Remove special tokens.
                 filtered_pred = pindices[0:len(filtered_target)] # Remove special tokens.
+
+                metric_at_step = Metrics(filtered_target, filtered_pred)
+                metric_at_step.calculate()
+                for label_index in range(NUM_LABELS):
+                    label = Index_Dictionary[label_index]
+                    precision = metric_at_step.precision(label_index)
+                    recall = metric_at_step.recall(label_index)
+                    wandb.log({
+                        f"validation/precision-{label}": precision,
+                        f"validation/recall-{label}": recall
+                    })
                 
                 y_pred = np.concatenate((y_pred, filtered_pred))
                 y_target = np.concatenate((y_target, filtered_target))
@@ -66,8 +77,8 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
         precision = metrics.precision(label_index)
         recall = metrics.recall(label_index)
         wandb.log({
-            f"validation/precision-{label}": precision,
-            f"validation/recall-{label}": recall,
+            f"epoch/precision-{label}": precision,
+            f"epoch/recall-{label}": recall,
             "epoch": epoch
         })
 
@@ -89,21 +100,6 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     n_gpu = len(device_list)
     if n_gpu > 1:
         model = torch.nn.DataParallel(model, device_list)
-
-    TRAINING_EPOCH = "train/epoch"
-    TRAINING_LOSS = "train/loss"
-    TRAINING_EPOCH_LOSS = "train/epoch_loss"
-    wandb.define_metric("epoch")
-    wandb.define_metric(TRAINING_EPOCH)
-    wandb.define_metric(TRAINING_LOSS, step_metric=TRAINING_EPOCH)
-    wandb.define_metric(TRAINING_EPOCH_LOSS, step_metric=TRAINING_EPOCH)
-
-    VALIDATION_ACCURACY = "validation/accuracy"
-    VALIDATION_LOSS = "validation/loss"
-    VALIDATION_EPOCH = "validation/epoch"
-    wandb.define_metric(VALIDATION_EPOCH)
-    wandb.define_metric(VALIDATION_ACCURACY, step_metric=VALIDATION_EPOCH)
-    wandb.define_metric(VALIDATION_LOSS, step_metric=VALIDATION_EPOCH)
     
     # Clean up previous training, if any.
     # torch.cuda.empty_cache()
@@ -151,8 +147,8 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
         # Move scheduler to epoch loop.
         scheduler.step()
         wandb.log({
-            TRAINING_EPOCH_LOSS: epoch_loss,
-            TRAINING_EPOCH: epoch
+            "epoch/training_loss": epoch_loss,
+            "epoch": epoch
         })
 
         # After an epoch, evaluate.
@@ -161,9 +157,9 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             avg_accuracy, avg_loss = evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, epoch_size, loss_function, wandb)
             best_accuracy = best_accuracy if best_accuracy > avg_accuracy else avg_accuracy
             wandb.log({
-                VALIDATION_ACCURACY: avg_accuracy,
-                VALIDATION_LOSS: avg_loss.item(),
-                VALIDATION_EPOCH: epoch
+                "epoch/validation_accuracy": avg_accuracy,
+                "epoch/validation_loss": avg_loss.item(),
+                "epoch": epoch
             })
 
             # Save trained model if this epoch produces better model.
