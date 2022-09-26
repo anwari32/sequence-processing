@@ -10,12 +10,6 @@ from models.seqlab import DNABERT_SL
 import numpy as np
 
 def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb):
-    wandb.define_metric("epoch")
-    for label_index in range(NUM_LABELS):
-        label =Index_Dictionary[label_index]
-        wandb.define_metric(f"epocs/precision-{label}", step_metric="epoch")
-        wandb.define_metric(f"epoch/recall-{label}", step_metric="epoch")
-
     model.eval()
     avg_accuracy = 0
     avg_loss = 0
@@ -28,6 +22,7 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
         eval_log_file.write("epoch,step,accuracy,loss,prediction,target\n")
     y_pred = []
     y_target = []
+    validation_epoch_loss = 0
     with torch.no_grad():
         for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc=f"Evaluating {epoch + 1}/{num_epoch}"): 
             input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)
@@ -61,7 +56,8 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
                     recall = metric_at_step.recall(label_index)
                     wandb.log({
                         f"validation/precision-{label}": precision,
-                        f"validation/recall-{label}": recall
+                        f"validation/recall-{label}": recall,
+                        f"validation/loss": loss.item()
                     })
                 
                 y_pred = np.concatenate((y_pred, filtered_pred))
@@ -69,9 +65,14 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
 
             avg_accuracy = batch_accuracy / predictions.shape[0]
             avg_loss = batch_loss / predictions.shape[0]
+            validation_epoch_loss += batch_loss
 
     metrics = Metrics(y_pred, y_target)
     metrics.calculate()
+    wandb.log({
+        "epoch/validation_loss": validation_epoch_loss.item(),
+        "epoch": epoch
+    })
     for label_index in range(NUM_LABELS):
         label = Index_Dictionary[label_index]
         precision = metrics.precision(label_index)
@@ -104,6 +105,15 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
     # Clean up previous training, if any.
     # torch.cuda.empty_cache()
 
+    wandb.define_metric("epoch")
+    wandb.define_metric(f"epoch/training_loss", step_metric="epoch")
+    wandb.define_metric(f"epoch/validation_loss", step_metric="epoch")
+    for label_index in range(NUM_LABELS):
+        label =Index_Dictionary[label_index]
+        wandb.define_metric(f"epoch/precision-{label}", step_metric="epoch")
+        wandb.define_metric(f"epoch/recall-{label}", step_metric="epoch")
+
+
     # Do training.
     best_accuracy = 0
     for epoch in range(training_counter, epoch_size):
@@ -120,8 +130,9 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             epoch_loss += batch_loss
             optimizer.step()
             lr = optimizer.param_groups[0]['lr']
-            wandb.log({"batch_loss": batch_loss})
+            wandb.log({"batch_loss": batch_loss.item()})
             wandb.log({f"training/learning_rate": lr})
+            wandb.log({f"training/loss": batch_loss.item()})
             log_file.write(f"{epoch},{step},{batch_loss.item()},{epoch_loss.item()},{lr}\n")
 
             y_prediction_at_step = []
