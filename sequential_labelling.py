@@ -107,12 +107,20 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
 
     wandb.define_metric("epoch")
     wandb.define_metric(f"epoch/training_loss", step_metric="epoch")
+    wandb.define_metric(f"epoch/training_accuracy", step_metric="epoch")
     wandb.define_metric(f"epoch/validation_loss", step_metric="epoch")
+    wandb.define_metric(f"epoch/validation_accuracy", step_metric="epoch")
+    wandb.define_metric(f"training/loss")
+    wandb.define_metric(f"validation/loss")
+    wandb.define_metric(f"training/learning_rate")
     for label_index in range(NUM_LABELS):
         label =Index_Dictionary[label_index]
         wandb.define_metric(f"epoch/precision-{label}", step_metric="epoch")
         wandb.define_metric(f"epoch/recall-{label}", step_metric="epoch")
-
+        wandb.define_metric(f"training/precision-{label}")
+        wandb.define_metric(f"training/recall-{label}")
+        wandb.define_metric(f"validation/precision-{label}")
+        wandb.define_metric(f"validation/recall-{label}")
 
     # Do training.
     best_accuracy = 0
