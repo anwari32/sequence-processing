@@ -5,12 +5,12 @@
     "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_validation_ss_all_pos.csv",
     "test_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_test_ss_all_pos.csv",
     "freeze_bert": 0,
-    "num_epochs": 10,
+    "num_epochs": 5,
     "batch_size": 32,
     "optimizer": {
         "name": "adamw",
         "learning_rate": 1e-3,
-        "epsilon": 1e-6,
+        "epsilon": 1e-8,
         "beta1": 0.9,
         "beta2": 0.98,
         "weight_decay": 0.01

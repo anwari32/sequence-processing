@@ -1,5 +1,5 @@
 {
-    "name": "sso01-adamw",
+    "name": "sso01-adamw-lr3e-5",
     "pretrained": "pretrained\\3-new-12w-0",
     "train_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_train_ss_all_pos.csv",
     "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_validation_ss_all_pos.csv",
@@ -9,7 +9,7 @@
     "batch_size": 32,
     "optimizer": {
         "name": "adamw",
-        "learning_rate": 4e-4,
+        "learning_rate": 3e-5,
         "epsilon": 1e-8,
         "beta1": 0.9,
         "beta2": 0.98,

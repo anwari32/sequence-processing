@@ -2,7 +2,7 @@ from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count, get_device_name
-from torch.optim import AdamW, SGD, RMSprop
+from torch.optim import AdamW, SGD, RMSprop, Adam
 from models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         else:
             optimizer_name = optimizer_config.get("name", None)
             if learning_rate == None:
-                learning_rate = optimizer_config["learning_rate"]
+                learning_rate = optimizer_config.get("learning_rate", None) # None leads to error.
 
             if optimizer_name == "sgd":
                 optimizer = SGD(model.parameters(),
@@ -142,6 +142,15 @@ if __name__ == "__main__":
                 )
             elif optimizer_name == "rmsprop":
                 optimizer = RMSprop(
+                    model.parameters(),
+                    lr=learning_rate,
+                    alpha=optimizer_config.get("alpha", 0.99),
+                    eps=optimizer_config.get("epsilon", 1e-8),
+                    momentum=optimizer_config.get("momentum", 0),
+                    weight_decay=optimizer_config.get("weight_decay", 0)
+                )
+            elif optimizer_name == "adam":
+                optimizer = Adam(
                     model.parameters(),
                     lr=learning_rate,
                     alpha=optimizer_config.get("alpha", 0.99),
