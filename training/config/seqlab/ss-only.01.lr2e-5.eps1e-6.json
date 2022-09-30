@@ -1,5 +1,5 @@
 {
-    "name": "sso01-adamw-lr2e-5-eps1e-6",
+    "name": "sso01-adamw-lr2e-5.eps1e-6",
     "pretrained": "pretrained\\3-new-12w-0",
     "train_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_train_ss_all_pos.csv",
     "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_validation_ss_all_pos.csv",
