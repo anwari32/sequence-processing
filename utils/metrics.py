@@ -161,6 +161,19 @@ class Metrics:
             ret = 0 # Set to zero if things went south.
         return ret * (100 if percentage else 1)
 
+    def f_score(self, label_index, beta):
+        ret = 0
+        try:
+            precision = self.precision(label_index)
+            recall = self.recall(label_index)
+            ret = (1 + (beta*beta)) * (precision * recall) / ((beta*precision) + recall)
+        except ZeroDivisionError:
+            ret = 0
+        return ret
+
+    def f1_score(self, label_index):
+        return self.f_score(label_index, 1)
+
     def accuracy_and_error_rate(self):
         if len(self.prediction) != len(self.target):
             raise ValueError(f"size mismatch. found {len(self.prediction)} and {len(self.target)}")

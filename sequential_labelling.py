@@ -59,9 +59,11 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
                 label = Index_Dictionary[label_index]
                 precision = metric_at_step.precision(label_index)
                 recall = metric_at_step.recall(label_index)
+                f1_score = metric_at_step.f1_score(label_index)
                 wandb.log({
                     f"validation/precision-{label}": precision,
                     f"validation/recall-{label}": recall,
+                    f"validation/f1_score-{label}": f1_score,
                     "validation/loss": batch_loss.item(),
                     "validation_step": validation_step,
                 })
@@ -84,9 +86,12 @@ def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoc
         label = Index_Dictionary[label_index]
         precision = metrics.precision(label_index)
         recall = metrics.recall(label_index)
+        f1_score = metrics.f1_score(label_index)
+        
         wandb.log({
             f"epoch/precision-{label}": precision,
             f"epoch/recall-{label}": recall,
+            f"epoch/f1_score-{label}": f1_score,
             "epoch": epoch
         })
 
@@ -122,10 +127,13 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
         label =Index_Dictionary[label_index]
         wandb.define_metric(f"epoch/precision-{label}", step_metric="epoch")
         wandb.define_metric(f"epoch/recall-{label}", step_metric="epoch")
+        wandb.define_metric(f"epoch/f1_score-{label}", step_metric="epoch")
         wandb.define_metric(f"training/precision-{label}", step_metric="training_step")
         wandb.define_metric(f"training/recall-{label}", step_metric="training_step")
+        wandb.define_metric(f"training/f1_score-{label}", step_metric="training_step")
         wandb.define_metric(f"validation/precision-{label}", step_metric="validation_step")
         wandb.define_metric(f"validation/recall-{label}", step_metric="validation_step")
+        wandb.define_metric(f"validation/f1_score-{label}", step_metric="validation_step")
 
     # Do training.
     best_accuracy = 0
@@ -172,6 +180,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
                 wandb.log({
                     f"training/precision-{label}": metrics_at_step.precision(label_index),
                     f"training/recall-{label}": metrics_at_step.recall(label_index),
+                    f"training/f1_score-{label}": metrics_at_step.f1_score(label_index),
                     "training_step": training_step
                 })
             
