@@ -1,14 +1,8 @@
-# MTL
-python run_train_mtl.py --training-config=training/config/mtl/mtl.balanced.b4.json --model-config=models/config/mtl/config_mtl.json --device=cuda:3 --run-name=mtl-balanced.b1-base
-python3 run_train_mtl.py --training-config=training/config/mtl/mtl.balanced.b16.json --model-config=models/config/mtl/config_mtl.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=mtl-balanced.b16-base
-python3 run_train_mtl.py --training-config=training/config/mtl/mtl.balanced.b32.json --model-config=models/config/mtl/config_mtl.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=mtl-balanced.b32-base
-python3 run_train_mtl.py --training-config=training/config/mtl/mtl.balanced.b64.json --model-config=models/config/mtl/config_mtl.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=mtl-balanced.b64-base
-python3 run_train_mtl.py --training-config=training/config/mtl/mtl.balanced.b128.json --model-config=models/config/mtl/config_mtl.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=mtl-balanced.b128-base
-
-# Seqlab
-python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/seqlab.training.non-overlap.b16.base.json --model-config=models/config/seqlab/config_seqlab.json
-python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/seqlab.training.non-overlap.b16.base.json --model-config=models/config/seqlab/config_seqlab_base1.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-base1-nonoverlap-b16
-python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/seqlab.training.non-overlap.b16.base.json --model-config=models/config/seqlab/config_seqlab_base2.json --device=cuda:0 --device-list=0,1,2,3,4,5,6,7 --run-name=seqlab-base2-nonoverlap-b16
-python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/seqlab.training.non-overlap.b32.base.json --model-config=models/config/seqlab/config_seqlab.json
-python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/seqlab.training.non-overlap.b64.base.json --model-config=models/config/seqlab/config_seqlab.json
-python3 run_train_seqlab_gene.py --training-config=training/config/seqlab/by_genes/seqlab.training.non-overlap.b128.base.json --model-config=models/config/seqlab/config_seqlab.json
+clear &&
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss &&
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.eps1e-6.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss &&
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.lr2e-4.eps1e-6.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss &&
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.lr1e-5.eps1e-6.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss && 
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.lr2e-5.eps1e-6.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss && 
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.lr3e-5.eps1e-6.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss && 
+python run_sequence_labelling.py -t training/config/seqlab/ss-only.01.lr5e-5.eps1e-6.json -m models/config/seqlab/ -c freeze.base,base -d cuda:4 --device-list=4,5,6,7 --use-weighted-loss
