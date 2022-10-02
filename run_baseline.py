@@ -28,10 +28,10 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         loss_weight = loss_weight.to(device)
     criterion = torch.nn.CrossEntropyLoss(weight=loss_weight)
 
+    wandb.define_metric("training/*")
+    wandb.define_metric("validation/*")
     wandb.define_metric("epoch")
-    wandb.define_metric("training/epoch_loss", step_metric="epoch")
-    wandb.define_metric("validation/loss", step_metric="epoch")
-    wandb.define_metric("validation/accuracy", step_metric="epoch")
+    wandb.define_metric("epoch/*", step_metric="epoch")
 
     training_log_path = os.path.join(save_dir, "training_log.csv")
     training_log = open(training_log_path, "x")
@@ -41,8 +41,12 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
     len_eval_dataloader = len(eval_dataloader)
     for label_index in range(NUM_LABELS):
         label = Index_Dictionary[label_index]
-        wandb.define_metric(f"validation/precision-{label}", step_metric="epoch")
-        wandb.define_metric(f"validation/recall-{label}", step_metric="epoch")
+        wandb.define_metric(f"epoch/precision-{label}", step_metric="epoch")
+        wandb.define_metric(f"epoch/recall-{label}", step_metric="epoch")
+        wandb.define_metric(f"training/precision-{label}")
+        wandb.define_metric(f"training/recall-{label}")
+        wandb.define_metric(f"validation/precision-{label}")
+        wandb.define_metric(f"validation/recall-{label}")
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
@@ -54,13 +58,18 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
                 input_ids = input_ids.float()
                 pred = model(input_ids)
                 loss = criterion(pred.view(-1, num_labels), target_labels.view(-1))
+            
+            for p, l in zip(pred, target_labels):
+                _loss = criterion(p, l)
+                wandb.log({"training/loss": loss.item()})
+            
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
             wandb.log({"loss": loss.item()})
             epoch_loss += loss.item()
             training_log.write(f"{epoch},{step},{loss.item()}\n")
-        wandb.log({"training/epoch_loss": epoch_loss, "epoch": epoch})
+        wandb.log({"epoch/epoch_loss": epoch_loss, "epoch": epoch})
         scheduler.step()
 
         model.eval()
@@ -114,8 +123,8 @@ def train(model, optimizer, scheduler, train_dataloader, eval_dataloader, batch_
         for label_index in range(NUM_LABELS):
             label = Index_Dictionary[label_index]
             wandb.log({
-                f"validation/precision-{label}": metrics.precission(label_index, percentage=True),
-                f"validation/recall-{label}": metrics.recall(label_index, percentage=True),
+                f"epoch/precision-{label}": metrics.precission(label_index, percentage=True),
+                f"epoch/recall-{label}": metrics.recall(label_index, percentage=True),
                 "epoch": epoch
             })
 
