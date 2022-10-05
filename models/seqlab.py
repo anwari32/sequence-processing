@@ -78,6 +78,7 @@ class DNABERT_SL(nn.Module):
         self.activation = nn.Softmax(dim=2)
 
         freeze = config.get("freeze_bert", False)
+        self.feature_based_approach = config.get("feature_based", "last")
         if freeze:
             for param in self.bert.parameters():
                 param.requires_grad = False
@@ -88,7 +89,14 @@ class DNABERT_SL(nn.Module):
     def forward(self, input_ids, attention_masks):
         # output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
         bert_output = self.bert(input_ids=input_ids, attention_mask=attention_masks, output_attentions=True)
-        output = bert_output[0] # Last hidden state
+        if self.feature_based_approach == "last":
+            # Use last hidden layer.
+            output = bert_output[0] # Last hidden state
+        elif self.feature_based_approach == "c4":
+            # Concatenating last four hidden layer.
+            hidden_output = bert_output[1]
+            
+
         output = self.hidden(output)
         output = self.activation(output)
         return output, bert_output
