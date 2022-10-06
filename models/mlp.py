@@ -1,6 +1,6 @@
 import torch
 
-class Baseline(torch.nn.Module):
+class MLP(torch.nn.Module):
     """
     Baseline architecture for sequential labelling.
     """
