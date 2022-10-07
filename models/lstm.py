@@ -44,3 +44,4 @@ class LSTM_Block(nn.Module):
 
     def reset_hidden(self):
         self.last_hn_cn = None
+
