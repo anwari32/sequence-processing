@@ -1,0 +1,16 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "training_data": "workspace\\genlab\\genlab-3\\gene_train_index_bundle.csv",
+    "validation_data": "workspace\\genlab\\genlab-3\\gene_validation_index_bundle.csv",
+    "test_data": "workspace\\genlab\\genlab-3\\gene_test_index_bundle.csv",
+    "num_epochs": 5,
+    "batch_size": 32,
+    "optimizer": {
+        "name": "adamw",
+        "learning_rate": 3e-5,
+        "epsilon": 1e-8,
+        "beta1": 0.9,
+        "beta2": 0.98,
+        "weight_decay": 0.01
+    }
+}
