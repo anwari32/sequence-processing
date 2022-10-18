@@ -1,9 +1,9 @@
 {
     "name": "sso01-adamw-eps1e-6",
     "pretrained": "pretrained\\3-new-12w-0",
-    "train_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_train_ss_all_pos.csv",
-    "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_validation_ss_all_pos.csv",
-    "test_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-01\\gene_index.01_test_ss_all_pos.csv",
+    "train_data": "workspace\\seqlab-latest\\gene_index.01_train_validation_ss_all_pos_train.csv",
+    "validation_data": "workspace\\seqlab-latest\\gene_index.01_train_validation_ss_all_pos_validation.csv",
+    "test_data": "workspace\\seqlab-latest\\gene_index.01_test_ss_all_pos.csv",
     "freeze_bert": 0,
     "num_epochs": 5,
     "batch_size": 32,
