@@ -2,7 +2,7 @@ from torch import nn
 from .lstm import LSTM_Block
 import utils.seqlab
 
-class HiddenBlock(nn.Module):
+class HeadBlock(nn.Module):
     def __init__(self, in_dims, out_dims, norm_layer=False, prob=0.1):
         super().__init__()
         self.linear = nn.Linear(in_features=in_dims, out_features=out_dims)
@@ -18,7 +18,7 @@ class HiddenBlock(nn.Module):
         output = self.activation(output)
         return output
 
-class Hidden(nn.Module):
+class Head(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dim = 768
@@ -74,7 +74,7 @@ class DNABERT_SL(nn.Module):
         super().__init__()
         
         self.bert = bert
-        self.hidden = Hidden(config)
+        self.head = Head(config)
         self.activation = nn.Softmax(dim=2)
 
         freeze = config.get("freeze_bert", False)
@@ -97,7 +97,7 @@ class DNABERT_SL(nn.Module):
             hidden_output = bert_output[1]
             
 
-        output = self.hidden(output)
+        output = self.head(output)
         output = self.activation(output)
         return output, bert_output
 
