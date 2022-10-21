@@ -11,22 +11,25 @@ from tqdm import tqdm
 from utils.metrics import Metrics
 
 def parse_args(argvs):
-    opts, args = getopt(argvs, "m:t:d:l:", [
-            "model=",
-            "test_data=",
+    opts, args = getopt(argvs, "w:c:t:d:l:", [
+            "work-dir=",
+            "model-config=",
+            "test-data=",
             "device=",
             "log=",
         ])
     output = {}
     for opt, arg in opts:
-        if opt in ["-m", "--model"]:
-            output["model"] = arg
-        elif opt in ["-t", "--test_data"]:
+        if opt in ["-c", "--model-config"]:
+            output["model-config"] = arg
+        elif opt in ["-t", "--test-data"]:
             output["test_data"] = arg
         elif opt in ["-d", "--device"]:
             output["device"] = arg
         elif opt in ["-l", "--log"]:
             output["log"] = arg
+        elif opt in ["-w", "--work-dir"]:
+            output["work_dir"]
         else:
             print(f"Argument {opt} value {arg} not recognized.")
             sys.exit(2)

@@ -1,4 +1,5 @@
 {
+    "name": "gidx01-adamw-lr3e-3",
     "pretrained": "pretrained\\3-new-12w-0",
     "training_data": "workspace\\genlab\\genlab-3\\gene_train_index_bundle.csv",
     "validation_data": "workspace\\genlab\\genlab-3\\gene_validation_index_bundle.csv",

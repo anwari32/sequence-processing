@@ -20,11 +20,16 @@ class DNATokenizer:
 
 class RNN_Config:
     def __init__(self, dicts={}):
+        self.name = dicts.get("name", "unnamed")
+        self.num_embeddings = dict.get("num_embeddings")
+        self.embedding_dim = dict.get("embedding_size")
+        self.rnn = dicts.get("rnn", "unknown")
         self.input_size = dicts.get("input_size", 1)
         self.hidden_size = dicts.get("hidden_size", 1)
         self.num_labels = dicts.get("num_labels", 8)
         self.num_layers = dicts.get("num_layers", 1)
         self.dropout_prob = dicts.get("dropout_prob", 0.2)
+        self.bidirectional = dicts.get("bidirectional", False)
 
     def export(self, export_path: str):
         # Write instance attributes into single json file.
@@ -34,22 +39,38 @@ class RNN_Model(torch.nn.Module):
     def __init__(self, config: RNN_Config):
         super().__init__()
         self.config = config
+        self.embedding = torch.nn.Embedding(
+            self.config.num_embeddings,
+            self.config.embedding_dim
+        )
         self.rnn = None
+        self.dropout = torch.nn.Dropout(self.config.dropout_prob)
+        self.classifier = torch.nn.Linear(
+            (2 if self.config.bidirectional else 1) * self.config.hidden_size,
+            self.config.num_labels
+        )
+
 
 default_bilstm_dict = {
+    "name": "default_bilstm",
+    "rnn": "bilstm",
     "input_size": 1,
     "hidden_size": 256,
     "num_layers": 2,
     "num_labels": 8,
-    "dropout_prob": 0.2
+    "dropout_prob": 0.2,
+    "bidirectional": True
 }
 
 default_bigru_dict = {
+    "name": "default_bigru",
+    "rnn": "bigru",
     "input_size": 1,
     "hidden_size": 256,
     "num_layers": 2,
     "num_labels": 8,
-    "dropout_prob": 0.2
+    "dropout_prob": 0.2,
+    "bidirectional": True
 }
 
 default_bilstm_config = RNN_Config(default_bilstm_dict)
@@ -64,11 +85,6 @@ class RNN_BiLSTM(RNN_Model):
             self.config.num_layers,
             batch_first=True,
             bidirectional=True
-        )
-        self.dropout = torch.nn.Dropout(self.config.dropout_prob)
-        self.classifier = torch.nn.Linear(
-            (2 if self.rnn.bidirectional else 1) * self.config.hidden_size,
-            self.config.num_labels
         )
 
     def forward(self, input, hidden_units=None):
@@ -94,15 +110,11 @@ class RNN_BiGRU(RNN_Model):
             batch_first=True,
             bidirectional=True
         )
-        self.dropout = torch.nn.Dropout(self.config.dropout_prob)
-        self.classifier = torch.nn.Linear(
-            (2 if self.rnn.bidirectional else 1) * self.config.hidden_size,
-            self.config.num_labels
-        )
 
     def forward(self, input, hidden_unit=None):
+        output = self.embedding(input)
         if hidden_unit:
-            cn = hidden_unit[:, 0:input.shape[0], :]
+            cn = hidden_unit[:, 0:output.shape[0], :]
             hidden_unit = cn
 
         output, hidden_output = self.rnn(input, hidden_unit)
