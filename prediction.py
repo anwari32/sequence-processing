@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import sys
 import os
 from getopt import getopt
@@ -7,6 +8,7 @@ from transformers import BertForMaskedLM, BertTokenizer
 import json
 import torch
 from tqdm import tqdm
+from utils.metrics import Metrics
 
 def parse_args(argvs):
     opts, args = getopt(argvs, "m:t:d:l:", [
@@ -36,30 +38,43 @@ if __name__ == "__main__":
     for key in args.keys():
         print(f"# {key} - {args[key]}")
 
-    assert os.path.exists(args["model"]), f"Model dir not found at {args['model']}"
-    assert os.path.isdir(args["model"]), f"Path {args['model']} is not directory."
-    assert os.path.exists(args["test_data"]), f"Test data not found at {args['test_data']}."
+    device = args.get("device", "cpu") # specify device or use cpu otherwise.
 
-    device = args["device"]
+    model_config_path = args.get("model-config", False)
+    model_checkpoint = args.get("model-checkpoint", False)
+    test_config = args.get("test-config")
+    test_file = test_config.gt("test_data", False)
 
-    model_config_path = os.path.join(args["model"], "model_config.json")
-    model_checkpoint = os.path.join(args["model"], "model.pth")
+    if not model_config_path:
+        raise ValueError("model config not specified.")
+    if not os.path.exists(model_config_path):
+        raise ValueError(f"model config not exists at {model_config_path}")
 
-    assert os.path.exists(model_config_path), f"Model config not found at {model_config_path}"
-    assert os.path.exists(model_checkpoint), f"Model checkpoint not found at {model_checkpoint}"
+    if not model_checkpoint:
+        raise ValueError("model checkpoint not specified.")
+    if not os.path.exists(model_checkpoint):
+        raise ValueError(f"model checkpoint not exists at {model_checkpoint}")
 
+    if not test_file:
+        raise ValueError("test not specified.")
+    if not os.path.exists(test_file):
+        raise ValueError(f"test file not exists at {test_file}")
+
+    bert_for_masked_lm = BertForMaskedLM.from_pretrained(os.path.join("pretrained", "3-new-12w-0"))
     model = DNABERT_SL(
-        BertForMaskedLM.from_pretrained(os.path.join("pretrained", "3-new-12w-0")).bert, # bert, 
+        bert_for_masked_lm.bert, # bert, 
         json.load(open(model_config_path)) # config
     )
-    model.load_state_dict(torch.load(model_checkpoint))
+
+    checkpoint = torch.load(model_checkpoint, map_location=device)
+    model.load_state_dict(checkpoint.get("model"))
     model.eval()
     model.to(device)
 
-    csv_file = args["test_data"]
+
     tokenizer = BertTokenizer.from_pretrained(os.path.join("pretrained", "3-new-12w-0"))
     batch_size = 1
-    test_dataloader = preprocessing_kmer(csv_file, tokenizer, batch_size)
+    test_dataloader = preprocessing_kmer(test_file, tokenizer, batch_size)
     test_size = len(test_dataloader)
 
     logpath = args["log"]
@@ -70,24 +85,17 @@ if __name__ == "__main__":
     logfile.write("input_ids,prediction,target,accuracy\n")
 
     result = []
-    for step, batch in tqdm(enumerate(test_dataloader), total=test_size, desc="Testing "):
+    for step, batch in tqdm(enumerate(test_dataloader), total=test_size, desc="Testing"):
         input_ids, attn_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
         with torch.no_grad():
-            predictions, bert = model(input_ids, attn_mask)
+            predictions, bert_output = model(input_ids, attn_mask)
             for inputs, pred, target_label in zip(input_ids, predictions, target_labels):
-                vals, indices = torch.max(pred, 1)
-                indices = [a for a in indices.tolist()]
-                labels = [a for a in target_labels.tolist()]
-                accuracy = [1 if a == b else 0 for a, b in zip(indices, labels)]
-                accuracy = sum(accuracy) / predictions.shape[1] * 100
-                pinputs = [a for a in inputs.tolist()]
-                # pinputs = [tokenizer.convert_ids_to_tokens(a) for a in pinputs]
+                vals, pred_ids = torch.max(pred, 1)
+                actual_input_ids = input_ids[1:] # remove CLS token
+                actual_input_ids = [t for t in actual_input_ids if t > 0]
+                actual_pred_ids = pred_ids[1:] # remove CLS prediction
+                actual_pred_ids = actual_pred_ids[0:len(actual_input_ids)]
 
-                # Write to log and append result to list.
-                logfile.write(f"{' '.join(pinputs)},{' '.join(indices)},{' '.join(labels)},{accuracy}\n")
-                result.append(
-                    tuple(pinputs, indices, labels, accuracy)
-                )
 
     logfile.close()
     
