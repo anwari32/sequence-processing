@@ -18,7 +18,6 @@ dataset
 pretrained
 result
 workspace
-logs
 remotes
 wandb
 /lstm.csv
