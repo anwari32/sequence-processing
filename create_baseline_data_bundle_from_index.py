@@ -5,7 +5,7 @@ import os
 import sys
 
 def parse_argv(argv):
-    opts, a = getopt(argv, "i:s:d:c:k:", ["gene-index=", "source-gene-dir=", "bundle-destination-dir=", "chunk-size=", "kmer-size="])
+    opts, a = getopt(argv, "i:s:d:c:k:", ["gene-index=", "source-gene-dir=", "bundle-destination-dir=", "window-size=", "kmer-size="])
     output = {}
     for o, a in opts:
         if o in ["-s", "--source-gene-dir"]:

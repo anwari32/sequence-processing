@@ -54,7 +54,7 @@ class RNN_Model(torch.nn.Module):
 default_bilstm_dict = {
     "name": "default_bilstm",
     "rnn": "bilstm",
-    "input_size": 1,
+    "input_size": 150,
     "hidden_size": 256,
     "num_layers": 2,
     "num_labels": 8,
@@ -65,7 +65,7 @@ default_bilstm_dict = {
 default_bigru_dict = {
     "name": "default_bigru",
     "rnn": "bigru",
-    "input_size": 1,
+    "input_size": 150,
     "hidden_size": 256,
     "num_layers": 2,
     "num_labels": 8,
@@ -75,6 +75,25 @@ default_bigru_dict = {
 
 default_bilstm_config = RNN_Config(default_bilstm_dict)
 default_bigru_config = RNN_Config(default_bigru_dict)
+
+def __create_token_embeddings__():
+    characters = ["A", "C", "G", "T"]
+    idx = 0
+    embeddings = []
+    dictionary = {}
+    for a in characters:
+        for b in characters:
+            for c in characters:
+                v = [0 for i in range(64)]
+                v[idx] = 1
+                token = f"{a}{b}{b}"
+                dictionary[token] = idx
+                embeddings.append(v)
+    
+    return embeddings, dictionary
+
+
+default_token_embeddings, default_token_dictionary = __create_token_embeddings__()
 
 class RNN_BiLSTM(RNN_Model):
     def __init__(self, config=default_bilstm_config):
