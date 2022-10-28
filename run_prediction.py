@@ -22,6 +22,7 @@ if __name__ == "__main__":
         "model-config": os.path.join("models", "config", "seqlab", "base.lin1.json"),
         "model-checkpoint": os.path.join("run", "sso01-adamw-lr5e-5-base.lin1-2w1boplw", "latest", "checkpoint.pth"),
         "test-config": os.path.join("training", "config", "seqlab", "ss-only.01.lr5e-5.json"),
+        "test-file": os.path.join("workspace", "seqlab-latest", "gene_index.01_test_ss_all_pos.csv"),
         "log": os.path.join("prediction", "sso01-adamw-lr5e-5-base.lin1-2w1boplw")
     }
 
@@ -30,8 +31,9 @@ if __name__ == "__main__":
     model_config_path = args.get("model-config", False)
     model_checkpoint = args.get("model-checkpoint", False)
     test_config_path = args.get("test-config")
-    test_config = json.load(open(test_config_path, "r"))
-    test_file = test_config.get("test_data", False)
+    # test_config = json.load(open(test_config_path, "r"))
+    # test_file = test_config.get("test_data", False)
+    test_file = args.get("test-file", None)
 
     if not model_config_path:
         raise ValueError("model config not specified.")
