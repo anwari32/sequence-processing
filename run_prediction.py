@@ -69,13 +69,6 @@ if __name__ == "__main__":
     test_dataloader = preprocessing_kmer(test_file, tokenizer, batch_size)
     test_size = len(test_dataloader)
 
-    logpath = args.get("log", "prediction")
-    if os.path.exists(logpath):
-        os.remove(logpath)
-    os.makedirs(os.path.dirname(logpath), exist_ok=True)
-    logfile = open(logpath, "x")
-    logfile.write("step,input_ids,prediction,target\n")
-
     # initialize wandb.
     run = wandb.init(
         project="prediction",
@@ -83,6 +76,15 @@ if __name__ == "__main__":
     )
     wandb.define_metric("prediction_step")
     wandb.define_metric("prediction/*", step_metric="prediction_step")
+
+    logpath = args.get("log", "prediction")
+    logpath = os.path.join(logpath, f"{run.id}.csv")
+    if os.path.exists(logpath):
+        os.remove(logpath)
+    os.makedirs(os.path.dirname(logpath), exist_ok=True)
+    logfile = open(logpath, "x")
+    logfile.write("step,input_ids,prediction,target\n")
+
 
     result = []
     prediction_step = 0
@@ -118,6 +120,7 @@ if __name__ == "__main__":
                 actual_pred_ids = actual_pred_ids[0:len(actual_target_ids)]
 
                 metrics = Metrics(actual_pred_ids, actual_target_ids)
+                metrics.calculate()
                 for label_idx in range(NUM_LABELS):
                     wandb.log({
                         f"prediction/precision-{Index_Dictionary[label_idx]}": metrics.precision(label_idx),
