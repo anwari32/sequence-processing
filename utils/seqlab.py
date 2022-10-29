@@ -11,46 +11,24 @@ import os
 
 Label_Begin = '[CLS]'
 Label_End = '[SEP]'
-# Label_Pad = '[PAD]'
+Label_Pad = '[PAD]'
 Label_Pad = 'III'
-#Label_Dictionary = {
-#    '[CLS]': 0, #_create_one_hot_encoding(0, 10),
-#    '[SEP]': 1,
-    # '[PAD]': 2, #_create_one_hot_encoding(9, 10)
-#    'III': 2,   # Created III instead of iii for PAD special token. 
-                # This is for enabling reading contigs if token is predicted as padding. 
-                # #_create_one_hot_encoding(9, 10)
-#    'iii': 3,   #_create_one_hot_encoding(1, 10),
-#    'iiE': 4,   #_create_one_hot_encoding(2, 10),
-#    'iEi': 5,   #_create_one_hot_encoding(3, 10),
-#    'Eii': 6,   #_create_one_hot_encoding(4, 10),
-#    'iEE': 7,   #_create_one_hot_encoding(5, 10),
-#    'EEi': 8,   #_create_one_hot_encoding(6, 10),
-#    'EiE': 9,   #_create_one_hot_encoding(7, 10),
-#    'EEE': 10,  #_create_one_hot_encoding(8, 10),
-#}
-
 Label_Dictionary = {
-    '[CLS]': -100, #_create_one_hot_encoding(0, 10),
+    '[CLS]': -100,
     '[SEP]': -100,
-    # '[PAD]': 2, #_create_one_hot_encoding(9, 10)
-    'III': -100,   # Created III instead of iii for PAD special token. 
-                # This is for enabling reading contigs if token is predicted as padding. 
-                # #_create_one_hot_encoding(9, 10)
-    'iii': 0,   #_create_one_hot_encoding(1, 10),
-    'iiE': 1,   #_create_one_hot_encoding(2, 10),
-    'iEi': 2,   #_create_one_hot_encoding(3, 10),
-    'Eii': 3,   #_create_one_hot_encoding(4, 10),
-    'iEE': 4,   #_create_one_hot_encoding(5, 10),
-    'EEi': 5,   #_create_one_hot_encoding(6, 10),
-    'EiE': 6,   #_create_one_hot_encoding(7, 10),
-    'EEE': 7,  #_create_one_hot_encoding(8, 10),
+    '[PAD]': -100, 
+    'III': -100,   
+    'iii': 0,
+    'iiE': 1,
+    'iEi': 2,
+    'Eii': 3,
+    'iEE': 4,
+    'EEi': 5,
+    'EiE': 6,
+    'EEE': 7,
 }
 
 Index_Dictionary = {
-    #0: "[CLS]",
-    #1: "[SEP]",
-    #2: "III",       # Use `III` as padding symbol.
     0: "iii",
     1: "iiE",
     2: "iEi",
