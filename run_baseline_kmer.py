@@ -1,8 +1,6 @@
 # DUMP ALL SCRIPTS!
 
 from models.wisesty import bigru, bilstm
-import numpy as np
-import pandas as pd
 import pickle
 import time
 import keras
@@ -23,22 +21,32 @@ from collections import Counter
 from sklearn.metrics import roc_curve, roc_auc_score, auc
 from sklearn.model_selection import KFold
 from imblearn.under_sampling import RandomUnderSampler
+
 import os
 from utils.seqlab import token2id
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 
 num_epochs = 20
 batch_size = 48
-num_classes = 2
+num_classes = 8
+window_size = 510
 
 def compute_f1_score(precision, recall):
     f1_score = (2 * precision * recall) / (precision + recall)
     return f1_score
 
 def convert_label(y, num_classes):
-    if y in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
-        return tf.keras.utils.to_categorical(y, num_classes)
-    else:
-        return [0, 0, 0, 0, 0, 0, 0, 0]
+    # if y in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
+    #     return tf.keras.utils.to_categorical(y, num_classes)
+    # else:
+    #     return [0, 0, 0, 0, 0, 0, 0, 0]
+    vector = [0 for i in range(num_classes)]
+    if y in [i for i in range(num_classes)]:
+        vector[y] = 1
+    return vector
 
 def __kmer_embedding__():
     nucleotides = ["A", "C", "G", "T"]
@@ -46,12 +54,14 @@ def __kmer_embedding__():
     embedding = []
     embedding.append([0 for i in range(64)]) # added padding encoding
     kmer_dict = {}
+    kmer_dict["NNN"] = token_id
+    token_id = 1
     for a in nucleotides:
         for b in nucleotides:
             for c in nucleotides:
                 token = f"{a}{b}{c}"
                 token_vector = [0 for i in range(64)]
-                token_vector[token_id] = 1
+                token_vector[(token_id - 1)] = 1
                 embedding.append(token_vector)
                 kmer_dict[token] = token_id
                 token_id += 1
@@ -60,25 +70,25 @@ def __kmer_embedding__():
 
 default_kmer_embedding_matrix, default_kmer_dictionary = __kmer_embedding__()
 
-def preprocessing(data_path, vocabulary=default_kmer_dictionary):
+def preprocessing(data_path, vocabulary=default_kmer_dictionary, window_size=510):
     encoded_sequences = []
     encoded_labels = []
     df = pd.read_csv(data_path)
-    for i, r in df.iterrows():
+    for i, r in tqdm(df.iterrows(), total=df.shape[0], desc="Preprocessing"):
         sequence = r["sequence"].split(" ")
         label = r["label"].split(" ")
 
         # padding sequence.
         encoded_sequence = [vocabulary[a] for a in sequence]
-        if len(encoded_sequence) < 150:
-            delta = 150 - len(encoded_sequence)
+        if len(encoded_sequence) < window_size:
+            delta = window_size - len(encoded_sequence)
             for j in range(delta):
                 encoded_sequence.append(0)
 
         # padding label.
         encoded_label = [token2id(a) for a in label]
-        if len(encoded_label) < 150:
-            delta = 150 - len(encoded_label)
+        if len(encoded_label) < window_size:
+            delta = window_size - len(encoded_label)
             for j in range(delta):
                 encoded_label.append(-100)
 
@@ -95,10 +105,14 @@ def preprocessing(data_path, vocabulary=default_kmer_dictionary):
 
 if __name__ == "__main__":
 
-    bigru_model = bigru(num_classes=num_classes)
-    bilstm_model = bilstm(num_classes=num_classes)
+    kmer_embedding, kmer_dict = __kmer_embedding__()
+    print(kmer_embedding, kmer_embedding.shape)
+    print(kmer_dict)
+
+    bigru_model = bigru(window_size=510, num_classes=num_classes, embedding_matrix=default_kmer_embedding_matrix)
+    bilstm_model = bilstm(window_size=510, num_classes=num_classes, embedding_matrix=default_kmer_embedding_matrix)
     
-    work_dir = os.path.join("workspace", "baseline", "kmer")
+    work_dir = os.path.join("workspace", "seqlab-latest")
     training_data_path = os.path.join(work_dir, "gene_index.01_train_validation_ss_all_pos_train.csv")
     validation_data_path = os.path.join(work_dir, "gene_index.01_train_validation_ss_all_pos_validation.csv")
     test_data_path = os.path.join(work_dir, "gene_index.01_test_ss_all_pos.csv")
@@ -107,9 +121,9 @@ if __name__ == "__main__":
     X_val, Y_val = preprocessing(validation_data_path)
     X_test, Y_test = preprocessing(test_data_path)
 
-    print(f"Training data {np.array(X_train).shape}, {all([len(v) == 150 for v in X_train])}, {np.array(Y_train).shape}, {all([len(v) == 150 for v in Y_train])}")
-    print(f"Validation data {np.array(X_val).shape}, {all([len(v) == 150 for v in X_val])}, {np.array(Y_val).shape}, {all([len(v) == 150 for v in Y_val])}")
-    print(f"Test data {np.array(X_test).shape}, {all([len(v) == 150 for v in X_test])}, {np.array(Y_test).shape}, {all([len(v) == 150 for v in Y_test])}")
+    print(f"Training data {np.array(X_train).shape}, {all([len(v) == window_size for v in X_train])}, {np.array(Y_train).shape}, {all([len(v) == window_size for v in Y_train])}")
+    print(f"Validation data {np.array(X_val).shape}, {all([len(v) == window_size for v in X_val])}, {np.array(Y_val).shape}, {all([len(v) == window_size for v in Y_val])}")
+    print(f"Test data {np.array(X_test).shape}, {all([len(v) == window_size for v in X_test])}, {np.array(Y_test).shape}, {all([len(v) == window_size for v in Y_test])}")
 
     run_dir = os.path.join("run", "baseline", "kmer")
     log_dir = os.path.join(run_dir, "log")

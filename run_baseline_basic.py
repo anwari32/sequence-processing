@@ -141,10 +141,10 @@ if __name__ == "__main__":
                 compute_f1_score(p, r)
             )
 
-        data["f1_score"] = train_f1_score
-        data["val_f1_score"] = val_f1_score
+        hist_data["f1_score"] = train_f1_score
+        hist_data["val_f1_score"] = val_f1_score
 
-        training_validation_result_df = pd.DataFrame(data=data)
+        training_validation_result_df = pd.DataFrame(data=hist_data)
         training_validation_result_df.to_csv(
             os.path.join(log_dir, f"log.{model_name}.csv"), 
             index=False)

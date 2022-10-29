@@ -20,6 +20,12 @@ python create_baseline_data_bundle_from_index.py -i index/gene_index.01_test.csv
 python create_baseline_data_bundle_from_index.py -i index/gene_index.01_train_validation.csv -s data/gene_dir -d workspace/baseline/basic -c 150 -k 50 &&
 python split_train_validation.py -s workspace/baseline/basic/gene_index.01_train_validation_ss_all_pos.csv -d workspace/baseline/basic
 
-python create_baseline_data_bundle_from_index.py -i index/gene_index.01_test.csv -s data/gene_dir -d workspace/baseline/kmer -c 150 -k 1 --kmer &&
-python create_baseline_data_bundle_from_index.py -i index/gene_index.01_train_validation.csv -s data/gene_dir -d workspace/baseline/kmer -c 150 -k 1 --kmer &&
-python split_train_validation.py -s workspace/baseline/kmer/gene_index.01_train_validation_ss_all_pos.csv -d workspace/baseline/kmer
+python create_baseline_data_bundle_from_index.py -i index/gene_index.01_test.csv -s data/gene_dir -d workspace/baseline/kmer -c 152 -k 1 --kmer &&
+python create_baseline_data_bundle_from_index.py -i index/gene_index.01_train_validation.csv -s data/gene_dir -d workspace/baseline/kmer -c 152 -k 1 --kmer &&
+python split_train_validation.py -s workspace/baseline/kmer/gene_index.01_train_validation_ss_all_pos.csv -d workspace/baseline/kmer &&
+python create_baseline_data_bundle_from_index.py -i index/gene_index.01_test.csv -s data/gene_dir -d workspace/baseline/kmer-ss -c 152 -k 1 --kmer --ss-only &&
+python create_baseline_data_bundle_from_index.py -i index/gene_index.01_train_validation.csv -s data/gene_dir -d workspace/baseline/kmer-ss -c 152 -k 1 --kmer --ss-only &&
+python split_train_validation.py -s workspace/baseline/kmer-ss/gene_index.01_train_validation_ss_all_pos.csv -d workspace/baseline/kmer-ss &&
+python create_baseline_data_bundle_from_index.py -i index/gene_index.01_test.csv -s data/gene_dir -d workspace/baseline/kmer-512-ss -c 512 -k 1 --kmer --ss-only &&
+python create_baseline_data_bundle_from_index.py -i index/gene_index.01_train_validation.csv -s data/gene_dir -d workspace/baseline/kmer-512-ss -c 512 -k 1 --kmer --ss-only &&
+python split_train_validation.py -s workspace/baseline/kmer-512-ss/gene_index.01_train_validation_ss_all_pos.csv -d workspace/baseline/kmer-512-ss
