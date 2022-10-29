@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     for p in ["model", "log"]:
         d = os.path.join(run_dir, p)
-        os.makedirs(p, exist_ok=True)
+        os.makedirs(d, exist_ok=True)
 
     for m in [("bilstm", bilstm_model), ("bigru", bigru_model)]:
         model_name = m[0]
