@@ -1,6 +1,6 @@
 # DUMP ALL SCRIPTS!
 
-from models.wisesty import bigru, bilstm
+from tf_model.wisesty import bigru, bilstm
 import pickle
 import time
 import keras

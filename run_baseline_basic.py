@@ -1,6 +1,6 @@
 # DUMP ALL SCRIPTS!
 
-from models.wisesty import bigru, bilstm
+from tf_model.wisesty import bigru, bilstm
 import numpy as np
 import pandas as pd
 import pickle
