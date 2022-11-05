@@ -149,7 +149,7 @@ class Metrics:
             ret = t_label / (t_label + f_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
-        return ret * (100 if percentage else 1)
+        return round(ret * (100 if percentage else 1), 3)
 
     def recall(self, label_index, percentage=False):
         ret = 0
@@ -159,7 +159,7 @@ class Metrics:
             ret = t_label / (t_label + f_non_label)
         except ZeroDivisionError:
             ret = 0 # Set to zero if things went south.
-        return ret * (100 if percentage else 1)
+        return round(ret * (100 if percentage else 1), 3)
 
     def f_score(self, label_index, beta):
         ret = 0
@@ -172,7 +172,7 @@ class Metrics:
         return ret
 
     def f1_score(self, label_index):
-        return self.f_score(label_index, 1)
+        return round(self.f_score(label_index, 1), 3)
 
     def accuracy_and_error_rate(self):
         if len(self.prediction) != len(self.target):
