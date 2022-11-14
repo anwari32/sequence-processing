@@ -404,3 +404,16 @@ def is_intron(labels):
 def is_exon(labels):
     return all([a == "EEE" for a in labels])
 
+def get_sequence_and_label(gene_path: str):
+    df = pd.read_csv(gene_path)
+    sequences = []
+    labels = []
+    for i, r in df.iterrows():
+        sequences.append(
+            r["sequence"]
+        )
+        labels.append(
+            r["label"]
+        )
+    
+    return sequences, labels
