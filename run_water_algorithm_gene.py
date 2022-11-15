@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 from utils.utils import get_sequence_and_label
-from skbio.alignment import local_pairwise_align_nucleotide
+from skbio.alignment import local_pairwise_align_nucleotide, local_pairwise_align_ssw
 from skbio.sequence import DNA
 import numpy as np
 
@@ -62,19 +62,27 @@ if __name__ == "__main__":
     for test_seq in tqdm(test_sequences, total=len(test_sequences), desc="Comparing"):
         water_scores = []
         for training_seq in training_sequences:
-            r = local_pairwise_align_nucleotide(
+            # r = local_pairwise_align_nucleotide(
+            #     DNA(test_seq), 
+            #     DNA(training_seq)
+            # )
+            alignment, score, start_end_positions = local_pairwise_align_ssw(
                 DNA(test_seq), 
                 DNA(training_seq)
             )
-            water_scores.append(r.score)
+            # water_scores.append(r.score)
+            water_scores.append(score)
         test_water_scores.append(water_scores)
 
     
     numpy_test_water_scores = np.array(test_water_scores)
     print(f"Comparison object shape {numpy_test_water_scores.shape}")
+    save_path = os.path.join(water_output_dir, "gene_index_01_comparison.npy")
+    if os.path.exists(save_path):
+        os.remove(save_path)
     np.save(
-        numpy_test_water_scores,
-        os.path.join(water_output_dir, "gene_index_01_comparison.npy")
+        open(os.path.join(water_output_dir, "gene_index_01_comparison.npy"), "wb"),
+        numpy_test_water_scores
     )
     
     data = {
@@ -83,6 +91,6 @@ if __name__ == "__main__":
     }
     dataframe = pd.DataFrame(data=data)
     dataframe.to_csv(
-        os.path.join(water_output_dir, "smith_waterman_alignment.csv")
+        os.path.join(water_output_dir, "smith_waterman_alignment.csv"), index=False
     )
     print("Alignment done.")
