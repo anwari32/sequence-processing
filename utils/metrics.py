@@ -61,6 +61,7 @@ class Metrics:
         
         # cf matrix. horizontal represents 'prediction', vertical represents 'target'.
         self.matrix = []
+        self.confusion_matrix = np.array(self.matrix).transpose()
         for i in range(NUM_LABELS):
             _m = []
             for j in range(NUM_LABELS):

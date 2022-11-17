@@ -41,7 +41,7 @@ exon_intron_dict = {
 
 num_epochs = 20
 batch_size = 48
-num_classes = 2
+num_classes = 3
 
 def compute_f1_score(precision, recall):
     f1_score = (2 * precision * recall) / (precision + recall)
