@@ -1,5 +1,4 @@
 from torch import nn
-from .lstm import LSTM_Block
 import utils.seqlab
 
 class HeadBlock(nn.Module):
@@ -101,42 +100,12 @@ class DNABERT_SL(nn.Module):
         output = self.activation(output)
         return output, bert_output
 
-from transformers import BertPreTrainedModel, BertModel
-class DNABertForTokenClassification(BertPreTrainedModel):
-    def __init__(self, config, fine_tuning=False):
+from transformers import BertForTokenClassification
+
+class DNABertForTokenClassification(BertForTokenClassification):
+    def __init__(self, config):
         super().__init__(config)
-        self.num_labels = config.num_labels
-        self.bert = BertModel(config)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, self.num_labels)
-        self.fine_tuning = fine_tuning
-
-        for p in self.bert.parameters():
-            p.requires_grad = fine_tuning
-
-        self.init_weights()
-
-    def forward(self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None):
-        batch_size = input_ids.shape[0]
-
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-        )
-
-        sequence_output = outputs[0]
-        sequence_output = self.dropout(sequence_output)
-        logits = self.classifier(sequence_output)
-        outputs = logits
-        return outputs
+        
+    def forward(self, input_ids, attention_mask):
+        output = super().forward(input_ids, attention_mask)
+        return output
