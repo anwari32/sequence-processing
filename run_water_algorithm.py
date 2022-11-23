@@ -32,7 +32,8 @@ if __name__ == "__main__":
             alignment, score, start_end_positions = local_pairwise_align_ssw(
                 DNA(test_seq), 
                 DNA(training_seq)
-            )        
+            )
+            water_scores.append(score)        
         test_water_scores.append(water_scores)
     
     numpy_test_water_scores = np.array(test_water_scores)

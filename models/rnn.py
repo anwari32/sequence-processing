@@ -28,12 +28,14 @@ class RNN_Config:
         self.hidden_size = dicts.get("hidden_size", 1)
         self.num_labels = dicts.get("num_labels", 8)
         self.num_layers = dicts.get("num_layers", 1)
-        self.dropout_prob = dicts.get("dropout_prob", 0.2)
+        self.dropout = dicts.get("dropout", 0.2)
         self.bidirectional = dicts.get("bidirectional", False)
 
     def export(self, export_path: str):
         # Write instance attributes into single json file.
+
         raise NotImplementedError()
+
 
 class RNN_Model(torch.nn.Module):
     def __init__(self, config: RNN_Config):
@@ -90,6 +92,29 @@ def __create_token_embeddings__():
                 dictionary[token] = idx
                 embeddings.append(v)
     
+    return embeddings, dictionary
+
+def __create_3mer_embeddings__():
+    characters = ["A", "C", "G", "T"]
+    embeddings = []
+    dictionary = {}
+
+    # added zero-vector embedding for padding.
+    embeddings.append(
+        [0 for i in range(64)]
+    )
+    dictionary["NNN"] = 0
+    index = 0
+    for a in characters:
+        for b in characters:
+            for c in characters:
+                tokens = f"{a}{b}{c}"
+                vectors = [0 for i in range(64)]
+                vectors[index] = 1
+                index += 1
+                dictionary[index] = tokens
+                embeddings.append(vectors)
+
     return embeddings, dictionary
 
 
