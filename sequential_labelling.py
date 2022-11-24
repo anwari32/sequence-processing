@@ -223,8 +223,6 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             }, latest_model)
             wandb.save(latest_dir)
         
-        # torch.cuda.empty_cache()
-    #endfor epoch
     log_file.close()
     return model, optimizer, scheduler
 

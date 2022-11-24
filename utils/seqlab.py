@@ -28,6 +28,28 @@ Label_Dictionary = {
     'EEE': 7,
 }
 
+label2id = {
+    'iii': 0,
+    'iiE': 1,
+    'iEi': 2,
+    'Eii': 3,
+    'iEE': 4,
+    'EEi': 5,
+    'EiE': 6,
+    'EEE': 7,
+}
+
+id2label = {
+    0: "iii",
+    1: "iiE",
+    2: "iEi",
+    3: "Eii",
+    4: "iEE",
+    5: "EEi",
+    6: "EiE",
+    7: "EEE",
+}
+
 Index_Dictionary = {
     0: "iii",
     1: "iiE",

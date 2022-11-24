@@ -102,10 +102,12 @@ class DNABERT_SL(nn.Module):
 
 from transformers import BertForTokenClassification
 
+num_classes = 8
+
 class DNABertForTokenClassification(BertForTokenClassification):
     def __init__(self, config):
         super().__init__(config)
         
-    def forward(self, input_ids, attention_mask):
-        output = super().forward(input_ids, attention_mask)
+    def forward(self, **kwargs):
+        output = super().forward(**kwargs)
         return output
