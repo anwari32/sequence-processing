@@ -20,9 +20,7 @@ result
 workspace
 remotes
 wandb
-/lstm.csv
 run
-models/dnabert-3
 tmux*
 .idea
 master
