@@ -88,3 +88,53 @@ def parse_args(argvs):
         else:
             raise ValueError(f"Option {o} is not recognized.")
     return output
+
+class FineTuningConfig():
+    def __init__(self, 
+        name=None,
+        pretrained=None,
+        train_data=None,
+        validation_data=None,
+        test_data=None,
+        freeze_bert=False,
+        num_epochs=1,
+        batch_size=1,
+        learning_rate=1e-5,
+        epsilon=1e-8,
+        beta1=0.9,
+        beta2=0.98,
+        weight_decay=0.01
+    ):
+        self.name = name
+        self.pretrained = pretrained
+        self.train_data = train_data
+        self.validation_data = validation_data
+        self.test_data = test_data
+        self.freeze_bert = freeze_bert
+        self.num_epochs = num_epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.epsilon = epsilon
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.weight_decay = weight_decay
+
+def parse_fine_tuning_command(argvs):
+    opts, arguments = getopt(argvs, "t:c:d:",
+    [
+        "config-dir=",
+        "config-names=",
+        "device-list="
+    ])
+
+    output = {}
+    for o, a in opts:
+        if o in ["-t", "--config-dir"]:
+            output["training-config-dir"] = str(a)
+        elif o in ["-c", "--config-names"]:
+            output["config-names"] = a.split(',')
+        elif o in ["-d", "--device-list"]:
+            output["device-list"] = a 
+        else:
+            raise ValueError(f"option {o} not recognized.")
+    return output

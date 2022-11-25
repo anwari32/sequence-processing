@@ -1,10 +1,10 @@
 {
-    "name": "sample",
+    "name": "ft-sample",
     "pretrained": "pretrained\\3-new-12w-0",
     "train_data": "workspace\\seqlab-sample\\train.csv",
     "validation_data": "workspace\\seqlab-sample\\validation.csv",
     "test_data": "workspace\\seqlab-sample\\test.csv",
-    "freeze_bert": 0,
+    "freeze_bert": false,
     "num_epochs": 5,
     "batch_size": 32,
     "optimizer": {

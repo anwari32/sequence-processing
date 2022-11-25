@@ -65,7 +65,8 @@ class Metrics:
             self.target = []
 
         
-        # cf matrix. horizontal represents 'prediction', vertical represents 'target'.
+        # matrix. horizontal represents 'prediction', vertical represents 'target'.
+        # i.e. matrix[x][y]: how many items are predicted as x but are, in fact, y in reality.
         self.matrix = []
         self.confusion_matrix = np.array(self.matrix).transpose()
         for i in range(self.num_classes):
@@ -100,16 +101,6 @@ class Metrics:
         self.target.extend(y_target)
         if n_pred != n_target:
             raise ValueError(f"Prediction and target are not the same size. Found {n_pred} and {n_target}")
-        for p, t in zip(self.prediction, self.target):
-            self.matrix[p][t] += 1
-
-    def recalculate(self):
-        r"""
-        Recompute confusion matrix based on latest internal `prediction` and `target` attribute state.
-        """    
-        for i in range(self.num_classes):
-            for j in range(self.num_classes):
-                self.matrix[i][j]=0
         for p, t in zip(self.prediction, self.target):
             self.matrix[p][t] += 1
 

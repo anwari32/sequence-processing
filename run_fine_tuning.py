@@ -3,22 +3,19 @@ File is named fine-tuning but fine-tuning can be also considered feature-based i
 Fine-tuning refers to fully update all layers not just last layer.
 
 """
-from getopt import getopt
 import sys
 import json
 from torch.cuda import device_count as cuda_device_count, get_device_name
-from torch.optim import AdamW, SGD, RMSprop, Adam
-from models.seqlab import DNABERT_SL
+from torch.optim import AdamW
 from sequential_labelling import train
 from utils.seqlab import preprocessing
-from transformers import BertTokenizer, BertForMaskedLM, BertConfig
+from transformers import BertTokenizer
 import os
 import wandb
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
-from utils.utils import create_loss_weight, save_checkpoint
-from utils.cli import parse_args
-from torch.nn import CrossEntropyLoss
+from utils.utils import create_loss_weight
+from utils.cli import parse_fine_tuning_command
 from torch.optim import lr_scheduler
 import torch
 from models.seqlab import DNABertForTokenClassification, num_classes
@@ -26,7 +23,7 @@ from utils.seqlab import label2id, id2label
 from utils.metrics import Metrics, metric_names
 import wandb
 from tqdm import tqdm
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import autocast
 import pandas as pd
 
 def train_and_val(model, 
@@ -145,7 +142,7 @@ def train_and_val(model,
         vt = []
         vp = []
         with torch.no_grad():
-            for step, batch in tqdm(eval_dataloader, total=len(eval_dataloader), desc="Validating"):
+            for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader), desc="Validating"):
                 input_ids, attention_mask, token_type_ids, target_labels = (t.to(device) for t in batch)
                 output = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=target_labels)
                 loss = output.loss
@@ -230,34 +227,58 @@ def train_and_val(model,
 
 if __name__ == "__main__":
     print("Command Parameters.")
-    args = parse_args(sys.argv[1:])
+    args = parse_fine_tuning_command(sys.argv[1:])
 
-    training_config_path = args.get("training-config", False)
-    training_config = json.load(open(training_config_path, "r"))
+    training_config_dirpath = args.get("config-dir", False)
+    training_config_names = args.get("config-names", False)
+    if not training_config_dirpath or not training_config_names:
+        raise ValueError("either config path or config names is not detected")
+    
+    config_paths = []
+    for name in training_config_names:
+        config_paths.append(os.path.join(training_config_dirpath, f"{name}.json"))
+
+    if not all([os.path.exists(p) for p in config_paths]):
+        raise FileNotFoundError(f"not all config paths exist")
+
     cur_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    # Override batch size and epoch if given in command.
-    num_epochs = args.get("num-epochs", training_config.get("num_epochs", 1))
-    batch_size = args.get("batch-size", training_config.get("batch_size", 1))
+    num_epochs = 0
+    batch_size = 0
+    train_filepath = None
+    validation_filepath = None
+    train_dataloader = None
+    validation_dataloader = None
+    for c in config_paths:
+        tconfig = json.load(open(c, "r"))
 
-    training_filepath = str(Path(PureWindowsPath(training_config.get("train_data", False))))
-    validation_filepath = str(Path(PureWindowsPath(training_config.get("validation_data", False))))
-    pretrained_path = os.path.join("pretrained", "3-new-12w-0")
-    tokenizer = BertTokenizer.from_pretrained(pretrained_path)
-    train_dataloader = preprocessing(
-        training_filepath,# csv_file, 
-        tokenizer, # tokenizer
-        batch_size, # training_config["batch_size"], #batch_size,
-        do_kmer=False
-        )
-    n_train_data = len(train_dataloader)
-    eval_dataloader = preprocessing(
-        validation_filepath,# csv_file, 
-        tokenizer, # tokenizer
-        batch_size, #1,
-        do_kmer=False
-    )
-    n_validation_data = len(eval_dataloader)
+        # Override batch size and epoch if given in command.
+        num_epochs = tconfig.get("num_epochs") if not tconfig.get("num_epochs") == num_epochs else num_epochs
+        batch_size = tconfig.get("batch_size") if not tconfig.get("batch_size") == batch_size else batch_size
+
+        _train_filepath = str(Path(PureWindowsPath(tconfig.get("train_data", False))))
+        if not _train_filepath == train_filepath:
+            train_filepath = _train_filepath
+            pretrained_path = os.path.join("pretrained", "3-new-12w-0")
+            tokenizer = BertTokenizer.from_pretrained(pretrained_path)
+            train_dataloader = preprocessing(
+                train_filepath,# csv_file, 
+                tokenizer, # tokenizer
+                batch_size, # training_config["batch_size"], #batch_size,
+                do_kmer=False
+                )
+            n_train_data = len(train_dataloader)
+
+        _vpath = str(Path(PureWindowsPath(tconfig.get("validation_data", False))))
+        if not _vpath == validation_filepath:
+            validation_filepath = _vpath
+            eval_dataloader = preprocessing(
+                validation_filepath,# csv_file, 
+                tokenizer, # tokenizer
+                batch_size, #1,
+                do_kmer=False
+            )
+            n_validation_data = len(eval_dataloader)
 
     # All training devices are CUDA GPUs.
     device = args.get("device", False)
@@ -273,16 +294,16 @@ if __name__ == "__main__":
     # Create this folder if not exist.
     project_name = args.get("project-name", "DNABertForTokenClassification")
     use_weighted_loss = args.get("use-weighted-loss", False)
-    loss_weight = create_loss_weight(training_filepath) if use_weighted_loss else None
+    loss_weight = create_loss_weight(train_filepath) if use_weighted_loss else None
     
-    run_name = args.get("run-name", training_config.get("name", "sequence-labelling"))    
+    run_name = args.get("run-name", tconfig.get("name", "dnabertfortokenclassification"))    
     model = DNABertForTokenClassification.from_pretrained(
         pretrained_path,
         num_labels = num_classes,
         id2label = id2label,
         label2id = label2id)
 
-    optimizer_config = training_config.get("optimizer", None)
+    optimizer_config = tconfig.get("optimizer", None)
     learning_rate = args.get("lr", optimizer_config.get("lr", 1e-3))
     optimizer = None
     if not optimizer_config:
