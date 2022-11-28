@@ -6,26 +6,23 @@ import numpy as np
 from tqdm import tqdm
 
 if __name__ == "__main__":
+    prediction_log_dir = os.path.join("prediction")
+    prediction_log_file = os.path.join(prediction_log_dir, "dataframe-F1 Score=1.csv")
+
     data_dir = os.path.join("error-analysis", "data-comparison")
-    test_data = os.path.join(data_dir, "test_data.csv")
-    validation_data = os.path.join(data_dir, "validation_data.csv")
+    # test_data = os.path.join(data_dir, "test_data.csv")
+    # validation_data = os.path.join(data_dir, "validation_data.csv")
     training_data = os.path.join(data_dir, "training_data.csv")
     water_output_dir = os.path.join("error-analysis", "alignment", "water-by-sequence")
     if not os.path.exists(water_output_dir):
         os.makedirs(water_output_dir, exist_ok=True)
 
-    for p in [test_data, validation_data, training_data]:
-        if os.path.exists(p):
-            print(f"path found {p}")
-        else:
-            raise FileNotFoundError(f"path not found at {p}")
-
-
-    test_df = pd.read_csv(test_data)
+    prediction_df = pd.read_csv(prediction_log_file)
     training_df = pd.read_csv(training_data)
     test_water_scores = []
-    for i, r in tqdm(test_df.iterrows(), total=test_df.shape[0], desc="Running Water Algorithm"):
-        test_seq = r["sequence"]
+    # test_water_scores_str = []
+    for i, r in tqdm(prediction_df.iterrows(), total=prediction_df.shape[0], desc="Running Water Algorithm"):
+        test_seq = r["original_sequence"]
         water_scores = []
         for j, s in training_df.iterrows():
             training_seq = s["sequence"]
@@ -34,6 +31,8 @@ if __name__ == "__main__":
                 DNA(training_seq)
             )
             water_scores.append(score)        
+        # water_scores_str = " ".join([str(a) for a in water_scores])
+        # test_water_scores_str.append(water_scores_str)
         test_water_scores.append(water_scores)
     
     numpy_test_water_scores = np.array(test_water_scores)
@@ -52,6 +51,6 @@ if __name__ == "__main__":
     }
     dataframe = pd.DataFrame(data=data)
     dataframe.to_csv(
-        os.path.join(water_output_dir, "smith_waterman_alignment.csv"), index=False
+        os.path.join(water_output_dir, "smith_waterman_alignment.f1_score=1.csv"), index=False
     )
     print("Alignment done.")

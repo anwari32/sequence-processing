@@ -124,17 +124,20 @@ def parse_fine_tuning_command(argvs):
     [
         "config-dir=",
         "config-names=",
+        "device=",
         "device-list="
     ])
 
     output = {}
     for o, a in opts:
         if o in ["-t", "--config-dir"]:
-            output["training-config-dir"] = str(a)
+            output["config-dir"] = str(a)
         elif o in ["-c", "--config-names"]:
             output["config-names"] = a.split(',')
-        elif o in ["-d", "--device-list"]:
-            output["device-list"] = a 
+        elif o in ["-d", "--device"]:
+            output["device"] = a
+        elif o in ["--device-list"]:
+            output["device-list"] = a.split(",")
         else:
             raise ValueError(f"option {o} not recognized.")
     return output

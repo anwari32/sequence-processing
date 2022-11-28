@@ -99,15 +99,3 @@ class DNABERT_SL(nn.Module):
         output = self.head(output)
         output = self.activation(output)
         return output, bert_output
-
-from transformers import BertForTokenClassification
-
-num_classes = 8
-
-class DNABertForTokenClassification(BertForTokenClassification):
-    def __init__(self, config):
-        super().__init__(config)
-        
-    def forward(self, **kwargs):
-        output = super().forward(**kwargs)
-        return output

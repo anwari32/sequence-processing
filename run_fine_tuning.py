@@ -18,13 +18,14 @@ from utils.utils import create_loss_weight
 from utils.cli import parse_fine_tuning_command
 from torch.optim import lr_scheduler
 import torch
-from models.seqlab import DNABertForTokenClassification, num_classes
+from models.dnabert import DNABertForTokenClassification, num_classes
 from utils.seqlab import label2id, id2label
 from utils.metrics import Metrics, metric_names
 import wandb
 from tqdm import tqdm
 from torch.cuda.amp import autocast
 import pandas as pd
+from utils.metrics import clean_prediction_target_batch
 
 def train_and_val(model, 
             optimizer, 
@@ -87,25 +88,29 @@ def train_and_val(model,
                 "training_step": training_step
                 })
             
-            x_input_ids = input_ids.view(-1).item()
+            x_input_ids = input_ids.view(-1).tolist()
             tlog_input_ids.append(
-                [str(a) for a in x_input_ids]
+                " ".join([str(a) for a in x_input_ids])
             )
-            y_target = target_labels.view(-1).item()
+            y_target = target_labels.view(-1).tolist()
             tlog_target.append(
-                [str(a) for a in y_target]
+                " ".join([str(a) for a in y_target])
             )
             y_prediction = activation(logits)
-            y_prediction = torch.argmax(y_prediction, 2).view(-1).item()
+            y_prediction = torch.argmax(y_prediction, 2).view(-1).tolist()
             tlog_prediction.append(
-                [str(a) for a in y_prediction]
+                " ".join([str(a) for a in y_prediction])
             )
 
             # metrics.
-            metrics_at_step = Metrics(y_prediction, y_target)
+            cy_pred, cy_target = clean_prediction_target_batch(y_prediction, y_target)
+            metrics_at_step = Metrics(
+                cy_pred, 
+                cy_target, 
+                num_classes=num_classes)
             metrics_at_step.calculate()
             for label_index in range(num_classes):
-                label = model.id2label[label_index]
+                label = model.config.id2label[label_index]
                 wandb.log({
                     f"training/precision-{label}": metrics_at_step.precision(label_index),
                     f"training/recall-{label}": metrics_at_step.recall(label_index),
@@ -115,8 +120,8 @@ def train_and_val(model,
             
             # increment training step, accumulate target and prediction.
             training_step += 1
-            tp.append(y_prediction)
-            tt.append(y_target)
+            tp.append(cy_pred)
+            tt.append(cy_target)
    
         # move scheduler to epoch loop and compute training metrics for this epoch
         scheduler.step()
@@ -148,25 +153,29 @@ def train_and_val(model,
                 loss = output.loss
                 logits = output.logits
 
-                x_input_ids = input_ids.view(-1).item()
+                x_input_ids = input_ids.view(-1).tolist()
                 vlog_input_ids.append(
-                    [str(a) for a in x_input_ids]
+                    " ".join([str(a) for a in x_input_ids])
                 )
-                y_target = target_labels.view(-1).item()
+                y_target = target_labels.view(-1).tolist()
                 vlog_target.append(
-                    [str(a) for a in y_target]
+                    " ".join([str(a) for a in y_target])
                 )
                 y_prediction = activation(logits)
-                y_prediction = torch.argmax(y_prediction, 2).view(-1).item()
+                y_prediction = torch.argmax(y_prediction, 2).view(-1).tolist()
                 vlog_prediction.append(
-                    [str(a) for a in y_prediction]
+                    " ".join([str(a) for a in y_prediction])
                 )
 
                 # metrics.
-                m = Metrics(y_prediction, y_target)
+                cy_pred, cy_target = clean_prediction_target_batch(y_prediction, y_target)
+                m = Metrics(
+                    cy_pred, 
+                    cy_target
+                )
                 m.calculate()
                 for label_index in range(num_classes):
-                    label = model.id2label[label_index]
+                    label = model.config.id2label[label_index]
                     wandb.log({
                         f"validation/precision-{label}": m.precision(label_index),
                         f"validation/recall-{label}": m.recall(label_index),
@@ -175,16 +184,18 @@ def train_and_val(model,
                     })
                 
                 validation_step += 1
-                vp.append(y_prediction)
-                vt.append(y_target)
+                vp.append(cy_pred)
+                vt.append(cy_target)
 
         # save epoch validation.
         vt = torch.flatten(torch.tensor(vt)).tolist()
         vp = torch.flatten(torch.tensor(vp)).tolist()
-        m = Metrics(vp, vt)
+        m = Metrics(
+            vp, 
+            vt)
         m.calculate()
         for label_index in range(model.config.num_labels):
-            label = model.id2label[label_index]
+            label = model.config.id2label[label_index]
             wandb.log({
                 f"epoch/val-precision-{label}": m.precision(label_index),
                 f"epoch/val-recall-{label}": m.recall(label_index),
@@ -232,7 +243,7 @@ if __name__ == "__main__":
     training_config_dirpath = args.get("config-dir", False)
     training_config_names = args.get("config-names", False)
     if not training_config_dirpath or not training_config_names:
-        raise ValueError("either config path or config names is not detected")
+        raise ValueError(f"either config path or config names is not detected \n{training_config_dirpath}\n{training_config_names}")
     
     config_paths = []
     for name in training_config_names:
@@ -263,8 +274,8 @@ if __name__ == "__main__":
             tokenizer = BertTokenizer.from_pretrained(pretrained_path)
             train_dataloader = preprocessing(
                 train_filepath,# csv_file, 
-                tokenizer, # tokenizer
-                batch_size, # training_config["batch_size"], #batch_size,
+                tokenizer,
+                batch_size,
                 do_kmer=False
                 )
             n_train_data = len(train_dataloader)
@@ -274,20 +285,19 @@ if __name__ == "__main__":
             validation_filepath = _vpath
             eval_dataloader = preprocessing(
                 validation_filepath,# csv_file, 
-                tokenizer, # tokenizer
-                batch_size, #1,
+                tokenizer,
+                batch_size,
                 do_kmer=False
             )
             n_validation_data = len(eval_dataloader)
 
     # All training devices are CUDA GPUs.
-    device = args.get("device", False)
+    device = args.get("device", "cpu")
     device_name = get_device_name(device)
     device_names = ""
-    device_list = []
+    device_list = [int(a) for a in args.get("device-list", [])]
     if "device-list" in args.keys():
-        print(f"# GPU: {len(args.get('device-list'))}")
-        device_list = args.get("device-list")
+        print(f"# GPU: {len(device_list)}")
         device_names = ", ".join([get_device_name(f"cuda:{a}") for a in device_list])
 
     # Run name may be the same. So append current datetime to differentiate.
@@ -302,6 +312,11 @@ if __name__ == "__main__":
         num_labels = num_classes,
         id2label = id2label,
         label2id = label2id)
+    model.to(device)
+
+    # enable data parallel if possible
+    if len(device_list) > 1:
+        model = torch.nn.DataParallel(model, device_ids=device_list)
 
     optimizer_config = tconfig.get("optimizer", None)
     learning_rate = args.get("lr", optimizer_config.get("lr", 1e-3))
@@ -373,22 +388,19 @@ if __name__ == "__main__":
     print(f"Begin Training & Validation {wandb.run.name} at {start_time}")
     print(f"Starting epoch {start_epoch}")
 
-    try:
-        train_and_val(
-            model, 
-            optimizer, 
-            scheduler, 
-            train_dataloader, 
-            eval_dataloader,
-            num_epochs, 
-            save_dir,
-            device=device, 
-            wandb=wandb,
-            device_list=[],    
-            training_counter=0
-        )
-    except:
-        run.finish()    
+    train_and_val(
+        model, 
+        optimizer, 
+        scheduler, 
+        train_dataloader, 
+        eval_dataloader,
+        num_epochs, 
+        save_dir,
+        device=device, 
+        wandb=wandb,
+        device_list=[],    
+        training_counter=0
+    )
     run.finish()
     end_time = datetime.now()
     running_time = end_time - start_time

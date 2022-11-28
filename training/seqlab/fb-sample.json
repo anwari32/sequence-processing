@@ -5,8 +5,8 @@
     "validation_data": "workspace\\seqlab-sample\\validation.csv",
     "test_data": "workspace\\seqlab-sample\\test.csv",
     "freeze_bert": true,
-    "num_epochs": 5,
-    "batch_size": 32,
+    "num_epochs": 3,
+    "batch_size": 8,
     "optimizer": {
         "name": "adamw",
         "learning_rate": 1e-5,

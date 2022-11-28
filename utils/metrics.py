@@ -36,6 +36,14 @@ def cleanup_prediction(prediction, target):
     
     return cp, ct
 
+def clean_prediction_target_batch(prediction, target):
+    cp, ct = [], [] # cp: clean prediction, ct: clean target.
+    for p, t in zip(prediction, target):
+        if t != -100:
+            cp.append(p)
+            ct.append(t)
+    return cp, ct
+
 metric_names = ["precision", "recall", "f1_score"]
 
 class Metrics:
@@ -47,10 +55,11 @@ class Metrics:
         r"""
         * :attr:`prediction`    (Array | None -> None)
         * :attr:`target`        (Array | None -> None)
-        * :attr:`num_classes`        (Array | None -> None)
+        * :attr:`num_classes`   (Array | None -> None)
         """
         self.num_classes = num_classes
         self.labels = labels
+        self.possible_label_ids = [i for i in range(self.num_classes)]
         if len(prediction) > 0 and len(target) > 0:
             if isinstance(prediction, torch.Tensor):
                 raise TypeError(f"prediction type error. expected type Array found {type(prediction)}")
@@ -59,7 +68,6 @@ class Metrics:
 
             self.prediction = [int(a) for a in prediction]
             self.target = [int(a) for a in target]
-        
         else:
             self.prediction = []
             self.target = []
@@ -68,11 +76,8 @@ class Metrics:
         # matrix. horizontal represents 'prediction', vertical represents 'target'.
         # i.e. matrix[x][y]: how many items are predicted as x but are, in fact, y in reality.
         self.matrix = []
-        self.confusion_matrix = np.array(self.matrix).transpose()
         for i in range(self.num_classes):
-            _m = []
-            for j in range(self.num_classes):
-                _m.append(0)    
+            _m = [0 for j in range(self.num_classes)]
             self.matrix.append(_m)
 
         self.target = [int(a) for a in target]
@@ -102,6 +107,10 @@ class Metrics:
         if n_pred != n_target:
             raise ValueError(f"Prediction and target are not the same size. Found {n_pred} and {n_target}")
         for p, t in zip(self.prediction, self.target):
+            if p not in self.possible_label_ids:
+                raise IndexError(f"index {p} out of bounds")
+            if t not in self.possible_label_ids:
+                raise IndexError(f"index {t} out of bounds")
             self.matrix[p][t] += 1
 
     def extend(self, y_pred, y_target):
