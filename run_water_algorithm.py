@@ -4,15 +4,31 @@ from skbio.sequence import DNA
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from getopt import getopt
+import sys
 
 if __name__ == "__main__":
-    prediction_log_dir = os.path.join("prediction")
-    prediction_log_file = os.path.join(prediction_log_dir, "dataframe-F1 Score=1.csv")
+    opts, args = getopt(sys.argv[1:], "t:b:d:", ["test-data=", "base-data=", "dest-data="])
+    output = {}
+    for o, a in opts:
+        if o in ["-t", "--test-data"]:
+            output["test-data"] = a
+        elif o in ["-b", "--base-data"]:
+            output["base-data"] = a
+        elif o in ["-d", "--dest-data"]:
+            output["dest-data"] = a
+        else:
+            raise ValueError(f"option {o} not recognized")
 
-    data_dir = os.path.join("error-analysis", "data-comparison")
+    # prediction_log_dir = os.path.join("prediction")
+    # prediction_log_file = os.path.join(prediction_log_dir, "dataframe-F1 Score=1.csv")
+    prediction_log_file = output["test-data"]
+
+    # data_dir = os.path.join("error-analysis", "data-comparison")
     # test_data = os.path.join(data_dir, "test_data.csv")
     # validation_data = os.path.join(data_dir, "validation_data.csv")
-    training_data = os.path.join(data_dir, "training_data.csv")
+    # training_data = os.path.join(data_dir, "training_data.csv")
+    training_data = output["base-data"]
     water_output_dir = os.path.join("error-analysis", "alignment", "water-by-sequence")
     if not os.path.exists(water_output_dir):
         os.makedirs(water_output_dir, exist_ok=True)
@@ -49,8 +65,10 @@ if __name__ == "__main__":
         "id": [i for i in range(numpy_test_water_scores.shape[0])],
         "score": [" ".join([str(a) for a in array]) for array in numpy_test_water_scores]
     }
+    dest_path = os.path.join(water_output_dir, output["dest-data"])
     dataframe = pd.DataFrame(data=data)
     dataframe.to_csv(
-        os.path.join(water_output_dir, "smith_waterman_alignment.f1_score=1.csv"), index=False
+        dest_path, 
+        index=False
     )
     print("Alignment done.")
