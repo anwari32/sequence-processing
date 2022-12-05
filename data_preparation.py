@@ -462,6 +462,8 @@ def generate_complement(fasta_file: str, target_dir: str):
     raise NotImplemented()
 
 def merge_kmer(seq: list) -> str:
+    if len(seq) == 1:
+        return " ".join(seq)
     merged = [kmer[0] for kmer in seq[0:-1]]
     merged.append(seq[-1])
     merged = "".join(merged)
