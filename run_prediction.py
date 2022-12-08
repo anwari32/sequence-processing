@@ -56,7 +56,11 @@ if __name__ == "__main__":
         raise ValueError(f"test file not exists at {test_file}")
     print(f"found test data at {test_file}")
 
+    device = "cuda:0"
+    print(f"using device {torch.cuda.get_device_name(device)}")
+
     loss_function_weight = create_loss_weight(train_file)
+    loss_function_weight = loss_function_weight.to(device)
     loss_function = torch.nn.CrossEntropyLoss(weight=loss_function_weight)
 
     bert_for_masked_lm = BertForMaskedLM.from_pretrained(os.path.join("pretrained", "3-new-12w-0"))
@@ -64,7 +68,6 @@ if __name__ == "__main__":
         bert_for_masked_lm.bert, # bert, 
         json.load(open(model_config_path, "r")) # config
     )
-
     checkpoint = torch.load(model_checkpoint, map_location=device)
     model.load_state_dict(checkpoint.get("model"))
     model.eval()
@@ -91,11 +94,8 @@ if __name__ == "__main__":
     logfile = open(logpath, "x")
     logfile.write("step,input_ids,prediction,target,loss\n")
 
-
     result = []
     prediction_step = 0
-    device = "cuda:0"
-    model.to(device)
     for step, batch in tqdm(enumerate(test_dataloader), total=test_size, desc="Testing"):
         input_ids, attn_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
         with torch.no_grad():
