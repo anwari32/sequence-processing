@@ -57,10 +57,7 @@ if __name__ == "__main__":
     print(f"found test data at {test_file}")
 
     loss_function_weight = create_loss_weight(train_file)
-    if loss_function_weight:
-        print(f"sucess generate loss weight.")
     loss_function = torch.nn.CrossEntropyLoss(weight=loss_function_weight)
-
 
     bert_for_masked_lm = BertForMaskedLM.from_pretrained(os.path.join("pretrained", "3-new-12w-0"))
     model = DNABERT_SL(
