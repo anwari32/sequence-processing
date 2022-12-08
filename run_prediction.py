@@ -28,7 +28,7 @@ if __name__ == "__main__":
         "log": os.path.join("prediction", "2w1boplw", "prediction_log")
     }
 
-    train_file = os.path.join("workspace", "seqlab-latest", "gene_index.01_train_validation_ss_all_pos_train.csv"),
+    train_file = os.path.join("workspace", "seqlab-latest", "gene_index.01_train_validation_ss_all_pos_train.csv")
     device = args.get("device", "cpu") # specify device or use cpu otherwise.
 
     model_config_path = args.get("model-config", False)
@@ -55,6 +55,12 @@ if __name__ == "__main__":
     if not os.path.exists(test_file):
         raise ValueError(f"test file not exists at {test_file}")
     print(f"found test data at {test_file}")
+
+    loss_function_weight = create_loss_weight(train_file)
+    if loss_function_weight:
+        print(f"sucess generate loss weight.")
+    loss_function = torch.nn.CrossEntropyLoss(weight=loss_function_weight)
+
 
     bert_for_masked_lm = BertForMaskedLM.from_pretrained(os.path.join("pretrained", "3-new-12w-0"))
     model = DNABERT_SL(
@@ -93,8 +99,6 @@ if __name__ == "__main__":
     prediction_step = 0
     device = "cuda:0"
     model.to(device)
-    loss_function_weight = create_loss_weight(train_file)
-    loss_function = torch.nn.CrossEntropyLoss(weight=loss_function_weight)
     for step, batch in tqdm(enumerate(test_dataloader), total=test_size, desc="Testing"):
         input_ids, attn_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
         with torch.no_grad():
