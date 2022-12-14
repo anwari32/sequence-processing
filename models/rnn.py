@@ -1,5 +1,5 @@
 r"""
-RNN model implementation based on Untary et. al., 2022.
+RNN model implementation based on Wisesty et. al., 2022.
 """
 
 import torch

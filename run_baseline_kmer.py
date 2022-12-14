@@ -39,10 +39,6 @@ def compute_f1_score(precision, recall):
     return f1_score
 
 def convert_label(y, num_classes):
-    # if y in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
-    #     return tf.keras.utils.to_categorical(y, num_classes)
-    # else:
-    #     return [0, 0, 0, 0, 0, 0, 0, 0]
     vector = [0 for i in range(num_classes)]
     if y in [i for i in range(num_classes)]:
         vector[y] = 1

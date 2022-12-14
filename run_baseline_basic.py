@@ -41,7 +41,7 @@ exon_intron_dict = {
 
 num_epochs = 20
 batch_size = 48
-num_classes = 3
+num_classes = 2
 
 def compute_f1_score(precision, recall):
     f1_score = (2 * precision * recall) / (precision + recall)
@@ -49,10 +49,15 @@ def compute_f1_score(precision, recall):
 
 
 def convert_label(y, num_classes):
-    if y in [0, 1]:
-        return tf.keras.utils.to_categorical(y, num_classes)
+    ret = None
+    if y == 0:
+        # ret = tf.keras.utils.to_categorical(y, num_classes)
+        ret = [0, 1]
+    elif y == 1:
+        ret = [1, 0]
     else:
-        return [0, 0]
+        ret = [0, 0]
+    return ret
 
 
 def preprocessing(data_path, num_classes=2):
@@ -69,14 +74,14 @@ def preprocessing(data_path, num_classes=2):
             delta = 150 - len(encoded_sequence)
             for j in range(delta):
                 encoded_sequence.append(0)
-
+        
         # padding label.
         encoded_label = [exon_intron_dict[a] for a in list(label)]
         if len(encoded_label) < 150:
             delta = 150 - len(encoded_label)
             for j in range(delta):
                 encoded_label.append(-100)
-
+        
         encoded_sequences.append(
             encoded_sequence
         )
@@ -85,34 +90,34 @@ def preprocessing(data_path, num_classes=2):
         )
 
     encoded_sequences = np.array(encoded_sequences)
-    encoded_labels = np.array([[convert_label(_y, num_classes) for _y in y] for y in encoded_labels])
+    encoded_labels = [[convert_label(_y, num_classes) for _y in y] for y in encoded_labels]
+    encoded_labels = np.array(encoded_labels)
     return encoded_sequences, encoded_labels
 
 
 if __name__ == "__main__":
 
-    bigru_model = bigru(num_classes=num_classes)
     bilstm_model = bilstm(num_classes=num_classes)
+    bigru_model = bigru(num_classes=num_classes)
     
     work_dir = os.path.join("workspace", "baseline", "basic")
-    training_data_path = os.path.join(work_dir, "gene_index.01_train_validation_ss_all_pos_train.csv")
-    validation_data_path = os.path.join(work_dir, "gene_index.01_train_validation_ss_all_pos_validation.csv")
-    test_data_path = os.path.join(work_dir, "gene_index.01_test_ss_all_pos.csv")
+    training_data_path = os.path.join(work_dir, "train_validation_train.csv")
+    validation_data_path = os.path.join(work_dir, "train_validation_validation.csv")
+    test_data_path = os.path.join(work_dir, "test.csv")
 
-    X_train, Y_train = preprocessing(training_data_path)
-    X_val, Y_val = preprocessing(validation_data_path)
-    X_test, Y_test = preprocessing(test_data_path)
+    X_train, Y_train = preprocessing(training_data_path, num_classes=num_classes)
+    X_val, Y_val = preprocessing(validation_data_path, num_classes=num_classes)
+    X_test, Y_test = preprocessing(test_data_path, num_classes=num_classes)
 
     print(f"Training data {np.array(X_train).shape}, {all([len(v) == 150 for v in X_train])}, {np.array(Y_train).shape}, {all([len(v) == 150 for v in Y_train])}")
     print(f"Validation data {np.array(X_val).shape}, {all([len(v) == 150 for v in X_val])}, {np.array(Y_val).shape}, {all([len(v) == 150 for v in Y_val])}")
     print(f"Test data {np.array(X_test).shape}, {all([len(v) == 150 for v in X_test])}, {np.array(Y_test).shape}, {all([len(v) == 150 for v in Y_test])}")
 
     run_dir = os.path.join("run", "baseline", "basic")
-    log_dir = os.path.join(run_dir, "log")
-    model_dir = os.path.join(run_dir, "model")
+    log_dir = os.path.join(run_dir, "log-latest")
+    model_dir = os.path.join(run_dir, "model-latest")
 
-    for p in ["model", "log"]:
-        d = os.path.join(run_dir, p)
+    for p in [log_dir, model_dir]:
         os.makedirs(p, exist_ok=True)
 
     for m in [("bilstm", bilstm_model), ("bigru", bigru_model)]:

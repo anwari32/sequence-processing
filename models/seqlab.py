@@ -27,14 +27,15 @@ class Head(nn.Module):
         self.num_blocks = 1
         self.num_labels = 8
         
-        linear_config = config.get("linear")
-        if linear_config:
-            self.num_blocks = linear_config.get("num_layers", 0)
-            self.num_labels = linear_config.get("num_labels", 8)
-            self.input_dim = linear_config.get("input_dim", 768)
-            self.dim = linear_config.get("hidden_dim", 768)
-            self.norm_layer = linear_config.get("norm_layer", False) 
-            self.dropout_prob = linear_config.get("dropout", 0.1)
+        if config:
+            linear_config = config.get("linear")
+            if linear_config:
+                self.num_blocks = linear_config.get("num_layers", 0)
+                self.num_labels = linear_config.get("num_labels", 8)
+                self.input_dim = linear_config.get("input_dim", 768)
+                self.dim = linear_config.get("hidden_dim", 768)
+                self.norm_layer = linear_config.get("norm_layer", False) 
+                self.dropout_prob = linear_config.get("dropout", 0.1)
         
         self.dropout = nn.Dropout(p=self.dropout_prob)
         self.linear = nn.Sequential()
@@ -62,12 +63,6 @@ class DNABERT_SL(nn.Module):
     """
     def __init__(self, bert, config):
         r"""
-        This model uses BERT as its feature extraction layer.
-        This BERT layer is initiated from pretrained model which is located at `bert_pretrained_path`.
-        @param  bert_pretrained_path (string): Path to DNABERT pretrained.
-        @param  seq2seq_dims:
-        @param  loss_strategy (string) | None -> "sum"
-        @param  device (string): Default is 'cpu' but you can put 'cuda' if your machine supports cuda.
         @return object of this class.
         """
         super().__init__()
@@ -76,26 +71,73 @@ class DNABERT_SL(nn.Module):
         self.head = Head(config)
         self.activation = nn.Softmax(dim=2)
 
-        freeze = config.get("freeze_bert", False)
-        self.feature_based_approach = config.get("feature_based", "last")
-        if freeze:
-            for param in self.bert.parameters():
-                param.requires_grad = False
-
     # def forward(self, input_ids, attention_masks, token_type_ids):
     # No need to include `token_type_ids`` since this is single sequence-related prediction.
     # `token_type_ids` is used for next sentence prediction where input contains two sentence.
     def forward(self, input_ids, attention_masks):
         # output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
-        bert_output = self.bert(input_ids=input_ids, attention_mask=attention_masks, output_attentions=True)
-        if self.feature_based_approach == "last":
-            # Use last hidden layer.
-            output = bert_output[0] # Last hidden state
-        elif self.feature_based_approach == "c4":
-            # Concatenating last four hidden layer.
-            hidden_output = bert_output[1]
-            
-
+        output = self.bert(input_ids=input_ids, attention_mask=attention_masks)            
+        output = output[0]
         output = self.head(output)
         output = self.activation(output)
-        return output, bert_output
+        return output
+
+class DNABERT_BILSTM(nn.Module):
+    def __init__(self, bert, config):
+        super().__init__()
+
+        self.bert = bert
+        self.dropout1 = nn.Dropout(config.get("dropout", 0.1))
+        self.rnn = nn.LSTM(
+            768, 
+            config.get("rnn_hidden_dim", 256), 
+            config.get("rnn_layer", 2),
+            batch_first=True,
+            bidirectional=True
+        )
+        self.dropout2 = nn.Dropout(config.get("dropout", 0.1))
+        self.classifier = nn.Linear(
+            config.get("rnn_hidden_dim", 256),
+            config.get("num_labels", 8)
+        )
+        self.activation = nn.Softmax(dim=2)
+
+    def forward(self, input_ids, attention_mask):
+        output = self.bert(input_ids, attention_mask)
+        output = output[0]
+        output = self.dropout1(output)
+        output, hidden_outputs = self.rnn(output)
+        output = self.dropout2(output)
+        output = self.classifier(output)
+        output = self.activation(output)
+        return output, hidden_outputs
+
+class DNABERT_BIGRU(nn.Module):
+    def __init__(self, bert, config):
+        super().__init__()
+
+        self.bert = bert
+        self.dropout1 = nn.Dropout(config.get("dropout", 0.1))
+        self.rnn = nn.GRU(
+            768, 
+            config.get("rnn_hidden_dim", 256), 
+            config.get("rnn_layer", 2),
+            batch_first=True,
+            bidirectional=True
+        )
+        self.dropout2 = nn.Dropout(config.get("dropout", 0.1))
+        self.classifier = nn.Linear(
+            config.get("rnn_hidden_dim", 256),
+            config.get("num_labels", 8)
+        )
+        self.activation = nn.Softmax(dim=2)
+
+    def forward(self, input_ids, attention_mask):
+        output = self.bert(input_ids, attention_mask)
+        output = output[0]
+        output = self.dropout1(output)
+        output, hidden_output = self.rnn(output)
+        output = self.dropout2(output)
+        output = self.classifier(output)
+        output = self.activation(output)
+        return output, hidden_output

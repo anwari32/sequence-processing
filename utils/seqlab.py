@@ -109,7 +109,7 @@ def _process_sequence(sequence, tokenizer):
     @param  tokenizer (BertTokenizer)
     return input_ids, attention_mask, token_type_ids
     """
-    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length")
+    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length", max_length=512)
     input_ids = encoded.get('input_ids')
     attention_mask = encoded.get('attention_mask')
     token_type_ids = encoded.get('token_type_ids')

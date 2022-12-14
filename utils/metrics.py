@@ -29,9 +29,9 @@ def cleanup_prediction(prediction, target):
     _tsize = np.asarray(target).size
     if _psize != _tsize:
         raise ValueError(f"prediction and target are not in same size. Found {_psize} and {_tsize}")
-    cp = prediction[1:] # Remove CLS token at first index.
     ct = target[1:] # Remove CLS token at first index.
     ct = [a for a in ct if a >= 0] # Remove special tokens indicated by negative number.
+    cp = prediction[1:] # Remove CLS token at first index.
     cp = cp[0:len(ct)] # Remove any prediction on special tokens by matching the size of cp tp ct.
     
     return cp, ct
@@ -43,6 +43,7 @@ def clean_prediction_target_batch(prediction, target):
             cp.append(p)
             ct.append(t)
     return cp, ct
+
 
 metric_names = ["precision", "recall", "f1_score"]
 
