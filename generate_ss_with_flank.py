@@ -10,8 +10,10 @@ from getopt import getopt
 from tqdm import tqdm
 from utils.utils import kmer
 
-donor_pattern = ["EEi", "Eii"]
-acceptor_pattern = ["iiE", "iEE"]
+kmer_donor_pattern = ["EEi", "Eii"]
+kmer_acceptor_pattern = ["iiE", "iEE"]
+donor_pattern = ["E" for i in range(256)] + ["i" for i in range(256)]
+acceptor_pattern = ["i" for i in range(256)] + ["E" for i in range(256)]
 
 def __parse__(argv):
     opts, arguments = getopt(argv, "i:g:l:r:d:c:", ["index=", "gene-dir=", "left-flank=", "right-flank=", "dest=", "chunk-size="])
@@ -29,6 +31,8 @@ def __parse__(argv):
             args["dest"] = str(a)
         elif o in ["-c", "--chunk-size"]:
             args["chunk-size"] = int(a)
+        # elif o in ["kmer"]:
+        #     args["kmer"] = True
         else:
             raise ValueError(f"keyword {o} not recognized")
     return args
@@ -53,6 +57,8 @@ def generate_ss_with_flank(sequence, label, nleft_flank, nright_flank):
             sublab = lab[start_index:end_index]
             sequences.append(" ".join(subseq))
             labels.append(" ".join(sublab))
+    print(sequences)
+    print(labels)
     return sequences, labels
 
 def generate_ss_all_position(sequence, label, chunk_size):
@@ -101,6 +107,7 @@ if __name__ == "__main__":
     # gene_dir = os.path.join("data", "gene_dir")
 
     gene_index = pd.read_csv(gene_index_path)
+    gene_index = gene_index.sample(frac=0.01)
     sequences = []
     labels = []
     for i, r in gene_index.iterrows():
@@ -110,6 +117,8 @@ if __name__ == "__main__":
         for j, s in tqdm(gene_df.iterrows(), desc=f"[{i + 1}/{gene_index.shape[0]}] {gene}"):
             seq = s["sequence"]
             lab = s["label"]
+            subseq = []
+            sublab = []
             if nleft_flank and nright_flank:
                 # generate ss with certain flanks.
                 subseq, sublab = generate_ss_with_flank(seq, lab, nleft_flank, nright_flank)
@@ -135,11 +144,12 @@ if __name__ == "__main__":
     )
     print(f"Writing {dataframe.shape[0]} sequences DONE")
 
-    # dirpath = os.path.join("workspace", "seqlab-ss")
-    # os.makedirs(dirpath, exist_ok=True)
-    # dataframe.to_csv(
-    #     os.path.join(dirpath, "train.csv"),
-    #     index=False
-    # )
+    destpath = args.get("dest", os.path.join("workspace", "seqclass", "file.csv"))
+    dirpath = os.path.dirname(destpath)
+    os.makedirs(dirpath, exist_ok=True)
+    dataframe.to_csv(
+        os.path.join(destpath),
+        index=False
+    )
 
                 
