@@ -242,6 +242,10 @@ if __name__ == "__main__":
 
     training_config_dirpath = args.get("config-dir", False)
     training_config_names = args.get("config-names", False)
+    training_task = args.get("task", False)
+    if training_task not in ["seqlab", "seqclass"]:
+        raise ValueError(f"Task {training_task} not recognized.")
+        
     if not training_config_dirpath or not training_config_names:
         raise ValueError(f"either config path or config names is not detected \n{training_config_dirpath}\n{training_config_names}")
     
