@@ -463,7 +463,7 @@ def generate_complement(fasta_file: str, target_dir: str):
 
 def merge_kmer(seq: list) -> str:
     if len(seq) == 1:
-        return " ".join(seq)
+        return seq[0]
     merged = [kmer[0] for kmer in seq[0:-1]]
     merged.append(seq[-1])
     merged = "".join(merged)

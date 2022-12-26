@@ -24,8 +24,10 @@ if __name__ == "__main__":
         "model-config": os.path.join("models", "config", "seqlab", "base.lin1.json"),
         "model-checkpoint": os.path.join("run", "sso01-adamw-lr5e-5-base.lin1-2w1boplw", "latest", "checkpoint.pth"),
         "test-config": os.path.join("training", "config", "seqlab", "ss-only.01.lr5e-5.json"),
-        "test-file": os.path.join("test_data", "FAM66E.csv"),
-        "log": os.path.join("test_data", "FAM66E", "prediction_log")
+        # "test-file": os.path.join("test_data", "FAM66E.csv"),
+        # "log": os.path.join("test_data", "FAM66E", "prediction_log")
+        "test-file": os.path.join("workspace", "seqlab-latest", "gene_index.01_test_ss_all_pos.csv"),
+        "log": os.path.join("prediction", "test_log", "prediction_log")
     }
 
     train_file = os.path.join("workspace", "seqlab-latest", "gene_index.01_train_validation_ss_all_pos_train.csv")
@@ -92,14 +94,14 @@ if __name__ == "__main__":
         os.remove(logpath)
     os.makedirs(os.path.dirname(logpath), exist_ok=True)
     logfile = open(logpath, "x")
-    logfile.write("step,input_ids,prediction,target,loss\n")
+    logfile.write("step,input_ids,prediction_ids,target_ids,loss\n")
 
     result = []
     prediction_step = 0
     for step, batch in tqdm(enumerate(test_dataloader), total=test_size, desc="Testing"):
         input_ids, attn_mask, token_type_ids, target_labels = tuple(t.to(device) for t in batch)
         with torch.no_grad():
-            predictions, bert_output = model(input_ids, attn_mask)
+            predictions = model(input_ids, attn_mask)
             for inputs, pred, target_label in zip(input_ids, predictions, target_labels):
                 loss = loss_function(pred.view(-1, 8), target_label.view(-1))
                 vals, pred_ids = torch.max(pred, 1)

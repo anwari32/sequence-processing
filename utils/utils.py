@@ -11,7 +11,7 @@ from transformers import BertForMaskedLM
 
 from pathlib import Path, PureWindowsPath
 
-def kmer(seq, length, window_size=1):
+def kmer(seq, length, stride=1):
     """
     Convert string `seq` into array of fixed `length` token (kmer).
     @param      seq (string):
@@ -22,7 +22,7 @@ def kmer(seq, length, window_size=1):
     if length > len(seq):
         return [seq]
     else:
-        return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
+        return [seq[i:i+length] for i in range(0, len(seq)-length+stride, stride)]
 
 def str_kmer(seq: str, length: int, window_size=1):
     """
