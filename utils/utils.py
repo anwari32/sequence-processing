@@ -24,6 +24,14 @@ def kmer(seq, length, stride=1):
     else:
         return [seq[i:i+length] for i in range(0, len(seq)-length+stride, stride)]
 
+def merge_kmer(seq: list) -> str:
+    if len(seq) == 1:
+        return seq[0]
+    merged = [kmer[0] for kmer in seq[0:-1]]
+    merged.append(seq[-1])
+    merged = "".join(merged)
+    return merged
+
 def str_kmer(seq: str, length: int, window_size=1):
     """
     Convert string `seq` into array of fixed `length` token (kmer) and convert the array into string.

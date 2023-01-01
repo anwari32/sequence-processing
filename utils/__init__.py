@@ -7,3 +7,4 @@ from .seqlab import *
 from .tokenizer import *
 from .utils import *
 from .viz import *
+from .motif import *
