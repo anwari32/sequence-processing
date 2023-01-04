@@ -146,7 +146,7 @@ def train(model: DNABERT_SL, optimizer, scheduler, train_dataloader, epoch_size,
             optimizer.zero_grad()
             input_ids, attention_mask, input_type_ids, batch_labels = tuple(t.to(device) for t in batch)    
             with autocast():
-                prediction, bert_output = model(input_ids, attention_mask)
+                prediction, bert_output, head_output = model(input_ids, attention_mask)
                 prediction_vals, prediction_indices = torch.max(prediction, 2)
                 batch_loss = loss_function(prediction.view(-1, 8), batch_labels.view(-1))
             batch_loss.backward()

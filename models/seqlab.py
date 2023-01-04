@@ -77,10 +77,12 @@ class DNABERT_SL(nn.Module):
     def forward(self, input_ids, attention_masks):
         # output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
         output = self.bert(input_ids=input_ids, attention_mask=attention_masks)            
+        bert_output = output[0]
         output = output[0]
         output = self.head(output)
+        head_output = output
         output = self.activation(output)
-        return output
+        return output, bert_output, head_output
 
 class DNABERT_BILSTM(nn.Module):
     def __init__(self, bert, config):
