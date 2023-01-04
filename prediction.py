@@ -47,7 +47,8 @@ if __name__ == "__main__":
         "device": "gpu:0",
         "model-config": os.path.join("model", "config", "seqlab", "base.lin1.json"),
         "model-checkpoint": os.path.join("run", "sso01-adamw-lr5e-5-base.lin1-2w1boplw", "latest", "checkpoint.pth"),
-        "test-config": os.path.join("training", "config", "seqlab", "ss-only.01.lr5e-5.json")
+        "test-config": os.path.join("training", "config", "seqlab", "ss-only.01.lr5e-5.json"),
+        "log": os.path.join("prediction", "prediction_log.csv")
     }
 
     device = args.get("device", "cpu") # specify device or use cpu otherwise.
@@ -144,8 +145,6 @@ if __name__ == "__main__":
 
                 prediction_step += 1
                 
-
-
     logfile.close()
     
 
