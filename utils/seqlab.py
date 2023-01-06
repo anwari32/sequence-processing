@@ -62,6 +62,7 @@ Index_Dictionary = {
     -100: "[CLS]/[SEP]/[III]"
 }
 
+splice_site_ids = [1, 3, 4, 5]
 NUM_LABELS = 8
 
 def id2token(id):
