@@ -63,6 +63,7 @@ Index_Dictionary = {
 }
 
 splice_site_ids = [1, 3, 4, 5]
+all_label_ids = [0] + splice_site_ids + [7]
 NUM_LABELS = 8
 
 def id2token(id):
