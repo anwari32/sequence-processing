@@ -3,6 +3,8 @@ RNN model implementation based on Wisesty et. al., 2022.
 """
 
 import torch
+import os
+import json
 
 class DNATokenizer:
     def __init__(self):
@@ -31,10 +33,32 @@ class RNN_Config:
         self.dropout = dicts.get("dropout", 0.2)
         self.bidirectional = dicts.get("bidirectional", False)
 
-    def export(self, export_path: str):
-        # Write instance attributes into single json file.
+    def save_config(self, dest_dir: str):
+        """
+        Save config
+        """
+        if os.path.isfile(dest_dir):
+            raise ValueError("value must be folder not file. file found.")
+        
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir, exist_ok=True)
 
-        raise NotImplementedError()
+        obj = {
+            "name": self.name,
+            "num_embeddings": self.num_embeddings,
+            "embedding_dim": self.embedding_dim,
+            "rnn": self.rnn,
+            "input_size": self.input_size,
+            "hidden_size": self.hidden_size,
+            "num_labels": self.num_labels,
+            "num_layers": self.num_layers,
+            "dropout": self.dropout,
+            "bidirectional": self.bidirectional
+        }
+        json_obj = json.dump(obj, indent=4)
+        json_path = os.path.join(dest_dir, "config.json")
+        with open(json_path, "w") as json_file:
+            json_file.write(json_obj)
 
 
 class RNN_Model(torch.nn.Module):
@@ -52,6 +76,41 @@ class RNN_Model(torch.nn.Module):
             self.config.num_labels
         )
 
+    def save_pretrained(self, dest_dir):
+        # save config.
+        config_path = os.path.join(dest_dir, "config.json")
+        self.config.save_config(config_path)
+
+        # clean up existing model.
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir, exist_ok=True)
+        
+        model_path = os.path.join("dest_dir", "model.bin")
+        if os.path.exists(model_path):
+            os.remove(model_path)
+
+        # save model.
+        torch.save(
+            self.state_dict(),
+            os.path.join(dest_dir, "model.bin")
+        )
+
+    @classmethod
+    def from_pretrained(cls, src_dir, map_location="cpu"):
+        # load config
+        config_path = os.path.join(src_dir, "config.json")
+        if not os.path.exists(config_path):
+            raise FileNotFoundError("config not found.")
+        json_obj = json.load(open(config_path, "r"))
+        config = RNN_Config(json_obj)
+        
+        saved_path = os.path.join(src_dir, "model.bin")
+        loaded_state_dict = torch.load(saved_path, map_location=map_location)
+
+        model = cls(config)
+        model.load_state_dict(loaded_state_dict)
+
+        return model
 
 default_bilstm_dict = {
     "name": "default_bilstm",
