@@ -34,11 +34,13 @@ class DNABERT_SL(BertPreTrainedModel):
 
 
 class RNNConfig:
-    def __init__(self, hidden_size, num_layers):
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
+    def __init__(self, **kwargs):
+        self.hidden_size = kwargs.get("hidden_size", 768)
+        self.num_layers = kwargs.get("num_layers", 2)
+        self.bidirectional = kwargs.get("bidirectional", False)
+        self.batch_first = True
 
-class DNABertBiLstmForTokenClassification(BertPreTrainedModel):
+class DNABERTRNNForTokenClassification(BertPreTrainedModel):
     def __init__(self, config, rnn_config, additional_config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -53,66 +55,61 @@ class DNABertBiLstmForTokenClassification(BertPreTrainedModel):
             config.hidden_size,
             rnn_config.hidden_size,
             rnn_config.num_layers,
-            bidirectional=True,
+            bidirectional=rnn_config.bidirectional,
             batch_first=True
         )
         self.dropout2 = nn.Dropout(classifier_dropout)
+
+        # modify dimension of additional hidden layers.
+        if rnn_config.bidirectional:
+            additional_config["linear"]["input_dim"] = config.hidden_size * 2
+            additional_config["linear"]["hidden_dim"] = config.hidden_size * 2
+
         self.head = Head(additional_config)
-        self.classifier = nn.Linear(
-            rnn_config.hidden_size,
-            self.num_labels
-        )
         self.activation = nn.Softmax(dim=2)
 
         self.post_init()
 
     def forward(self, input_ids, attention_mask):
         output = self.bert(input_ids, attention_mask)
+        bert_output = output[0]
         output = output[0]
         output = self.dropout1(output)
         output, rnn_hidden_output= self.rnn(output)
         output = self.dropout2(output)
         output = self.head(output)
-        output = self.classifier(output)
         output = self.activation(output)
-        return output, rnn_hidden_output
+        return output, rnn_hidden_output, bert_output
 
-class DNABertBiGruForTokenClassification(BertPreTrainedModel):
-    def __init__(self, config, rnn_config):
-        super().__init__(config)
-        self.num_labels = config.num_labels
-        self.config = config
-
-        self.bert = BertModel(config)
-        classifier_dropout = (
-            config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
+class DNABERTLSTMForTokenClassification(DNABERTRNNForTokenClassification):
+    def __init__(self, config, rnn_config, additional_config):
+        super().__init__(config, rnn_config, additional_config)
+        self.rnn = nn.LSTM(
+            config.hidden_size,
+            rnn_config.hidden_size,
+            rnn_config.num_layers,
+            bidirectional=rnn_config.bidirectional,
+            batch_first=True
         )
-        self.dropout1 = nn.Dropout(classifier_dropout)
+        self.post_init()
+
+    def forward(self, input_ids, attention_mask):
+        return super().forward(input_ids, attention_mask)
+
+class DNABERTGRUForTokenClassification(DNABERTRNNForTokenClassification):
+    def __init__(self, config, rnn_config, additional_config):
+        super().__init__(config)
         self.rnn = nn.GRU(
             config.hidden_size,
             rnn_config.hidden_size,
             rnn_config.num_layers,
-            bidirectional=True,
+            bidirectional=rnn_config.bidirectional,
             batch_first=True
         )
-        self.dropout2 = nn.Dropout(classifier_dropout)
-        self.classifier = nn.Linear(
-            rnn_config.hidden_size,
-            self.num_labels
-        )
-        self.activation = nn.Softmax(dim=2)
-
         self.post_init()
 
     def forward(self, input_ids, attention_mask):
-        output = self.bert(input_ids, attention_mask)
-        output = output[0]
-        output = self.dropout1(output)
-        output, rnn_hidden_output = self.rnn(output)
-        output = self.dropout2(output)
-        output = self.classifier(output)
-        output = self.activation(output)
-        return output, rnn_hidden_output
+        return super().forward(input_ids, attention_mask)
 
 
     

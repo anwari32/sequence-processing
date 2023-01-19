@@ -6,25 +6,11 @@ import torch
 import os
 import json
 
-class DNATokenizer:
-    def __init__(self):
-        self.voss_dict = {
-            "A": torch.Tensor([1, 0, 0, 0]),
-            "C": torch.Tensor([0, 1, 0, 0]),
-            "G": torch.Tensor([0, 0, 1, 0]),
-            "T": torch.Tensor([0, 0, 0, 1])
-        }
-
-    def voss_representation(self, dna: str):
-        vector = torch.Tensor([self.voss_dict[n] for n in dna])
-        return vector
-
-
 class RNN_Config:
     def __init__(self, dicts={}):
         self.name = dicts.get("name", "unnamed")
-        self.num_embeddings = dict.get("num_embeddings")
-        self.embedding_dim = dict.get("embedding_size")
+        self.num_embeddings = dicts.get("num_embeddings")
+        self.embedding_dim = dicts.get("embedding_dim")
         self.rnn = dicts.get("rnn", "unknown")
         self.input_size = dicts.get("input_size", 1)
         self.hidden_size = dicts.get("hidden_size", 1)
@@ -65,12 +51,8 @@ class RNN_Model(torch.nn.Module):
     def __init__(self, config: RNN_Config):
         super().__init__()
         self.config = config
-        self.embedding = torch.nn.Embedding(
-            self.config.num_embeddings,
-            self.config.embedding_dim
-        )
         self.rnn = None
-        self.dropout = torch.nn.Dropout(self.config.dropout_prob)
+        self.dropout = torch.nn.Dropout(self.config.dropout)
         self.classifier = torch.nn.Linear(
             (2 if self.config.bidirectional else 1) * self.config.hidden_size,
             self.config.num_labels
@@ -115,7 +97,7 @@ class RNN_Model(torch.nn.Module):
 default_bilstm_dict = {
     "name": "default_bilstm",
     "rnn": "bilstm",
-    "input_size": 150,
+    "input_size": 768,
     "hidden_size": 256,
     "num_layers": 2,
     "num_labels": 8,
@@ -126,7 +108,7 @@ default_bilstm_dict = {
 default_bigru_dict = {
     "name": "default_bigru",
     "rnn": "bigru",
-    "input_size": 150,
+    "input_size": 768,
     "hidden_size": 256,
     "num_layers": 2,
     "num_labels": 8,
