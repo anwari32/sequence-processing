@@ -1,9 +1,0 @@
-{
-    "pretrained": "pretrained/3-new-12w-0",
-    "train_data": "workspace/mtl/train.sample.150.csv",
-    "num_epochs": 1,
-    "batch_size": 1,
-    "log": "log/seqlab_lstm/sample_lstm/log.csv",
-    "result": "result/seqlab_lstm/sample_lstm/",
-    "config": "models/config/seqlab/config_seqlab_lstm.json"
-}

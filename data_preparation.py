@@ -7,7 +7,7 @@ from typing import Iterable
 import pandas as pd
 import traceback
 from tqdm import tqdm
-from utils.utils import shuffle_sequence
+from utils.utils import shuffle_sequence, kmer, str_kmer, chunk_string
 
 chr_dict = {
     'chr1': 'NC_000001.11',
@@ -336,7 +336,7 @@ def generate_annotated_sequence(chr_index_csv, chr_fasta, chr_annotation_file):
     return True
 
 def generate_sequence_labelling(chr_index, chr_fasta, target_csv, do_kmer=False, do_expand=False, kmer_size=3, expand_size=512, region='exon', limit_index=0, random=True, random_seed=1337):
-    """
+    r"""
     Generate sequence labelling from given chromosome index and chromosome fasta.
     This function reads chr index to get all exon ranges and create labelling based on the index.
     After that sequence and its label sequence will be written into `target_csv`.
@@ -461,20 +461,9 @@ def generate_complement(fasta_file: str, target_dir: str):
         raise FileNotFoundError(f"File {fasta_file} not found.")
     raise NotImplemented()
 
-def kmer(seq, length, window_size=1):
-    """
-    Convert string `seq` into array of fixed `length` token (kmer).
-    @param      seq (string):
-    @param      length (int):
-    @param      window_size (int): stride.
-    @return     (array of string): array of kmer.
-    """
-    if length > len(seq):
-        return [seq]
-    else:
-        return [seq[i:i+length] for i in range(0, len(seq)-length+window_size, window_size)]
-
 def merge_kmer(seq: list) -> str:
+    if len(seq) == 1:
+        return seq[0]
     merged = [kmer[0] for kmer in seq[0:-1]]
     merged.append(seq[-1])
     merged = "".join(merged)
@@ -491,26 +480,6 @@ def generate_subsequences(seq, length, stride=1):
         if index >= length_seq:
             cont = False
     return subsequences
-
-def str_kmer(seq: str, length: int, window_size=1):
-    """
-    Convert string `seq` into array of fixed `length` token (kmer) and convert the array into string.
-    @param      seq : string
-    @param      length : int
-    @param      window_size : int | None -> 3
-    @return     str
-    """
-    kmer_sequences = kmer(seq, length, window_size=window_size)
-    return ' '.join(kmer_sequences)
-
-def chunk_string(seq, length):
-    """
-    Chunk string `seq` into fixed `length` parts.
-    @param      seq (string): string to break.
-    @param      length (int): size of each chunk.
-    @return     (array of string): array of `seq` parts.
-    """
-    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
 def generate_csv_from_fasta(src_fasta, target_csv, label, max_seq_length=512, sliding_window_size=1, expand=False):
     """

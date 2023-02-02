@@ -1,81 +1,70 @@
 from datetime import datetime
 import json
-
 from transformers import BertTokenizer
-from models.seqlab import DNABERTSeqLab
-from torch.optim import AdamW
 from torch import tensor
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
-from data_preparation import str_kmer
+
+from .utils import chunk_string, kmer, str_kmer
 from tqdm import tqdm
-
-def init_seqlab_model(config: json):
-    if not config:
-        raise ValueError("Not valid json object.")
-    model = DNABERTSeqLab(config)
-    return model
-
-def init_adamw_optimizer(model_parameters, learning_rate=1e-5, epsilon=1e-6, betas=(0.9, 0.98), weight_decay=0.01):
-    """
-    Initialize AdamW optimizer.
-    @param  model_parameters:
-    @param  learning_rate: Default is 1e-5 so it's small. 
-            Change to 2e-4 for fine-tuning purpose (Ji et. al., 2021) or 4e-4 for pretraining (Ji et. al., 2021).
-    @param  epsilon: adam epsilon, default is 1e-6 as in DNABERT pretraining (Ji et. al., 2021).
-    @param  betas: a tuple consists of beta 1 and beta 2.
-    @param  weight_decay: weight_decay
-    @return (AdamW object)
-    """
-    optimizer = AdamW(model_parameters, lr=learning_rate, eps=epsilon, betas=betas, weight_decay=weight_decay)
-    return optimizer
-
-Labels = [
-    '...',
-    '..E',
-    '.E.',
-    'E..',
-    '.EE',
-    'EE.',
-    'E.E',
-    'EEE',
-]
-
-
-def _create_one_hot_encoding(index, n_classes):
-    return [1 if i == index else 0 for i in range(n_classes)]
+import os
 
 Label_Begin = '[CLS]'
 Label_End = '[SEP]'
 Label_Pad = '[PAD]'
+Label_Pad = 'III'
 Label_Dictionary = {
-    '[CLS]': 0, #_create_one_hot_encoding(0, 10),
-    '[SEP]': 1,
-    '[PAD]': 2, #_create_one_hot_encoding(9, 10)
-    'iii': 3, #_create_one_hot_encoding(1, 10),
-    'iiE': 4, #_create_one_hot_encoding(2, 10),
-    'iEi': 5, #_create_one_hot_encoding(3, 10),
-    'Eii': 6, #_create_one_hot_encoding(4, 10),
-    'iEE': 7, #_create_one_hot_encoding(5, 10),
-    'EEi': 8, #_create_one_hot_encoding(6, 10),
-    'EiE': 9, #_create_one_hot_encoding(7, 10),
-    'EEE': 10, #_create_one_hot_encoding(8, 10),
-}
-Index_Dictionary = {
-    0: "[CLS]",
-    1: "[SEP]",
-    2: "[PAD]",
-    3: "iii",
-    4: "iiE",
-    5: "iEi",
-    6: "Eii",
-    7: "iEE",
-    8: "EEi",
-    9: "EiE",
-    10: "EEE"
+    '[CLS]': -100,
+    '[SEP]': -100,
+    '[PAD]': -100, 
+    'III': -100,   
+    'iii': 0,
+    'iiE': 1,
+    'iEi': 2,
+    'Eii': 3,
+    'iEE': 4,
+    'EEi': 5,
+    'EiE': 6,
+    'EEE': 7,
 }
 
-from models.seqlab import DNABERTSeqLab
+label2id = {
+    'iii': 0,
+    'iiE': 1,
+    'iEi': 2,
+    'Eii': 3,
+    'iEE': 4,
+    'EEi': 5,
+    'EiE': 6,
+    'EEE': 7,
+}
+
+id2label = {
+    0: "iii",
+    1: "iiE",
+    2: "iEi",
+    3: "Eii",
+    4: "iEE",
+    5: "EEi",
+    6: "EiE",
+    7: "EEE",
+}
+
+Index_Dictionary = {
+    0: "iii",
+    1: "iiE",
+    2: "iEi",
+    3: "Eii",
+    4: "iEE",
+    5: "EEi",
+    6: "EiE",
+    7: "EEE",
+    -100: "[CLS]/[SEP]/[III]"
+}
+
+splice_site_ids = [1, 3, 4, 5]
+all_label_ids = [0] + splice_site_ids + [7]
+NUM_LABELS = 8
 
 def id2token(id):
     return Index_Dictionary[id]
@@ -116,11 +105,21 @@ def _process_label(label_sequences, label_dict=Label_Dictionary):
     label_kmers = [label_dict[k] for k in label]
     return label_kmers
 
-def _process_sequence_and_label(sequence, label, tokenizer):
-    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length")
+def _process_sequence(sequence, tokenizer):
+    """
+    @param  sequence (string)
+    @param  tokenizer (BertTokenizer)
+    return input_ids, attention_mask, token_type_ids
+    """
+    encoded = tokenizer.encode_plus(text=sequence, return_attention_mask=True, return_token_type_ids=True, padding="max_length", max_length=512)
     input_ids = encoded.get('input_ids')
     attention_mask = encoded.get('attention_mask')
     token_type_ids = encoded.get('token_type_ids')
+    return input_ids, attention_mask, token_type_ids
+
+def _process_sequence_and_label(sequence, label, tokenizer):
+    input_ids, attention_mask, token_type_ids, label_repr = None, None, None, None
+    input_ids, attention_mask, token_type_ids = _process_sequence(sequence, tokenizer)
     label_repr = _process_label(label)
     return input_ids, attention_mask, token_type_ids, label_repr
 
@@ -160,12 +159,12 @@ def preprocessing(csv_file: str, tokenizer, batch_size, do_kmer=True, kmer_size=
 
     tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_labels, batch_size)
     end = datetime.now()
-    # print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
+    print(f"Preprocessing {csv_file} is finished. Time elapsed {end - start}")
     return tensor_dataloader
 
-def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> DataLoader:
+def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disable_tqdm=False) -> DataLoader:
     """
-    Process sequence and label from ``csv_file`` which are already in kmer format.
+    Process sequence and label from ``csv_file`` which are already in kmer format. \n
     e.q.    sequence    -> `AAG AGG GGC GCG CGA ...` (kmer format)
             label       -> `iii iiE EEE EEi Eii ...` (kmer format)
 
@@ -177,7 +176,14 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> D
     sequences = list(df["sequence"])
     labels = list(df["label"])
     arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr = [], [], [], []
-    for seq, label in zip(sequences, labels):
+    enumerator = None
+    if disable_tqdm:
+        enumerator = zip(sequences, labels)
+    else:
+        fname = os.path.basename(csv_file).split('.')[:-1]
+        fname = ' '.join(fname)
+        enumerator = tqdm(zip(sequences, labels), total=df.shape[0], desc=f"Preparing Data {fname}")
+    for seq, label in enumerator:
         input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
         arr_input_ids.append(input_ids)
         arr_attention_mask.append(attention_mask)
@@ -186,3 +192,101 @@ def preprocessing_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size) -> D
     
     tensor_dataloader = _create_dataloader(arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr, batch_size)
     return tensor_dataloader
+
+def preprocessing_gene_kmer(csv_file: str, tokenizer: BertTokenizer, batch_size, disable_tqdm=False) -> DataLoader:
+    # raise NotImplementedError("Not yet implemented.")
+    df = pd.read_csv(csv_file)
+    sequences = list(df["sequence"])
+    labels = list(df["label"])
+    markers = list(df["marker"])
+    arr_input_ids, arr_attention_mask, arr_token_type_ids, arr_label_repr, arr_marker = [], [], [], [], []
+    enumerator = None
+    if disable_tqdm:
+        enumerator = zip(sequences, labels, markers)
+    else:
+        fname = os.path.basename(csv_file).split('.')[:-1]
+        fname = ' '.join(fname)
+        enumerator = tqdm(zip(sequences, labels, markers), total=df.shape[0], desc="Preparing Data")
+    for seq, label, marker in enumerator:
+        input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(seq, label, tokenizer)
+        arr_input_ids.append(input_ids)
+        arr_attention_mask.append(attention_mask)
+        arr_token_type_ids.append(token_type_ids)
+        arr_label_repr.append(label_repr)
+        arr_marker.append(marker)
+
+    arr_input_ids_tensor = tensor(arr_input_ids)
+    arr_attention_mask_tensor = tensor(arr_attention_mask)
+    arr_token_type_ids = tensor(arr_token_type_ids)
+    arr_label_repr_tensor = tensor(arr_label_repr)
+    arr_marker_tensor = tensor(arr_marker)
+
+    dataset = TensorDataset(arr_input_ids_tensor, arr_attention_mask_tensor, arr_token_type_ids, arr_label_repr_tensor, arr_marker_tensor)
+    dataloader = DataLoader(dataset, batch_size=1)
+    
+    return dataloader
+
+def preprocessing_whole_sequence(csv_file: str, tokenizer: BertTokenizer, batch_size=1, dense=False, disable_tqdm=False) -> DataLoader:
+    r"""
+    Creates dataloader based-on massive dataset.
+    * :attr:`csv_file`
+    * :attr:`tokenizer`
+    * :attr:`batch_size`
+    * :attr:`dense` - bool | None -> False
+    * :attr:`disable_tqdm`
+    """
+
+    # Gene csv should contain only one row, but if it contains more
+    # joining sequence and label if gene dataframe contains more than one row.
+    complete_sequence = ""
+    complete_label = ""
+    df = pd.read_csv(csv_file)
+    for i, r in df.iterrows():
+        complete_sequence = f"{complete_sequence}{r['sequence']}"
+        complete_label = f"{complete_label}{r['label']}"
+
+    arr_input_ids = []
+    arr_attention_mask = []
+    arr_token_type_ids = []
+    arr_label_repr = []
+
+    # Break long sequence into shorter sequences with kmer method.
+    chunked_sequences = []
+    chunked_labels = []
+    complete_sequence_kmers = kmer(complete_sequence, 3, 1)
+    complete_label_kmers = kmer(complete_label, 3, 1)
+    if dense:
+        chunked_sequences = kmer(complete_sequence_kmers, 510, 1)
+        chunked_labels = kmer(complete_label_kmers, 510, 1)
+    else:
+        chunked_sequences = chunk_string(complete_sequence_kmers, 510)
+        chunked_labels = chunk_string(complete_label_kmers, 510)
+    
+    chunked_sequences = [' '.join(s) for s in chunked_sequences]
+    chunked_labels = [' '.join(s) for s in chunked_labels]
+    for seq, lab in zip(chunked_sequences, chunked_labels):
+        subsequence_kmer = seq
+        sublabel_kmer = lab
+        input_ids, attention_mask, token_type_ids, label_repr = None, None, None, None
+        try:
+            input_ids, attention_mask, token_type_ids, label_repr = _process_sequence_and_label(subsequence_kmer, sublabel_kmer, tokenizer)
+        except KeyError:
+            print(f"Key Error {subsequence_kmer} \n {sublabel_kmer}")
+            print(f"at file {csv_file}")
+        
+        arr_input_ids.append(input_ids)
+        arr_attention_mask.append(attention_mask)
+        arr_token_type_ids.append(token_type_ids)
+        arr_label_repr.append(label_repr)
+
+    dataset = TensorDataset(
+        tensor(arr_input_ids),
+        tensor(arr_attention_mask),
+        tensor(arr_token_type_ids),
+        tensor(arr_label_repr)
+    )
+    dataloader = DataLoader(dataset, batch_size=1)
+    return dataloader
+
+
+

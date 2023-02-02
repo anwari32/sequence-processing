@@ -1,0 +1,18 @@
+{
+    "name": "sso1-adamw",
+    "pretrained": "pretrained\\3-new-12w-0",
+    "train_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-1\\gene_index.1_ss_all_pos_train.csv",
+    "validation_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-1\\gene_index.1_ss_all_pos_validation.csv",
+    "test_data": "workspace\\seqlab\\seqlab-3\\ss-allpos-1\\gene_index.1_ss_all_pos_test.csv",
+    "freeze_bert": 0,
+    "num_epochs": 10,
+    "batch_size": 32,
+    "optimizer": {
+        "name": "adamw",
+        "learning_rate": 4e-4,
+        "epsilon": 1e-6,
+        "beta1": 0.9,
+        "beta2": 0.98,
+        "weight_decay": 0.01
+    }
+}

@@ -9,7 +9,7 @@ from data_preparation import kmer
 from transformers import BertTokenizer
 from data_dir import workspace_dir, pretrained_3kmer_dir
 from transformers import AdamW, get_linear_schedule_with_warmup, BertForMaskedLM
-from multitask_learning import PolyAHead, PromoterHead, SpliceSiteHead, MTModel, train
+from multitask_learning import PolyAHead, PromoterHead, SpliceSiteHead, DNABERT_MTL, train
 
 
 """
@@ -116,7 +116,7 @@ splice_head = SpliceSiteHead(_device)
 dnabert_3_pretrained = pretrained_3kmer_dir
 shared_parameter = BertForMaskedLM.from_pretrained(dnabert_3_pretrained).bert
 
-model = MTModel(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head).to(_device)
+model = DNABERT_MTL(shared_parameters=shared_parameter, promoter_head=promoter_head, polya_head=polya_head, splice_site_head=splice_head).to(_device)
 optimizer = AdamW(model.parameters(), lr=5e-5, eps=1e-8)
 training_steps = len(train_dataloader) * EPOCH_SIZE
 scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=training_steps)

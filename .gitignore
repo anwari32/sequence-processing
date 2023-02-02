@@ -18,8 +18,12 @@ dataset
 pretrained
 result
 workspace
-logs
 remotes
 wandb
-/lstm.csv
 run
+tmux*
+.idea
+master
+prediction
+error-analysis
+analysis

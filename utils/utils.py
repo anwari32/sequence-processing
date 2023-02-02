@@ -1,3 +1,4 @@
+from array import array
 import json
 from Bio import SeqIO
 from tqdm import tqdm
@@ -7,9 +8,49 @@ import pandas as pd
 import random
 
 from transformers import BertForMaskedLM
-from models.mtl import MTModel
 
 from pathlib import Path, PureWindowsPath
+
+def kmer(seq, length, stride=1):
+    """
+    Convert string `seq` into array of fixed `length` token (kmer).
+    @param      seq (string):
+    @param      length (int):
+    @param      window_size (int): stride.
+    @return     (array of string): array of kmer.
+    """
+    if length > len(seq):
+        return [seq]
+    else:
+        return [seq[i:i+length] for i in range(0, len(seq)-length+stride, stride)]
+
+def merge_kmer(seq: list) -> str:
+    if len(seq) == 1:
+        return seq[0]
+    merged = [kmer[0] for kmer in seq[0:-1]]
+    merged.append(seq[-1])
+    merged = "".join(merged)
+    return merged
+
+def str_kmer(seq: str, length: int, window_size=1):
+    """
+    Convert string `seq` into array of fixed `length` token (kmer) and convert the array into string.
+    @param      seq : string
+    @param      length : int
+    @param      window_size : int | None -> 1
+    @return     str
+    """
+    kmer_sequences = kmer(seq, length, window_size=window_size)
+    return ' '.join(kmer_sequences)
+
+def chunk_string(seq, length):
+    """
+    Chunk string `seq` into fixed `length` parts.
+    @param      seq (string): string to break.
+    @param      length (int): size of each chunk.
+    @return     (array of string): array of `seq` parts.
+    """
+    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
 def break_sequence(sequence, chunk_size=16):
     len_seq = len(sequence)
@@ -90,9 +131,9 @@ def save_checkpoint(model, optimizer, scheduler, config, dirpath):
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     
-    torch.save(model.state_dict, os.path.join(dest_dir, "model.pth"))
-    torch.save(optimizer.state_dict, os.path.join(dest_dir, "optimizer.pth"))
-    torch.save(scheduler.state_dict, os.path.join(dest_dir, "scheduler.pth"))
+    torch.save(model.state_dict(), os.path.join(dest_dir, "model.pth"))
+    torch.save(optimizer.state_dict(), os.path.join(dest_dir, "optimizer.pth"))
+    torch.save(scheduler.state_dict(), os.path.join(dest_dir, "scheduler.pth"))
     cfgpath = os.path.join(dest_dir, "configuration.json")
     if os.path.exists(cfgpath):
         os.remove(cfgpath)
@@ -109,26 +150,6 @@ def load_checkpoint(path):
     #config = saved_object["config"]
     #return model, optimizer, config
     return checkpoint
-
-def load_mtl_model(path):
-    """
-    Load DNABERT-MTL model from certain checkpoint.
-    @param  path (str): path to checkpoint file.
-    @return DNABERT-MTL model.
-    """
-    checkpoint = load_checkpoint(path)
-    saved_model_state_dict = checkpoint["model"]
-    formatted_path = str(Path(PureWindowsPath(path)))
-    dirpath = os.path.dirname(formatted_path)
-    model_config = json.load(open(
-        os.path.join(dirpath, "model_config.json")
-    ))
-    bert = BertForMaskedLM.from_pretrained(model_config["pretrained"])
-    mtl_model = MTModel(bert, model_config)
-    mtl_model.load_state_dict(saved_model_state_dict)
-
-    return mtl_model
-
 
 def load_model_state_dict(model, load_path):
     """
@@ -332,3 +353,75 @@ def save_config(obj, save_path):
         os.remove(save_path)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     json.dump(obj, open(save_path, 'x'))
+
+def create_loss_weight(csv_path, verbose=False, ignorance_level=1, kmer=0):
+    from utils.seqlab import Label_Dictionary
+    labels = []
+    for k in Label_Dictionary.keys():
+        if Label_Dictionary[k] >= 0:
+            labels.append(k)
+    
+    count_dict = {}
+    for k in labels:
+        count_dict[k] = 0
+    df = pd.read_csv(csv_path)
+    for i, r in df.iterrows():
+        sequence = r["label"]
+        if kmer > 0:
+            sequence = str_kmer(sequence, kmer)
+        sequence = sequence.split(" ") # Split sequence into array of tokens.
+        for token in sequence:
+            count_dict[token] += 1
+
+    values = [count_dict[t] for t in count_dict.keys()]
+    max_value = max(values)
+    min_ss = min([
+        count_dict['iiE'],
+        count_dict['Eii'],
+        count_dict['iEE'],
+        count_dict['EEi']
+    ])
+    w = []
+    for k in count_dict.keys():
+        try:
+            if min_ss > count_dict[k]:
+                w.append(min_ss / (ignorance_level * max_value))
+            else:
+                w.append(min_ss / count_dict[k])
+        except ZeroDivisionError:
+            print(f"gene file {csv_path}")
+            print(f"error {k} => {count_dict[k]}")
+            w.append(0)
+
+    if verbose:
+        print(f"Label count {count_dict}")
+        print(f"Label Weight {w}")
+    return torch.Tensor(w)
+
+def is_exists_splice_site_in_sequence(target_list, list=['iiE', 'iEi', 'Eii', 'iEE', 'EEi', 'EiE']):
+    # Check if at leats one element of list exists in target_list.
+    found = False
+    for elem in list:
+        if elem in target_list:
+            found = True
+    return found
+
+def is_intron(labels):
+    return all([a == "iii" for a in labels])
+
+def is_exon(labels):
+    return all([a == "EEE" for a in labels])
+
+def get_sequence_and_label(gene_path: str):
+    df = pd.read_csv(gene_path)
+    sequences = []
+    labels = []
+    for i, r in df.iterrows():
+        sequences.append(
+            r["sequence"]
+        )
+        labels.append(
+            r["label"]
+        )
+    
+    return sequences, labels
