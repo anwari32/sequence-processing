@@ -58,7 +58,6 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
             bidirectional=rnn_config.bidirectional,
             batch_first=True
         )
-        self.dropout2 = nn.Dropout(classifier_dropout)
 
         # modify dimension of additional hidden layers.
         if rnn_config.bidirectional:
@@ -82,8 +81,8 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
         return output, rnn_hidden_output, bert_output
 
 class DNABERTLSTMForTokenClassification(DNABERTRNNForTokenClassification):
-    def __init__(self, config, rnn_config, additional_config):
-        super().__init__(config, rnn_config, additional_config)
+    def __init__(self, config, rnn_config, head_config):
+        super().__init__(config, rnn_config, head_config)
         self.rnn = nn.LSTM(
             config.hidden_size,
             rnn_config.hidden_size,
@@ -97,8 +96,8 @@ class DNABERTLSTMForTokenClassification(DNABERTRNNForTokenClassification):
         return super().forward(input_ids, attention_mask)
 
 class DNABERTGRUForTokenClassification(DNABERTRNNForTokenClassification):
-    def __init__(self, config, rnn_config, additional_config):
-        super().__init__(config)
+    def __init__(self, config, rnn_config, head_config):
+        super().__init__(config, rnn_config, head_config)
         self.rnn = nn.GRU(
             config.hidden_size,
             rnn_config.hidden_size,
