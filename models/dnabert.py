@@ -50,7 +50,7 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         )
-        self.dropout1 = nn.Dropout(classifier_dropout)
+        self.dropout = nn.Dropout(classifier_dropout)
         self.rnn = nn.LSTM(
             config.hidden_size,
             rnn_config.hidden_size,
@@ -73,9 +73,8 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
         output = self.bert(input_ids, attention_mask)
         bert_output = output[0]
         output = output[0]
-        output = self.dropout1(output)
+        output = self.dropout(output)
         output, rnn_hidden_output= self.rnn(output)
-        output = self.dropout2(output)
         output = self.head(output)
         output = self.activation(output)
         return output, rnn_hidden_output, bert_output
