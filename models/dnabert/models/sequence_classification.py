@@ -50,7 +50,7 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         )
-        self.dropout1 = nn.Dropout(classifier_dropout)
+        self.dropout = nn.Dropout(classifier_dropout)
         self.rnn = nn.LSTM(
             config.hidden_size,
             rnn_config.hidden_size,
@@ -58,7 +58,6 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
             bidirectional=rnn_config.bidirectional,
             batch_first=True
         )
-        self.dropout2 = nn.Dropout(classifier_dropout)
 
         # modify dimension of additional hidden layers.
         if rnn_config.bidirectional:
@@ -74,16 +73,15 @@ class DNABERTRNNForTokenClassification(BertPreTrainedModel):
         output = self.bert(input_ids, attention_mask)
         bert_output = output[0]
         output = output[0]
-        output = self.dropout1(output)
+        output = self.dropout(output)
         output, rnn_hidden_output= self.rnn(output)
-        output = self.dropout2(output)
         output = self.head(output)
         output = self.activation(output)
         return output, rnn_hidden_output, bert_output
 
 class DNABERTLSTMForTokenClassification(DNABERTRNNForTokenClassification):
-    def __init__(self, config, rnn_config, additional_config):
-        super().__init__(config, rnn_config, additional_config)
+    def __init__(self, config, rnn_config, head_config):
+        super().__init__(config, rnn_config, head_config)
         self.rnn = nn.LSTM(
             config.hidden_size,
             rnn_config.hidden_size,
@@ -97,8 +95,8 @@ class DNABERTLSTMForTokenClassification(DNABERTRNNForTokenClassification):
         return super().forward(input_ids, attention_mask)
 
 class DNABERTGRUForTokenClassification(DNABERTRNNForTokenClassification):
-    def __init__(self, config, rnn_config, additional_config):
-        super().__init__(config)
+    def __init__(self, config, rnn_config, head_config):
+        super().__init__(config, rnn_config, head_config)
         self.rnn = nn.GRU(
             config.hidden_size,
             rnn_config.hidden_size,
