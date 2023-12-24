@@ -1,5 +1,5 @@
-from models.ensemble import Ensemble
-from models.dnabert import num_classes
+from __models.ensemble import Ensemble
+from __models.dnabert import num_classes
 import os
 import numpy as np
 from utils.metrics import Metrics

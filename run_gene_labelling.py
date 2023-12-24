@@ -15,7 +15,7 @@ from transformers import BertForMaskedLM, BertTokenizer
 from utils.seqlab import preprocessing_gene_kmer
 from tqdm import tqdm
 import pathlib
-from models.genlab import DNABERT_RNN
+from __models.genlab import DNABERT_RNN
 from utils.utils import create_loss_weight
 from utils.cli import parse_args
 

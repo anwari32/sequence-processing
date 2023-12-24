@@ -1,4 +1,4 @@
-from models.genlab import DNABERT_GSL
+from __models.genlab import DNABERT_GSL
 from transformers import BertTokenizer
 from torch import nn
 from torch.utils.data import DataLoader
