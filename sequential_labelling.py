@@ -6,7 +6,7 @@ from utils.utils import save_checkpoint
 from utils.seqlab import NUM_LABELS, Label_Dictionary, Index_Dictionary
 from torch.cuda.amp import autocast, GradScaler
 import wandb
-from models.seqlab import DNABERT_SL
+from __models.seqlab import DNABERT_SL
 import numpy as np
 
 def evaluate_sequences(model, eval_dataloader, device, save_dir, epoch, num_epoch, loss_fn, wandb, validation_step):

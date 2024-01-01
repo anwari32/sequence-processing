@@ -2,7 +2,7 @@ from multiprocessing.sharedctypes import Value
 import sys
 import os
 from getopt import getopt
-from models.seqlab import DNABERT_SL
+from __models.seqlab import DNABERT_SL
 from utils.seqlab import NUM_LABELS, Index_Dictionary, preprocessing_kmer
 from transformers import BertForMaskedLM, BertTokenizer
 import json

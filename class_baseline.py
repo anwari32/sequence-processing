@@ -12,13 +12,13 @@ from utils.seqlab import Index_Dictionary, preprocessing_gene_kmer, preprocessin
 from transformers import BertTokenizer
 from tqdm import tqdm
 import numpy as np
-from models.rnn import RNN_BiGRU, RNN_BiLSTM, RNN_Config
+from __models.rnn import RNN_BiGRU, RNN_BiLSTM, RNN_Config
 from utils.metrics import Metrics
 from utils.seqlab import NUM_LABELS
 import pandas as pd
 import pathlib
 from datetime import datetime
-from models import default_bilstm_config, default_bigru_config
+from __models import default_bilstm_config, default_bigru_config
 
 class Baseline_Config:
     def __init__(self, dict):

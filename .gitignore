@@ -27,3 +27,15 @@ master
 prediction
 error-analysis
 analysis
+.vs
+.ssh
+.kdev4
+logs
+outputs
+rawdata
+training
+textfiles
+sources
+setup
+sample
+.venv

@@ -18,7 +18,7 @@ from utils.utils import create_loss_weight
 from utils.cli import parse_fine_tuning_command
 from torch.optim import lr_scheduler
 import torch
-from models.dnabert import DNABertForTokenClassification, num_classes
+from __models.dnabert import DNABertForTokenClassification, num_classes
 from utils.seqlab import label2id, id2label
 from utils.metrics import Metrics, metric_names
 import wandb

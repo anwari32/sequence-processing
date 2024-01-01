@@ -3,7 +3,7 @@ import sys
 import json
 from torch.cuda import device_count as cuda_device_count, get_device_name
 from torch.optim import AdamW, SGD, RMSprop, Adam
-from models.seqlab import DNABERT_SL
+from __models.seqlab import DNABERT_SL
 from sequential_labelling import train
 from utils.seqlab import preprocessing
 from transformers import BertTokenizer, BertForMaskedLM, BertConfig

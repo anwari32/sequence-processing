@@ -11,7 +11,7 @@ import os
 from torch.cuda.amp import autocast, GradScaler                
 
 import wandb
-from models.mtl import DNABERT_MTL
+from __models.mtl import DNABERT_MTL
 from utils.utils import save_checkpoint
 from data_preparation import str_kmer
 from pathlib import Path, PureWindowsPath
