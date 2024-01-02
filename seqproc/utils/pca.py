@@ -1,8 +1,8 @@
-# utilities fot PCA analysis.
+# utilities for PCA analysis.
 
 import pandas as pd
 import matplotlib.pyplot as plt
-from utils.seqlab import splice_site_ids, Index_Dictionary
+from .seqlab import splice_site_ids, Index_Dictionary
 from sklearn.decomposition import PCA
 
 

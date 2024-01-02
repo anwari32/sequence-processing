@@ -2,13 +2,11 @@ from datetime import datetime
 from pathlib import Path, PureWindowsPath
 import torch
 from torch.utils.data import TensorDataset, DataLoader
-from data_dir import pretrained_3kmer_dir
 from transformers import BertTokenizer
 import pandas as pd
 from tqdm import tqdm
 import os
-
-from data_preparation import str_kmer
+from . import str_kmer
 
 tokenizer = BertTokenizer.from_pretrained(pretrained_3kmer_dir)
 

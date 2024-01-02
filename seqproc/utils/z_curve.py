@@ -11,10 +11,12 @@ Reference can be found at https://pubmed.ncbi.nlm.nih.gov/8204213/
 
 DATASET_PATH = "data/ft/fine_tuning_sample_k-mer_3_ALPHA_BETA_DELTA_merged.txt"
 
-# Generate array of (x, y, z) coordinate from a sequence.
-# @param seq : Sequence to be coverted.
-# @return : Array of coordinates.
 def get_z_curve(seq):
+    """
+    Generate array of (x, y, z) coordinate from a sequence.
+    @param seq : Sequence to be coverted.
+    @return : Array of coordinates.
+    """
     nucleotides = {
         'A': 0,
         'T': 0,
@@ -50,7 +52,7 @@ def generate_z_curve_from_file(dataset_file_path, target_file_path=False):
         label = arr[1].strip()
         z_curves.append(get_z_curve(seq))
     
-
-# Test
-s = "GTTCTCTAAACGAACTTTAAAATCTGTGTGGCTGTCACTCGGCTGCATGCTTAGTGCACT"
-print(get_z_curve(s))
+if __name__ == "__main__":
+    # Test
+    s = "GTTCTCTAAACGAACTTTAAAATCTGTGTGGCTGTCACTCGGCTGCATGCTTAGTGCACT"
+    print(get_z_curve(s))

@@ -19,9 +19,10 @@ __pycache__
 *.jsonl
 data
 dataset
+keys
 pretrained
 result
-workspace
+thesis
 remotes
 wandb
 run

@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 from tqdm import tqdm
-from utils import kmer, merge_kmer
+from . import kmer, merge_kmer
 
 donor_pattern = ["EEi", "Eii"]
 acceptor_pattern = ["iiE", "iEE"]

@@ -6,9 +6,8 @@ import os
 import traceback
 import pandas as pd
 import random
-
+from Bio import SeqIO
 from transformers import BertForMaskedLM
-
 from pathlib import Path, PureWindowsPath
 
 def kmer(seq, length, stride=1):
@@ -87,20 +86,23 @@ def shuffle_sequence_in_csv(src, dest, chunk_size=16, shuffle_options="odd"):
     dest_df['sequence'] = dest_df["sequence"].apply(lambda x: shuffle_sequence(x, chunk_size, shuffle_options))
     dest_df.to_csv(dest, index=False)
         
-from Bio import SeqIO
-# Read sequence from file. Returns array of sequence.
-# @param source_file : Fasta file read for its sequences.
-# @return : Array of tuple (id, sequence).
-def read_sequence_from_file(source_file):
+def get_sequence_from_file(source_file):
+    """
+    Read sequence from file. Returns array of sequence.
+    @param source_file : Fasta file read for its sequences.
+    @return : Array of tuple (id, sequence).
+    """
     sequences = []
     for record in SeqIO.parse(source_file, 'fasta'):
         sequences.append((record.id, str(record.seq)))
     return sequences
 
-# Cleans up sequence by removing 'N'.
-# @param sequence : Sequence that will be cleaned up.
-# @return clean sequence.
 def clean_up(sequence):
+    """
+    Cleans up sequence by removing 'N'.
+    @param sequence : Sequence that will be cleaned up.
+    @return clean sequence.
+    """
     sequence = ''.join(c for c in sequence if c not in ['N'])
     return sequence
 
