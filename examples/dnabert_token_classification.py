@@ -1,7 +1,7 @@
 import sys
 sys.path.append('.')
 from transformers import BertForTokenClassification, BertTokenizer
-from seqproc.utils import utils
+from dnabert.utils import utils
 
 if __name__ == "__main__":
     print(utils.kmer)

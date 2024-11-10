@@ -1,6 +1,6 @@
 import sys
 sys.path.append('.')
-import seqproc.models as models
+import dnabert.models as models
 
 if __name__ == "__main__":
     print(models)
