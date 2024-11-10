@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 from transformers import BertForTokenClassification, BertTokenizer
 from seqproc.utils import utils
 
