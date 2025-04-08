@@ -86,7 +86,8 @@ class PolyAHead(nn.Module):
 
 class DNABERT_MTL(nn.Module):
     """
-    Core architecture. This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
+    Core architecture. 
+    This architecture consists of input layer, shared parameters, and heads for each of multi-tasks.
     """
     def __init__(self, bert, config):
         super().__init__()
