@@ -72,7 +72,7 @@ class DNABERT_SL(nn.Module):
         self.activation = nn.Softmax(dim=2)
 
     # def forward(self, input_ids, attention_masks, token_type_ids):
-    # No need to include `token_type_ids`` since this is single sequence-related prediction.
+    # No need to include `token_type_ids` since this is single sequence-related prediction.
     # `token_type_ids` is used for next sentence prediction where input contains two sentence.
     def forward(self, input_ids, attention_masks):
         # output = self.bert(input_ids=input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
@@ -83,63 +83,3 @@ class DNABERT_SL(nn.Module):
         head_output = output
         output = self.activation(output)
         return output, bert_output, head_output
-
-class DNABERT_BILSTM(nn.Module):
-    def __init__(self, bert, config):
-        super().__init__()
-
-        self.bert = bert
-        self.dropout1 = nn.Dropout(config.get("dropout", 0.1))
-        self.rnn = nn.LSTM(
-            768, 
-            config.get("rnn_hidden_dim", 256), 
-            config.get("rnn_layer", 2),
-            batch_first=True,
-            bidirectional=True
-        )
-        self.dropout2 = nn.Dropout(config.get("dropout", 0.1))
-        self.classifier = nn.Linear(
-            config.get("rnn_hidden_dim", 256),
-            config.get("num_labels", 8)
-        )
-        self.activation = nn.Softmax(dim=2)
-
-    def forward(self, input_ids, attention_mask):
-        output = self.bert(input_ids, attention_mask)
-        output = output[0]
-        output = self.dropout1(output)
-        output, hidden_outputs = self.rnn(output)
-        output = self.dropout2(output)
-        output = self.classifier(output)
-        output = self.activation(output)
-        return output, hidden_outputs
-
-class DNABERT_BIGRU(nn.Module):
-    def __init__(self, bert, config):
-        super().__init__()
-
-        self.bert = bert
-        self.dropout1 = nn.Dropout(config.get("dropout", 0.1))
-        self.rnn = nn.GRU(
-            768, 
-            config.get("rnn_hidden_dim", 256), 
-            config.get("rnn_layer", 2),
-            batch_first=True,
-            bidirectional=True
-        )
-        self.dropout2 = nn.Dropout(config.get("dropout", 0.1))
-        self.classifier = nn.Linear(
-            config.get("rnn_hidden_dim", 256),
-            config.get("num_labels", 8)
-        )
-        self.activation = nn.Softmax(dim=2)
-
-    def forward(self, input_ids, attention_mask):
-        output = self.bert(input_ids, attention_mask)
-        output = output[0]
-        output = self.dropout1(output)
-        output, hidden_output = self.rnn(output)
-        output = self.dropout2(output)
-        output = self.classifier(output)
-        output = self.activation(output)
-        return output, hidden_output

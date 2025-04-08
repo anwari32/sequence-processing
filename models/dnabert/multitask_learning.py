@@ -101,4 +101,4 @@ class DNABERT_MTL(nn.Module):
         x1 = self.promoter_layer(x)
         x2 = self.splice_site_layer(x)
         x3 = self.polya_layer(x)
-        return {'prom': x1, 'ss': x2, 'polya': x3}
+        return x1, x2, x3

@@ -36,7 +36,7 @@ if __name__ == "__main__":
     target_label = torch.randint(0, 8, (5, sequence_length)).to("cuda:0")
     criterion = torch.nn.CrossEntropyLoss()
 
-    model = Baseline()
+    model = MLP()
     model = model.to("cuda:0")
     output = model(input_ids)
     loss = criterion(output.view(-1, 8), target_label.view(-1))
