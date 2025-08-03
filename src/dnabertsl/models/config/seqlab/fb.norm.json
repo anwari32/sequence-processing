@@ -1,0 +1,12 @@
+{
+    "pretrained": "pretrained\\6-new-12w-0",
+    "linear" : {
+        "num_labels": 8,
+        "num_layers": 1,
+        "input_dim": 768,
+        "hidden_dim": 768,
+        "norm_layer": 1,
+        "dropout": 0
+    },
+    "freeze_bert": true
+}

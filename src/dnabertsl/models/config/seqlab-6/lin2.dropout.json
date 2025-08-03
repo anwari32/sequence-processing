@@ -1,0 +1,11 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "linear" : {
+        "num_labels": 8,
+        "num_layers": 2,
+        "input_dim": 768,
+        "hidden_dim": 768,
+        "norm_layer": 0,
+        "dropout": 0.1
+    }
+}

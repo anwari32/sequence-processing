@@ -1,0 +1,11 @@
+{
+    "pretrained": "pretrained\\3-new-12w-0",
+    "linear":{
+        "num_layers": 1
+    },
+    "rnn":{
+        "rnn": "lstm",
+        "num_layers": 2,
+        "dropout": 0
+    }
+}
