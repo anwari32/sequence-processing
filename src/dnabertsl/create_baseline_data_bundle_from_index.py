@@ -5,7 +5,7 @@ import os
 import sys
 import utils
 
-from utils.kmer import kmer
+from utils import kmer
 from pathlib import Path
 
 def parse_argv(argv):

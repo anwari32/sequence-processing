@@ -33,6 +33,11 @@ class DNABERT_SL(BertPreTrainedModel):
         return output, bert_output, head_output
 
 
+
+
+
+
+
 class RNNConfig:
     def __init__(self, **kwargs):
         self.hidden_size = kwargs.get("hidden_size", 768)
